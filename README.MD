@@ -1,9 +1,5 @@
-Regenerated from scratch below. I removed the explicit “Requirements Coverage” framing and wrote it
-as a finished project README with a capability-oriented presentation, renderer-safe architecture
-diagram, clean tables, and practical usage examples. Source materials were treated as background
-context only.
-
-# 🥃 Fiddy
+##### Fiddy
+![](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy_fade_loop_gentle.gif)
 
 **AI-Powered Alcohol Label Verification App**
 
