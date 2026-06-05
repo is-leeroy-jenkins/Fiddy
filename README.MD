@@ -121,64 +121,15 @@ Downloadable outputs
 
 Advanced Mode is useful for testing, troubleshooting, demonstration, and quality review.
 
-
-
 ## 🏗️ Architecture
 
-Fiddy is organized as a local-first verification pipeline. The interface, ingestion logic, OCR
-processing, verification engine, reporting layer, and diagnostics are separated so the system
-remains understandable, testable, and maintainable.
+Fiddy is organized as a local-first verification pipeline that separates the reviewer interface,
+ingestion workflow, OCR/image processing, verification engine, reporting layer, diagnostics, and
+Azure-compatible runtime boundary.
 
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              FIDDY STREAMLIT UI                              │
-│               app.py • Simple Mode • Advanced Mode • Downloads               │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-                  ┌────────────────────┴────────────────────┐
-                  │                                         │
-┌─────────────────▼─────────────────┐       ┌───────────────▼─────────────────┐
-│        APPLICATION DATA           │       │          LABEL ARTWORK          │
-│  CSV Manifest or Manual CAV Entry │       │   Images • PDFs • ZIP Archives  │
-└─────────────────┬─────────────────┘       └───────────────┬─────────────────┘
-                  │                                         │
-┌─────────────────▼─────────────────┐       ┌───────────────▼─────────────────┐
-│        MANIFEST PROCESSING         │       │       TEMPORARY WORKSPACE      │
-│ batch_manifest.py                  │       │ Session-only file handling     │
-│ Parse • validate • match records   │       │ Uploads staged for OCR/review  │
-└─────────────────┬─────────────────┘       └───────────────┬─────────────────┘
-                  │                                         │
-                  └────────────────────┬────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────────┐
-│                         BATCH AND LABEL ORCHESTRATION                        │
-│                 batch_processor.py • label_verifier.py                       │
-│           Match records • isolate files • execute per-label review           │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────────┐
-│                         OCR AND IMAGE PROCESSING PIPELINE                    │
-│ image_processor.py • visual_quality.py • ocr_engine.py                       │
-│        Load artwork • assess quality • preprocess • extract label text       │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────────┐
-│                             VERIFICATION ENGINE                              │
-│ normalizer.py • label_rules.py • warning_validator.py • models.py            │
-│      Normalize values • compare fields • assign status • explain findings    │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────────┐
-│                           REPORTING AND DIAGNOSTICS                          │
-│ report_writer.py • performance_monitor.py • booger.py                        │
-│      Summary • details • comparison • timing • optional exception logging    │
-└──────────────────────────────────────┬───────────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────────┐
-│                              REVIEWER OUTPUTS                                │
-│             Dashboard • Side-by-side comparison • CSV • JSON • Markdown      │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
+</p>
 
 ### Runtime Boundary
 
@@ -248,22 +199,16 @@ application = LabelApplication(
 label_path = Path( 'samples/old_tom_label.png' )
 
 verifier = AlcoholLabelVerifier( )
-report = verifier.verify_file(
-	application=application,
-	file_path=label_path
-)
+report = verifier.verify_file( application=application,
+	file_path=label_path )
 
 print( report.file_name )
 print( report.overall_status )
 
 for result in report.results:
-	print(
-		result.field_name,
-		result.status,
-		result.severity,
-		result.confidence,
-		result.message
-	)
+	print( result.field_name, result.status,
+		result.severity, result.confidence,
+		result.message )
 ```
 
 ### Parse a Manifest
