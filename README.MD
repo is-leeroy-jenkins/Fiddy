@@ -7,7 +7,7 @@
 [Installation](#-installation) •
 [Capabilities](#-capabilities) •
 [Workflow](#-workflow) •
-[Architecture](#-architecture) •
+[Architecture](#%EF%B8%8F-architecture) •
 [Components](#-component-map) •
 [Usage](#-usage-examples) •
 [Outputs](#-outputs) •
