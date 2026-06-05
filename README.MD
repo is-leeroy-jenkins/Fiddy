@@ -1,5 +1,6 @@
 ###### Fiddy
-[](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy_fade_loop_gentle.gif)
+
+![](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy_fade_loop_gentle.gif)
 
 **AI-Powered Alcohol Label Verification App**
 
