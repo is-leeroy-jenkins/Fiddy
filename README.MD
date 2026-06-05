@@ -2,19 +2,6 @@
 
 ![](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy_fade_loop_gentle.gif)
 
-**AI-Powered Alcohol Label Verification App**
-
-Fiddy is a standalone Streamlit application that helps alcohol-label compliance reviewers compare
-submitted label artwork against application data. It combines AI-assisted local OCR, deterministic verification
-rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
-into a fast, explainable reviewer-assist workflow.
-
-Fiddy is designed for practical compliance operations: upload the application data, upload the label
-artwork, run verification, review exceptions, and download results.
-
-
-
-## Navigation
 
 [Overview](#-overview) •
 [Capabilities](#-capabilities) •
@@ -30,8 +17,18 @@ artwork, run verification, review exceptions, and download results.
 [Testing](#-testing) •
 [Security](#-security-and-data-handling) •
 [Azure](#-azure-deployment-posture) •
+___
 
+**AI-Powered Alcohol Label Verification App**
 
+Fiddy is a standalone Streamlit application that helps alcohol-label compliance reviewers compare
+submitted label artwork against application data. It combines AI-assisted local OCR, deterministic
+verification
+rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
+into a fast, explainable reviewer-assist workflow.
+
+Fiddy is designed for practical compliance operations: upload the application data, upload the label
+artwork, run verification, review exceptions, and download results.
 
 ## 📌 Overview
 
