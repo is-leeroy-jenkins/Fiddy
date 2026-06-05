@@ -196,9 +196,9 @@ remains understandable, testable, and maintainable.
 ├──────────────────────────────────────────────────────────────────────────────┤
 │ Local OCR and deterministic rule execution                                   │
 │ No external machine-learning endpoint dependency                             │
-│ Standalone operation without direct COLA writeback                            │
-│ Temporary upload handling during the active review session                    │
-│ Reports generated only through reviewer-initiated downloads                   │
+│ Standalone operation without direct COLA writeback                           │
+│ Temporary upload handling during the active review session                   │
+│ Reports generated only through reviewer-initiated downloads                  │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
