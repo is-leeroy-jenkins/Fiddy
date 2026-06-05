@@ -146,14 +146,14 @@ remains understandable, testable, and maintainable.
                   ┌────────────────────┴────────────────────┐
                   │                                         │
 ┌─────────────────▼─────────────────┐       ┌───────────────▼─────────────────┐
-│        APPLICATION DATA            │       │          LABEL ARTWORK           │
-│  CSV Manifest or Manual CAV Entry  │       │   Images • PDFs • ZIP Archives   │
+│        APPLICATION DATA           │       │          LABEL ARTWORK          │
+│  CSV Manifest or Manual CAV Entry │       │   Images • PDFs • ZIP Archives  │
 └─────────────────┬─────────────────┘       └───────────────┬─────────────────┘
                   │                                         │
 ┌─────────────────▼─────────────────┐       ┌───────────────▼─────────────────┐
-│        MANIFEST PROCESSING         │       │       TEMPORARY WORKSPACE        │
-│ batch_manifest.py                  │       │ Session-only file handling        │
-│ Parse • validate • match records   │       │ Uploads staged for OCR/review     │
+│        MANIFEST PROCESSING         │       │       TEMPORARY WORKSPACE      │
+│ batch_manifest.py                  │       │ Session-only file handling     │
+│ Parse • validate • match records   │       │ Uploads staged for OCR/review  │
 └─────────────────┬─────────────────┘       └───────────────┬─────────────────┘
                   │                                         │
                   └────────────────────┬────────────────────┘
@@ -161,30 +161,30 @@ remains understandable, testable, and maintainable.
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │                         BATCH AND LABEL ORCHESTRATION                        │
 │                 batch_processor.py • label_verifier.py                       │
-│           Match records • isolate files • execute per-label review            │
+│           Match records • isolate files • execute per-label review           │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │                         OCR AND IMAGE PROCESSING PIPELINE                    │
 │ image_processor.py • visual_quality.py • ocr_engine.py                       │
-│        Load artwork • assess quality • preprocess • extract label text        │
+│        Load artwork • assess quality • preprocess • extract label text       │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │                             VERIFICATION ENGINE                              │
 │ normalizer.py • label_rules.py • warning_validator.py • models.py            │
-│      Normalize values • compare fields • assign status • explain findings     │
+│      Normalize values • compare fields • assign status • explain findings    │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │                           REPORTING AND DIAGNOSTICS                          │
 │ report_writer.py • performance_monitor.py • booger.py                        │
-│      Summary • details • comparison • timing • optional exception logging      │
+│      Summary • details • comparison • timing • optional exception logging    │
 └──────────────────────────────────────┬───────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼───────────────────────────────────────┐
 │                              REVIEWER OUTPUTS                                │
-│             Dashboard • Side-by-side comparison • CSV • JSON • Markdown       │
+│             Dashboard • Side-by-side comparison • CSV • JSON • Markdown      │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -194,7 +194,7 @@ remains understandable, testable, and maintainable.
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                      AZURE-COMPATIBLE RUNTIME BOUNDARY                       │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ Local OCR and deterministic rule execution                                    │
+│ Local OCR and deterministic rule execution                                   │
 │ No external machine-learning endpoint dependency                             │
 │ Standalone operation without direct COLA writeback                            │
 │ Temporary upload handling during the active review session                    │
