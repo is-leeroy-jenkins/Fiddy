@@ -464,21 +464,21 @@ file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents
 old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled Spirits,45,90,750 mL,Old Tom Distillery LLC,false,,,COLA-001,Demo record
 ```
 
-| Column              | Description                                                                  |
-| - | - |
-| `file_name`         | Expected uploaded label filename.                                            |
-| `brand_name`        | Expected brand name.                                                         |
-| `class_type`        | Expected class or type designation.                                          |
-| `beverage_type`     | Product category used for review context.                                    |
-| `alcohol_content`   | Expected ABV value.                                                          |
-| `proof`             | Expected proof, when applicable.                                             |
-| `net_contents`      | Expected container volume.                                                   |
-| `producer_bottler`  | Expected producer, bottler, brewer, vintner, importer, or responsible party. |
-| `imported`          | Indicates whether imported-product review applies.                           |
-| `importer`          | Expected importer when applicable.                                           |
-| `country_of_origin` | Expected country of origin when applicable.                                  |
-| `cola_id`           | Optional application or COLA reference.                                      |
-| `notes`             | Optional reviewer notes.                                                     |
+| Column                | Description                                                                   |
+|-----------------------|-------------------------------------------------------------------------------|
+| `file_name`           | Expected uploaded label filename.                                             |
+| `brand_name`          | Expected brand name.                                                          |
+| `class_type`          | Expected class or type designation.                                           |
+| `beverage_type`       | Product category used for review context.                                     |
+| `alcohol_content`     | Expected ABV value.                                                           |
+| `proof`               | Expected proof, when applicable.                                              |
+| `net_contents`        | Expected container volume.                                                    |
+| `producer_bottler`    | Expected producer, bottler, brewer, vintner, importer, or responsible party.  |
+| `imported`            | Indicates whether imported-product review applies.                            |
+| `importer`            | Expected importer when applicable.                                            |
+| `country_of_origin`   | Expected country of origin when applicable.                                   |
+| `cola_id`             | Optional application or COLA reference.                                       |
+| `notes`               | Optional reviewer notes.                                                      |
 
 
 
@@ -505,7 +505,7 @@ The summary table provides one row per processed label.
 The side-by-side comparison is the primary reviewer surface.
 
 | Column          | Purpose                                               |
-|  | -- |
+|-----------------|-------------------------------------------------------|
 | File Name       | Identifies the reviewed label file.                   |
 | Field           | Shows the label field being checked.                  |
 | Application     | Displays the expected application value.              |
@@ -518,14 +518,14 @@ The side-by-side comparison is the primary reviewer surface.
 
 ### Downloadable Files
 
-| Output          | Purpose                                             |
-|  |  |
-| Summary CSV     | One row per reviewed label.                         |
-| Detail CSV      | One row per rule result.                            |
-| Comparison CSV  | Field-by-field application versus label comparison. |
-| Performance CSV | Per-label timing data.                              |
-| JSON Report     | Structured machine-readable report.                 |
-| Markdown Report | Human-readable review report.                       |
+| Output          | Purpose                                              |
+|-----------------|------------------------------------------------------|
+| Summary CSV     | One row per reviewed label.                          |
+| Detail CSV      | One row per rule result.                             |
+| Comparison CSV  | Field-by-field application versus label comparison.  |
+| Performance CSV | Per-label timing data.                               |
+| JSON Report     | Structured machine-readable report.                  |
+| Markdown Report | Human-readable review report.                        |
 
 
 
@@ -822,28 +822,28 @@ Known limitations include:
 Fiddy uses a compact Python dependency stack focused on Streamlit UI, local OCR, image processing,
 fuzzy matching, structured models, and test automation.
 
-| Package | Version | Purpose |
-| --- | ---: | --- |
-| `streamlit` | `1.45.1` | Provides the web application framework, upload controls, sidebar controls, review workflow, tables, metrics, and downloads. |
-| `pandas` | `2.2.3` | Handles manifest CSV loading, validation tables, summary tables, detail tables, comparison tables, and CSV exports. |
-| `numpy` | `2.2.6` | Supports numeric operations used by image analysis, preprocessing, and data handling. |
-| `pillow` | `11.2.1` | Loads and manipulates image files before OCR, including mode conversion and orientation handling. |
-| `opencv-python-headless` | `4.11.0.86` | Supports image preprocessing and visual-quality analysis without requiring GUI libraries. |
-| `pytesseract` | `0.3.13` | Provides the Python wrapper around the local Tesseract OCR engine. |
-| `rapidfuzz` | `3.13.0` | Performs fast fuzzy text matching for reviewer-tolerant comparisons such as brand and class/type. |
-| `pydantic` | `2.11.5` | Defines structured application, extraction, rule-result, report, and batch-processing models. |
-| `python-dotenv` | `1.1.0` | Loads environment-based configuration from `.env` files. |
-| `pytest` | `8.3.5` | Supports automated unit and regression testing. |
-| `pdf2image` | `1.17.0` | Converts PDF label artwork into images for OCR processing. |
+| Package                  | Version     | Purpose                                                                                                                     |
+|--------------------------|-------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `streamlit`              | `1.45.1`    | Provides the web application framework, upload controls, sidebar controls, review workflow, tables, metrics, and downloads. |
+| `pandas`                 | `2.2.3`     | Handles manifest CSV loading, validation tables, summary tables, detail tables, comparison tables, and CSV exports.         |
+| `numpy`                  | `2.2.6`     | Supports numeric operations used by image analysis, preprocessing, and data handling.                                       |
+| `pillow`                 | `11.2.1`    | Loads and manipulates image files before OCR, including mode conversion and orientation handling.                           |
+| `opencv-python-headless` | `4.11.0.86` | Supports image preprocessing and visual-quality analysis without requiring GUI libraries.                                   |
+| `pytesseract`            | `0.3.13`    | Provides the Python wrapper around the local Tesseract OCR engine.                                                          |
+| `rapidfuzz`              | `3.13.0`    | Performs fast fuzzy text matching for reviewer-tolerant comparisons such as brand and class/type.                           |
+| `pydantic`               | `2.11.5`    | Defines structured application, extraction, rule-result, report, and batch-processing models.                               |
+| `python-dotenv`          | `1.1.0`     | Loads environment-based configuration from `.env` files.                                                                    |
+| `pytest`                 | `8.3.5`     | Supports automated unit and regression testing.                                                                             |
+| `pdf2image`              | `1.17.0`    | Converts PDF label artwork into images for OCR processing.                                                                  |
 
 ### System Dependencies
 
 Some Python packages require external system tools.
 
-| Dependency | Required For | Notes |
-| --- | --- | --- |
+| Dependency    | Required For   | Notes                                                                        |
+|---------------|----------------|------------------------------------------------------------------------------|
 | Tesseract OCR | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
-| Poppler | PDF processing | Required by `pdf2image` when processing PDF label artwork. |
+| Poppler       | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
 
 
 
@@ -854,11 +854,3 @@ This prototype is distributed under the MIT-style license included in the source
 
 
 
-## ✅ Project Status
-
-Fiddy is a completed prototype for evaluating AI-assisted alcohol label verification. It
-demonstrates a practical reviewer workflow, local OCR, deterministic comparison logic, fuzzy
-matching, batch review, human-review safeguards, and downloadable results.
-
-Before production deployment, Fiddy should undergo security review, accessibility review,
-performance validation, records-management review, and Azure deployment hardening.
