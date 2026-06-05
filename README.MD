@@ -145,8 +145,6 @@ Azure-compatible runtime boundary.
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-
-
 ## 🧩 Components
 
 | Component                                                                                             | Role                                                                                               |
@@ -167,6 +165,11 @@ Azure-compatible runtime boundary.
 | [booger](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
 
 
+## 🗺️ Component UML
+
+<p align="center">
+  <img src="assets/images/fiddy-component-map.png" alt="Fiddy architecture diagram" width="100%">
+</p>
 
 ## 💻 Usage Examples
 
