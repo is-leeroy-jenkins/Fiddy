@@ -4,15 +4,15 @@
 
 
 [Overview](#-overview) •
-[Installation](#-installation) •
+[Installation](#%EF%B8%8F-installation) •
 [Capabilities](#-capabilities) •
 [Workflow](#-workflow) •
 [Architecture](#%EF%B8%8F-architecture) •
-[Components](#-component-map) •
+[Components](#%EF%B8%8F-component-uml) •
 [Usage](#-usage-examples) •
 [Outputs](#-outputs) •
-[Configuration](#-configuration) •
-[Run](#-run-the-app) 
+[Configuration](#%EF%B8%8F-configuration) •
+[Run](#%EF%B8%8F-run-the-app) 
 ___
 
 **AI-Powered Alcohol Label Verification App**
@@ -798,7 +798,7 @@ Some Python packages require external system tools.
 
 ## 📄 License
 
-This prototype is distributed under the MIT-style license included in the source files.
+This prototype is distributed under the MIT-style license [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt) included in the source files.
 
 
 
