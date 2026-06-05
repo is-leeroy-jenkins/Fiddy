@@ -36,7 +36,9 @@
 
     </copyright>
     <summary>
-        image_processor.py
+        Provides deterministic image loading, orientation correction, quality-note generation,
+        resizing, grayscale conversion, denoising, thresholding, and sharpening services for
+        OCR preparation in the Fiddy label verification workflow.
     </summary>
     ******************************************************************************************
 '''
@@ -49,6 +51,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageOps
 
+from booger import Error, Logger
 from config import throw_if
 
 # ==========================================================================================
@@ -56,20 +59,26 @@ from config import throw_if
 # ==========================================================================================
 
 class ImageProcessor( ):
-	"""
-	Purpose:
-	--------
-	Prepare uploaded label artwork for OCR by loading image files, converting image modes,
-	correcting orientation, increasing contrast, denoising, sharpening, and producing
-	reviewer-facing image quality notes.
+	"""Prepare uploaded label artwork for OCR processing.
 
-	Parameters:
-	-----------
-	None
+	The ``ImageProcessor`` class contains deterministic preprocessing routines used before OCR
+	is executed against uploaded alcohol label artwork. It supports file-based images and
+	in-memory PIL images, applies EXIF orientation correction, converts unsupported image modes,
+	upscales small images, converts images to OpenCV grayscale arrays, and applies grayscale,
+	denoise, adaptive threshold, and sharpen operations.
 
-	Returns:
-	--------
-	None
+	The class also collects reviewer-facing quality and processing notes. These notes are used
+	by upstream OCR and verification workflows to explain why an image may have produced lower
+	confidence OCR, why it was modified during preprocessing, or why a fallback image was used.
+
+	Attributes:
+		_image_path (Path): Path to the image currently being processed.
+		_image (Image.Image): PIL image currently being processed.
+		_images (List[Image.Image]): Reserved collection of images for workflows that process
+			multiple pages or frames.
+		_notes (List[str]): Reviewer-facing quality and preprocessing notes.
+		_minimum_width (int): Preferred minimum image width for OCR preprocessing.
+		_minimum_height (int): Preferred minimum image height for OCR preprocessing.
 	"""
 	
 	_image_path: Path
@@ -80,19 +89,18 @@ class ImageProcessor( ):
 	_minimum_height: int
 	
 	def __init__( self, minimum_width: int = 800, minimum_height: int = 800 ) -> None:
-		"""
-		Purpose:
-		--------
-		Initialize the image processor with minimum preferred OCR dimensions.
+		"""Initialize the image processor with minimum preferred OCR dimensions.
 
-		Parameters:
-		-----------
-		minimum_width (int): Minimum preferred image width for OCR.
-		minimum_height (int): Minimum preferred image height for OCR.
+		The minimum dimensions are used by ``resize_for_ocr`` and fallback image creation. Images
+		smaller than either threshold are upscaled proportionally so OCR receives larger text and
+		line features without changing the image aspect ratio.
+
+		Args:
+			minimum_width (int): Minimum preferred image width for OCR.
+			minimum_height (int): Minimum preferred image height for OCR.
 
 		Returns:
-		--------
-		None
+			None.
 		"""
 		self._minimum_width = minimum_width
 		self._minimum_height = minimum_height
@@ -100,34 +108,32 @@ class ImageProcessor( ):
 	
 	@property
 	def notes( self ) -> List[ str ]:
-		"""
-		Purpose:
-		--------
-		Return image quality and preprocessing notes collected during processing.
+		"""Return image quality and preprocessing notes collected during processing.
 
-		Parameters:
-		-----------
-		None
+		The notes list is reset by the high-level image processing methods and then populated by
+		load, quality-estimation, resize, conversion, and preprocessing operations. Callers can
+		use the notes to explain OCR limitations or preprocessing actions in downstream reports.
 
 		Returns:
-		--------
-		List[str]: Image quality notes.
+			List[str]: Current image quality and preprocessing notes.
 		"""
 		return self._notes
 	
 	def load_image( self, image_path: str | Path ) -> Image.Image:
-		"""
-		Purpose:
-		--------
-		Load an image file from disk and apply EXIF orientation correction.
+		"""Load an image file from disk and apply EXIF orientation correction.
 
-		Parameters:
-		-----------
-		image_path (str | Path): Path to the image file.
+		This method validates the supplied path, confirms that it exists, opens the image through
+		PIL, and applies EXIF transpose handling so images captured on phones or cameras are
+		oriented correctly before OCR preprocessing begins. Images in modes other than ``RGB`` or
+		``L`` are converted to ``RGB`` and a note is recorded for reviewer visibility.
+
+		Args:
+			image_path (str | Path): Path to the image file to load.
 
 		Returns:
-		--------
-		Image.Image: Loaded PIL image.
+			Image.Image: Loaded PIL image. If loading fails, the exception is logged, a processing
+			note is appended, and a white RGB fallback image using the configured minimum
+			dimensions is returned.
 		"""
 		try:
 			throw_if( 'image_path', image_path )
@@ -143,23 +149,29 @@ class ImageProcessor( ):
 				self._image = self._image.convert( 'RGB' )
 			
 			return self._image
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'load_image( image_path: str | Path ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'Image could not be loaded.' )
 			return Image.new( 'RGB', (self._minimum_width, self._minimum_height), 'white' )
 	
 	def ensure_rgb( self, image: Image.Image ) -> Image.Image:
-		"""
-		Purpose:
-		--------
-		Ensure an image is in RGB mode before OpenCV processing.
+		"""Ensure an image is in RGB mode before OpenCV processing.
 
-		Parameters:
-		-----------
-		image (Image.Image): PIL image to convert.
+		OpenCV conversion paths in this module expect an RGB-compatible image array. This method
+		keeps RGB images unchanged and converts all other modes to RGB while recording a note that
+		the conversion occurred. The method does not resize, threshold, or otherwise enhance the
+		image.
+
+		Args:
+			image (Image.Image): PIL image to inspect and convert when necessary.
 
 		Returns:
-		--------
-		Image.Image: RGB image.
+			Image.Image: RGB image when conversion succeeds. If conversion fails, the exception is
+			logged, a note is appended, and the original image fallback is returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -170,23 +182,31 @@ class ImageProcessor( ):
 				self._image = self._image.convert( 'RGB' )
 			
 			return self._image
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'ensure_rgb( image: Image.Image ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'Image mode conversion failed.' )
 			return image
 	
 	def resize_for_ocr( self, image: Image.Image ) -> Image.Image:
-		"""
-		Purpose:
-		--------
-		Upscale small label images to improve OCR readability.
+		"""Upscale small label images to improve OCR readability.
 
-		Parameters:
-		-----------
-		image (Image.Image): PIL image to resize when needed.
+		This method compares the image dimensions to the configured minimum OCR dimensions. When
+		the image already meets both thresholds, it is returned unchanged. When either dimension
+		is below the threshold, the method calculates a proportional scale factor that satisfies
+		both minimums, records the original and new dimensions in the notes list, and resizes the
+		image using high-quality Lanczos resampling.
+
+		Args:
+			image (Image.Image): PIL image to resize when needed.
 
 		Returns:
-		--------
-		Image.Image: Original or resized image.
+			Image.Image: Original image when no resize is needed, or a proportionally upscaled
+			image when dimensions are below the preferred OCR size. If resizing fails, the
+			exception is logged, a note is appended, and the original image fallback is returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -209,23 +229,30 @@ class ImageProcessor( ):
 			)
 			
 			return self._image.resize( (new_width, new_height), Image.Resampling.LANCZOS )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'resize_for_ocr( image: Image.Image ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'Image resize step failed.' )
 			return image
 	
 	def to_cv_gray( self, image: Image.Image ) -> np.ndarray:
-		"""
-		Purpose:
-		--------
-		Convert a PIL image to an OpenCV grayscale array.
+		"""Convert a PIL image to an OpenCV grayscale array.
 
-		Parameters:
-		-----------
-		image (Image.Image): PIL image to convert.
+		This method first ensures the input image is RGB, converts it to a NumPy array, and then
+		uses OpenCV to convert the RGB array into grayscale. The grayscale result is used by
+		quality estimation and OCR preprocessing routines that require single-channel intensity
+		data.
+
+		Args:
+			image (Image.Image): PIL image to convert.
 
 		Returns:
-		--------
-		np.ndarray: Grayscale OpenCV image array.
+			np.ndarray: Grayscale OpenCV image array. If conversion fails, the exception is logged,
+			a note is appended, and a white fallback grayscale array using the configured minimum
+			dimensions is returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -233,7 +260,12 @@ class ImageProcessor( ):
 			self._image = self.ensure_rgb( image )
 			array = np.array( self._image )
 			return cv2.cvtColor( array, cv2.COLOR_RGB2GRAY )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_cv_gray( image: Image.Image ) -> np.ndarray'
+			Logger( ).write( error )
 			self._notes.append( 'Grayscale conversion failed.' )
 			return np.full(
 				(self._minimum_height, self._minimum_width),
@@ -242,18 +274,23 @@ class ImageProcessor( ):
 			)
 	
 	def preprocess_for_ocr( self, image: Image.Image ) -> Image.Image:
-		"""
-		Purpose:
-		--------
-		Apply deterministic preprocessing to improve OCR extraction from label artwork.
+		"""Apply deterministic preprocessing to improve OCR extraction.
 
-		Parameters:
-		-----------
-		image (Image.Image): PIL image to preprocess.
+		The preprocessing pipeline first resizes small images, then converts the result to
+		grayscale. It applies OpenCV non-local means denoising, adaptive Gaussian thresholding,
+		and a simple sharpening kernel. The output is converted back into a PIL image for
+		compatibility with OCR engines that accept PIL images.
+
+		This method is intentionally deterministic and does not call remote services. It provides
+		a consistent preprocessing path for local OCR and records a note describing the major
+		operations applied.
+
+		Args:
+			image (Image.Image): PIL image to preprocess for OCR.
 
 		Returns:
-		--------
-		Image.Image: OCR-prepared image.
+			Image.Image: OCR-prepared PIL image. If preprocessing fails, the exception is logged,
+			a note is appended, and the original image fallback is returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -284,25 +321,31 @@ class ImageProcessor( ):
 			self._notes.append( 'Applied grayscale, denoise, threshold, and sharpen steps.' )
 			
 			return processed
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'preprocess_for_ocr( image: Image.Image ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'Image preprocessing failed; using original image.' )
 			return image
 	
 	def estimate_quality_notes( self, image: Image.Image ) -> List[ str ]:
-		"""
-		
-			Purpose:
-			--------
-			Estimate simple image quality issues that may affect OCR confidence.
-	
-			Parameters:
-			-----------
+		"""Estimate basic image quality issues that may reduce OCR confidence.
+
+		This method performs lightweight quality checks intended to produce reviewer-facing
+		notes. It records whether the image is smaller than preferred OCR dimensions, whether
+		the average grayscale brightness suggests the image may be too dark or overexposed, and
+		whether grayscale standard deviation suggests low contrast. If no issue is detected and
+		no prior note exists, it records that no obvious image quality issues were found.
+
+		Args:
 			image (Image.Image): PIL image to evaluate.
-	
-			Returns:
-			--------
-			List[str]: Image quality notes.
-			
+
+		Returns:
+			List[str]: Current image quality and preprocessing notes. If quality estimation fails,
+			the exception is logged, a failure note is appended, and the current notes list is
+			returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -330,25 +373,29 @@ class ImageProcessor( ):
 				self._notes.append( 'No obvious image quality issues detected.' )
 			
 			return self._notes
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'estimate_quality_notes( image: Image.Image ) -> List[str]'
+			Logger( ).write( error )
 			self._notes.append( 'Image quality estimation failed.' )
 			return self._notes
 	
 	def process_image_file( self, image_path: str | Path ) -> Image.Image:
-		"""
-		
-			Purpose:
-			--------
-			Load, evaluate, and preprocess an image file for OCR.
-	
-			Parameters:
-			-----------
-			image_path (str | Path): Path to the image file.
-	
-			Returns:
-			--------
-			Image.Image: OCR-prepared image.
-			
+		"""Load, evaluate, and preprocess an image file for OCR.
+
+		This high-level file workflow resets the notes list, loads the image from disk, estimates
+		basic quality issues, and applies deterministic OCR preprocessing. It is the primary
+		entry point for file-based OCR preparation.
+
+		Args:
+			image_path (str | Path): Path to the image file to load and preprocess.
+
+		Returns:
+			Image.Image: OCR-prepared image. If processing fails, the exception is logged, a note
+			is appended, and a white RGB fallback image using the configured minimum dimensions is
+			returned.
 		"""
 		try:
 			throw_if( 'image_path', image_path )
@@ -358,25 +405,30 @@ class ImageProcessor( ):
 			self.estimate_quality_notes( self._image )
 			
 			return self.preprocess_for_ocr( self._image )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'process_image_file( image_path: str | Path ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'Image file processing failed.' )
 			return Image.new( 'RGB', (self._minimum_width, self._minimum_height), 'white' )
 	
 	def process_pil_image( self, image: Image.Image ) -> Image.Image:
-		"""
-			
-			Purpose:
-			--------
-			Evaluate and preprocess an in-memory PIL image for OCR.
-	
-			Parameters:
-			-----------
-			image (Image.Image): PIL image to process.
-	
-			Returns:
-			--------
-			Image.Image: OCR-prepared image.
-		
+		"""Evaluate and preprocess an in-memory PIL image for OCR.
+
+		This high-level in-memory workflow resets the notes list, applies EXIF orientation
+		correction to the supplied PIL image, estimates basic quality issues, and applies the
+		same deterministic OCR preprocessing used by file-based images. It is useful for images
+		already loaded by another component, images extracted from PDFs, or images supplied by
+		tests.
+
+		Args:
+			image (Image.Image): PIL image to evaluate and preprocess.
+
+		Returns:
+			Image.Image: OCR-prepared image. If processing fails, the exception is logged, a note
+			is appended, and the original image fallback is returned.
 		"""
 		try:
 			throw_if( 'image', image )
@@ -386,7 +438,11 @@ class ImageProcessor( ):
 			self.estimate_quality_notes( self._image )
 			
 			return self.preprocess_for_ocr( self._image )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'process_pil_image( image: Image.Image ) -> Image.Image'
+			Logger( ).write( error )
 			self._notes.append( 'In-memory image processing failed.' )
 			return image
-

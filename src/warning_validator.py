@@ -36,7 +36,11 @@
 
     </copyright>
     <summary>
-        warning_validator.py
+        Provides government-warning validation for the Fiddy label verification workflow.
+
+        This module validates government-warning presence, all-caps prefix formatting, exact
+        standard warning wording, near-match review conditions, extracted warning context, and
+        visual-format review requirements that cannot be proven from OCR text alone.
     </summary>
     ******************************************************************************************
 '''
@@ -48,6 +52,7 @@ from typing import Dict, List
 from pydantic import BaseModel, Field
 from rapidfuzz import fuzz
 
+from booger import Error, Logger
 from config import throw_if
 from src.constants import (
 	FIELD_GOVERNMENT_WARNING,
@@ -75,18 +80,34 @@ from src.normalizer import TextNormalizer
 # ==========================================================================================
 
 class GovernmentWarningValidation( BaseModel ):
-	"""
-	Purpose:
-	--------
-	Represent the complete government-warning validation outcome for one label.
+	"""Represent the complete government-warning validation outcome for one label.
 
-	Parameters:
-	-----------
-	None
+	The ``GovernmentWarningValidation`` model stores the intermediate and final determinations
+	used by government-warning rule-result creation. It records whether warning text appears to
+	be present, whether the warning prefix is present in any case, whether the required all-caps
+	prefix appears, whether the standard warning text matches exactly after normalization,
+	whether the text is a near match requiring review, the similarity score, visual-format review
+	flags, extracted warning context, and reviewer-facing validation messages.
 
-	Returns:
-	--------
-	None
+	The model intentionally separates text validation from visual-format validation. OCR can
+	support wording and prefix checks, but it cannot reliably prove boldness, font size,
+	contrast, placement, or whether the warning is visually hidden. Those visual-format concerns
+	remain review items.
+
+	Attributes:
+		text_present (bool): Indicates whether government-warning language appears to be present.
+		prefix_present (bool): Indicates whether a government-warning prefix was detected in any
+			case.
+		prefix_all_caps (bool): Indicates whether the required all-caps prefix was detected.
+		exact_text_match (bool): Indicates whether normalized OCR text contains the complete
+			standard warning text.
+		near_text_match (bool): Indicates whether warning text is similar enough to require
+			review but not exact enough to pass.
+		normalized_similarity (float): Similarity score from 0.0 to 100.0.
+		visual_format_verified (bool): Indicates whether visual formatting was verified.
+		visual_format_review_required (bool): Indicates whether visual review is required.
+		warning_context (str): Extracted OCR context around the warning prefix.
+		messages (List[str]): Reviewer-facing validation messages.
 	"""
 	
 	text_present: bool = Field( default=False )
@@ -101,18 +122,17 @@ class GovernmentWarningValidation( BaseModel ):
 	messages: List[ str ] = Field( default_factory=list )
 	
 	def to_record( self ) -> Dict[ str, object ]:
-		"""
-		Purpose:
-		--------
-		Convert the government-warning validation outcome into a flat record.
+		"""Convert the government-warning validation outcome into a flat record.
 
-		Parameters:
-		-----------
-		None
+		This method converts validation flags, similarity score, warning context, and validation
+		messages into a dictionary suitable for Streamlit tables, pandas DataFrames, CSV export,
+		JSON export, or report-writing workflows. The similarity value is rounded to two decimal
+		places, and messages are joined into a semicolon-delimited string for compact display.
 
 		Returns:
-		--------
-		Dict[str, object]: Flat warning validation record.
+			Dict[str, object]: Flat warning validation record. If conversion fails, the exception
+			is logged and a conservative fallback record is returned with all validation flags set
+			to false or review-required values.
 		"""
 		try:
 			return {
@@ -127,7 +147,12 @@ class GovernmentWarningValidation( BaseModel ):
 					'Warning Context': self.warning_context,
 					'Messages': '; '.join( self.messages )
 			}
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_record( ) -> Dict[str, object]'
+			Logger( ).write( error )
 			return {
 					'Text Present': False,
 					'Prefix Present': False,
@@ -146,19 +171,25 @@ class GovernmentWarningValidation( BaseModel ):
 # ==========================================================================================
 
 class GovernmentWarningValidator( ):
-	"""
-	Purpose:
-	--------
-	Validate the mandatory government warning statement using strict text checks and
-	reviewer-facing visual-format safeguards.
+	"""Validate mandatory government-warning text and related review conditions.
 
-	Parameters:
-	-----------
-	None
+	The ``GovernmentWarningValidator`` class performs deterministic validation of the mandatory
+	government warning statement. It checks whether a government-warning prefix is present,
+	whether the prefix appears in the required all-caps form, whether normalized OCR text
+	contains the complete standard warning text, whether similar but non-exact text requires
+	reviewer attention, and whether visual-format review is required.
 
-	Returns:
-	--------
-	None
+	The validator deliberately treats near matches as failures for the exact-text rule because
+	the warning wording requirement is strict. Near matches are retained only to provide useful
+	reviewer evidence and to distinguish likely OCR or wording variation from complete absence.
+
+	Attributes:
+		_text (str): Raw OCR label text currently being validated.
+		_normalized_text (str): Normalized OCR text used for strict warning comparison.
+		_warning_context (str): Extracted context surrounding the warning prefix.
+		_normalizer (TextNormalizer): Normalization helper used for strict warning checks.
+		_exact_threshold (float): Similarity score required for exact-match classification.
+		_near_threshold (float): Similarity score required for near-match review classification.
 	"""
 	
 	_text: str
@@ -169,19 +200,20 @@ class GovernmentWarningValidator( ):
 	_near_threshold: float
 	
 	def __init__( self, exact_threshold: float = 100.0, near_threshold: float = 92.0 ) -> None:
-		"""
-		Purpose:
-		--------
-		Initialize the government warning validator.
+		"""Initialize the government-warning validator.
 
-		Parameters:
-		-----------
-		exact_threshold (float): Similarity score required for exact-match classification.
-		near_threshold (float): Similarity score required for near-match human review.
+		The constructor creates the text normalizer and stores the similarity thresholds used by
+		warning validation. The exact threshold is retained for configuration transparency, while
+		the current exact-text rule is based on containment of the normalized required warning
+		text. The near threshold is used to identify non-exact warning text that is close enough
+		to require reviewer attention.
+
+		Args:
+			exact_threshold (float): Similarity score required for exact-match classification.
+			near_threshold (float): Similarity score required for near-match human review.
 
 		Returns:
-		--------
-		None
+			None.
 		"""
 		self._normalizer = TextNormalizer( )
 		self._exact_threshold = exact_threshold
@@ -189,52 +221,37 @@ class GovernmentWarningValidator( ):
 	
 	@property
 	def exact_threshold( self ) -> float:
-		"""
-		Purpose:
-		--------
-		Return the configured exact-match similarity threshold.
-
-		Parameters:
-		-----------
-		None
+		"""Return the configured exact-match similarity threshold.
 
 		Returns:
-		--------
-		float: Exact-match threshold.
+			float: Exact-match threshold stored on this validator instance.
 		"""
 		return self._exact_threshold
 	
 	@property
 	def near_threshold( self ) -> float:
-		"""
-		Purpose:
-		--------
-		Return the configured near-match similarity threshold.
-
-		Parameters:
-		-----------
-		None
+		"""Return the configured near-match similarity threshold.
 
 		Returns:
-		--------
-		float: Near-match threshold.
+			float: Near-match threshold stored on this validator instance.
 		"""
 		return self._near_threshold
 	
 	def get_warning_context( self, text: str, window: int = 420 ) -> str:
-		"""
-		Purpose:
-		--------
-		Extract the likely government warning text span from OCR text.
+		"""Extract the likely government-warning text span from OCR text.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
-		window (int): Maximum number of characters to return after the warning prefix.
+		This method searches for the government-warning prefix using case-insensitive matching.
+		When the prefix is found, it returns a bounded text span starting at the prefix and
+		continuing for the configured window length. The context is used as evidence in warning
+		rule results so reviewers can inspect the OCR text surrounding the warning.
+
+		Args:
+			text (str): Raw OCR label text.
+			window (int): Maximum number of characters to return after the warning prefix.
 
 		Returns:
-		--------
-		str: Extracted warning context, or empty string when unavailable.
+			str: Extracted warning context, or an empty string when unavailable. If extraction
+			fails, the exception is logged and an empty string is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -254,22 +271,27 @@ class GovernmentWarningValidator( ):
 			end = min( len( self._text ), start + int( window ) )
 			
 			return self._text[ start:end ].strip( )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'get_warning_context( text: str, window: int ) -> str'
+			Logger( ).write( error )
 			return ''
 	
 	def has_warning_prefix( self, text: str ) -> bool:
-		"""
-		Purpose:
-		--------
-		Determine whether OCR text contains a government-warning prefix in any case.
+		"""Determine whether OCR text contains a government-warning prefix in any case.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
+		This method performs a case-insensitive search for ``government warning:`` with flexible
+		whitespace before the colon. It identifies whether warning language begins with the
+		expected prefix, regardless of capitalization.
+
+		Args:
+			text (str): Raw OCR label text.
 
 		Returns:
-		--------
-		bool: True when a government-warning prefix is present; otherwise, False.
+			bool: ``True`` when a government-warning prefix is present; otherwise, ``False``. If
+			the check fails, the exception is logged and ``False`` is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -282,22 +304,27 @@ class GovernmentWarningValidator( ):
 					flags=re.IGNORECASE
 				)
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'has_warning_prefix( text: str ) -> bool'
+			Logger( ).write( error )
 			return False
 	
 	def has_all_caps_prefix( self, text: str ) -> bool:
-		"""
-		Purpose:
-		--------
-		Determine whether OCR text contains the required all-caps GOVERNMENT WARNING: prefix.
+		"""Determine whether OCR text contains the required all-caps warning prefix.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
+		This method searches raw OCR text for ``GOVERNMENT WARNING:`` with flexible whitespace
+		before the colon. It intentionally does not normalize case because capitalization is the
+		requirement being checked.
+
+		Args:
+			text (str): Raw OCR label text.
 
 		Returns:
-		--------
-		bool: True when the all-caps prefix is present; otherwise, False.
+			bool: ``True`` when the all-caps prefix is present; otherwise, ``False``. If the check
+			fails, the exception is logged and ``False`` is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -309,44 +336,56 @@ class GovernmentWarningValidator( ):
 					self._text
 				)
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'has_all_caps_prefix( text: str ) -> bool'
+			Logger( ).write( error )
 			return False
 	
 	def has_standard_warning_text( self, text: str ) -> bool:
-		"""
-		Purpose:
-		--------
-		Determine whether normalized OCR text contains the complete standard warning text.
+		"""Determine whether normalized OCR text contains the standard warning text.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
+		This method normalizes the supplied OCR text using strict government-warning
+		normalization and checks whether the normalized required warning text is contained within
+		that normalized OCR value. This supports strict wording validation while reducing false
+		negatives from punctuation and formatting artifacts.
+
+		Args:
+			text (str): Raw OCR label text.
 
 		Returns:
-		--------
-		bool: True when the full normalized warning text is contained; otherwise, False.
+			bool: ``True`` when the full normalized warning text is contained; otherwise,
+			``False``. If the check fails, the exception is logged and ``False`` is returned.
 		"""
 		try:
 			throw_if( 'text', text )
 			
 			self._normalized_text = self._normalizer.normalize_for_strict_warning( text )
 			return GOVERNMENT_WARNING_TEXT_NORMALIZED in self._normalized_text
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'has_standard_warning_text( text: str ) -> bool'
+			Logger( ).write( error )
 			return False
 	
 	def calculate_warning_similarity( self, text: str ) -> float:
-		"""
-		Purpose:
-		--------
-		Calculate similarity between normalized OCR text and the standard warning text.
+		"""Calculate similarity between OCR text and the standard warning text.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
+		This method normalizes the supplied OCR text for strict warning comparison, then uses
+		``rapidfuzz.fuzz.partial_ratio`` to compare the normalized standard warning text to the
+		normalized OCR text. The score is used to identify near-match text that should be reviewed
+		but must not pass exact-text validation.
+
+		Args:
+			text (str): Raw OCR label text.
 
 		Returns:
-		--------
-		float: Similarity score from 0.0 to 100.0.
+			float: Similarity score from ``0.0`` to ``100.0``. If similarity cannot be calculated,
+			the exception is logged and ``0.0`` is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -362,23 +401,31 @@ class GovernmentWarningValidator( ):
 					self._normalized_text
 				)
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'calculate_warning_similarity( text: str ) -> float'
+			Logger( ).write( error )
 			return 0.0
 	
 	def validate( self, text: str ) -> GovernmentWarningValidation:
-		"""
-		Purpose:
-		--------
-		Validate government warning presence, capitalization, exact wording, near-match
-		behavior, and visual-format review requirements.
+		"""Validate government-warning text and visual-format review requirements.
 
-		Parameters:
-		-----------
-		text (str): Raw OCR label text.
+		This method performs the full government-warning validation workflow. It extracts warning
+		context, checks prefix presence, checks all-caps prefix presence, checks exact normalized
+		standard-warning text, calculates similarity, identifies near matches, determines whether
+		warning text is present, and creates reviewer-facing validation messages. It always marks
+		visual-format review as required because OCR text cannot prove visual properties such as
+		boldness, minimum font size, contrast, prominence, or hidden placement.
+
+		Args:
+			text (str): Raw OCR label text.
 
 		Returns:
-		--------
-		GovernmentWarningValidation: Structured warning validation outcome.
+			GovernmentWarningValidation: Structured warning validation outcome. If validation
+			fails, the exception is logged and the original reviewer-safe fallback validation
+			object is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -427,7 +474,12 @@ class GovernmentWarningValidator( ):
 				warning_context=self._warning_context,
 				messages=messages
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'validate( text: str ) -> GovernmentWarningValidation'
+			Logger( ).write( error )
 			return GovernmentWarningValidation(
 				text_present=False,
 				prefix_present=False,
@@ -444,18 +496,18 @@ class GovernmentWarningValidator( ):
 			)
 	
 	def create_presence_result( self, validation: GovernmentWarningValidation ) -> LabelCheckResult:
-		"""
-		Purpose:
-		--------
-		Create a rule result for government warning presence.
+		"""Create a rule result for government-warning presence.
 
-		Parameters:
-		-----------
-		validation (GovernmentWarningValidation): Warning validation outcome.
+		This method converts the structured validation outcome into the presence rule result. A
+		present warning passes, while missing warning language fails and requires human review.
+		The extracted warning context is preserved as evidence.
+
+		Args:
+			validation (GovernmentWarningValidation): Warning validation outcome.
 
 		Returns:
-		--------
-		LabelCheckResult: Warning presence rule result.
+			LabelCheckResult: Warning presence rule result. If result creation fails, the
+			exception is logged and the original unavailable-result fallback is returned.
 		"""
 		try:
 			throw_if( 'validation', validation )
@@ -478,7 +530,12 @@ class GovernmentWarningValidator( ):
 				),
 				requires_human_review=status != STATUS_PASS
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_presence_result( validation: GovernmentWarningValidation ) -> LabelCheckResult'
+			Logger( ).write( error )
 			return self.create_unavailable_result(
 				rule_id=RULE_GOVERNMENT_WARNING_PRESENT,
 				message='Government warning presence result could not be created.'
@@ -486,18 +543,18 @@ class GovernmentWarningValidator( ):
 	
 	def create_prefix_caps_result( self,
 			validation: GovernmentWarningValidation ) -> LabelCheckResult:
-		"""
-		Purpose:
-		--------
-		Create a rule result for the all-caps government warning prefix.
+		"""Create a rule result for the all-caps government-warning prefix.
 
-		Parameters:
-		-----------
-		validation (GovernmentWarningValidation): Warning validation outcome.
+		This method converts the structured validation outcome into the prefix-capitalization
+		rule result. The result passes only when ``GOVERNMENT WARNING:`` appears in the required
+		all-caps form. Any other condition fails and requires human review.
+
+		Args:
+			validation (GovernmentWarningValidation): Warning validation outcome.
 
 		Returns:
-		--------
-		LabelCheckResult: Warning prefix capitalization result.
+			LabelCheckResult: Warning prefix capitalization result. If result creation fails, the
+			exception is logged and the original unavailable-result fallback is returned.
 		"""
 		try:
 			throw_if( 'validation', validation )
@@ -521,7 +578,12 @@ class GovernmentWarningValidator( ):
 				),
 				requires_human_review=status != STATUS_PASS
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_prefix_caps_result( validation: GovernmentWarningValidation ) -> LabelCheckResult'
+			Logger( ).write( error )
 			return self.create_unavailable_result(
 				rule_id=RULE_GOVERNMENT_WARNING_PREFIX_CAPS,
 				message='Government warning prefix result could not be created.'
@@ -529,21 +591,19 @@ class GovernmentWarningValidator( ):
 	
 	def create_exact_text_result( self,
 			validation: GovernmentWarningValidation ) -> LabelCheckResult:
-		"""
-		
-			Purpose:
-			--------
-			Create a strict rule result for exact government warning text. Near-match warning text
-			does not pass because the stakeholder requirement requires exact wording.
-		
-			Parameters:
-			-----------
+		"""Create a strict rule result for exact government-warning text.
+
+		This method creates the exact-text rule result from the structured validation outcome.
+		The result passes only when the normalized OCR text contains the normalized required
+		warning text. Near-match text fails because the warning wording requirement is exact; the
+		near-match state is used only to support reviewer attention and evidence.
+
+		Args:
 			validation (GovernmentWarningValidation): Warning validation outcome.
-		
-			Returns:
-			--------
-			LabelCheckResult: Exact warning text rule result.
-		
+
+		Returns:
+			LabelCheckResult: Exact warning text rule result. If result creation fails, the
+			exception is logged and the original unavailable-result fallback is returned.
 		"""
 		try:
 			throw_if( 'validation', validation )
@@ -590,7 +650,12 @@ class GovernmentWarningValidator( ):
 				message=message,
 				requires_human_review=requires_review
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_exact_text_result( validation: GovernmentWarningValidation ) -> LabelCheckResult'
+			Logger( ).write( error )
 			return self.create_unavailable_result(
 				rule_id=RULE_GOVERNMENT_WARNING_EXACT,
 				message='Government warning exact-text result could not be created.'
@@ -598,23 +663,20 @@ class GovernmentWarningValidator( ):
 	
 	def create_visual_format_result( self,
 			validation: GovernmentWarningValidation ) -> LabelCheckResult:
-		"""
-		
-			Purpose:
-			--------
-			Create a government-warning visual-format result. OCR text can support wording checks,
-			but it cannot prove boldness, minimum font size, contrast, or whether the warning is
-			visually hidden. This rule therefore produces a human-review item rather than an
-			automated pass.
-		
-			Parameters:
-			-----------
+		"""Create a government-warning visual-format review result.
+
+		This method creates the visual-format rule result from the structured validation outcome.
+		OCR can support warning presence and wording checks, but it cannot prove visual
+		presentation requirements such as boldness, readable size, contrast, prominence, or
+		whether the warning is hidden. For that reason, this method always returns a human-review
+		result rather than an automated pass.
+
+		Args:
 			validation (GovernmentWarningValidation): Warning validation outcome.
-		
-			Returns:
-			--------
-			LabelCheckResult: Visual-format review result.
-			
+
+		Returns:
+			LabelCheckResult: Visual-format review result. If result creation fails, the exception
+			is logged and the original unavailable-result fallback is returned.
 		"""
 		try:
 			throw_if( 'validation', validation )
@@ -651,25 +713,31 @@ class GovernmentWarningValidator( ):
 				message=message,
 				requires_human_review=True
 			)
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_visual_format_result( validation: GovernmentWarningValidation ) -> LabelCheckResult'
+			Logger( ).write( error )
 			return self.create_unavailable_result(
 				rule_id=RULE_GOVERNMENT_WARNING_VISUAL_FORMAT,
 				message='Government warning visual-format result could not be created.'
 			)
 	
 	def create_results( self, text: str ) -> List[ LabelCheckResult ]:
-		"""
-			Purpose:
-			--------
-			Create all government-warning rule results for a label text.
-	
-			Parameters:
-			-----------
+		"""Create all government-warning rule results for label text.
+
+		This method validates the supplied OCR text once and then creates the government-warning
+		presence, exact-text, prefix-capitalization, and visual-format rule results from the same
+		validation outcome. Reusing one validation object keeps warning evidence and similarity
+		values consistent across the related rule results.
+
+		Args:
 			text (str): Raw OCR label text.
-	
-			Returns:
-			--------
-			List[LabelCheckResult]: Government-warning rule results.
+
+		Returns:
+			List[LabelCheckResult]: Government-warning rule results. If result creation fails, the
+			exception is logged and a single unavailable-result fallback is returned.
 		"""
 		try:
 			throw_if( 'text', text )
@@ -682,7 +750,12 @@ class GovernmentWarningValidator( ):
 					self.create_prefix_caps_result( validation ),
 					self.create_visual_format_result( validation )
 			]
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_results( text: str ) -> List[LabelCheckResult]'
+			Logger( ).write( error )
 			return [
 					self.create_unavailable_result(
 						rule_id='government_warning_validation_unavailable',
@@ -691,19 +764,19 @@ class GovernmentWarningValidator( ):
 			]
 	
 	def create_unavailable_result( self, rule_id: str, message: str ) -> LabelCheckResult:
-		"""
-		Purpose:
-		--------
-		Create a fallback result when warning validation cannot complete.
+		"""Create a fallback result when warning validation cannot complete.
 
-		Parameters:
-		-----------
-		rule_id (str): Rule identifier.
-		message (str): Reviewer-facing message.
+		This method builds the standard reviewer-safe fallback result used when warning
+		validation or warning-result creation fails. The result is marked ``Needs Review`` with
+		high severity and indicates that validation is unavailable.
+
+		Args:
+			rule_id (str): Rule identifier to assign to the fallback result.
+			message (str): Reviewer-facing message explaining the unavailable result.
 
 		Returns:
-		--------
-		LabelCheckResult: Fallback warning validation result.
+			LabelCheckResult: Fallback warning validation result. If fallback creation itself
+			fails, the exception is logged and a final hardcoded unavailable result is returned.
 		"""
 		try:
 			throw_if( 'rule_id', rule_id )
@@ -721,16 +794,15 @@ class GovernmentWarningValidator( ):
 				message=message,
 				requires_human_review=True
 			)
-		except Exception:
-			return LabelCheckResult(
-				rule_id='government_warning_validation_unavailable',
-				field_name=FIELD_GOVERNMENT_WARNING,
-				status=STATUS_REVIEW,
-				severity=SEVERITY_HIGH,
-				expected='Government warning validation',
-				observed='Validation unavailable',
-				confidence=0.0,
-				evidence='',
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_unavailable_result( rule_id: str, message: str ) -> LabelCheckResult'
+			Logger( ).write( error )
+			return LabelCheckResult( rule_id='government_warning_validation_unavailable',
+				field_name=FIELD_GOVERNMENT_WARNING, status=STATUS_REVIEW,
+				severity=SEVERITY_HIGH, expected='Government warning validation',
+				observed='Validation unavailable', confidence=0.0, evidence='',
 				message='Government warning validation could not be completed.',
-				requires_human_review=True
-			)
+				requires_human_review=True )

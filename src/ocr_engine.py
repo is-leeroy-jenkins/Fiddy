@@ -36,7 +36,11 @@
 
     </copyright>
     <summary>
-        ocr_engine.py
+        Provides local OCR extraction services for Fiddy image and PDF label files.
+
+        This module coordinates image preprocessing, visual-quality analysis, Tesseract OCR,
+        PDF-to-image conversion, OCR timing, note collection, normalized text generation, and
+        structured ExtractedLabel creation for downstream label verification.
     </summary>
     ******************************************************************************************
 '''
@@ -50,6 +54,7 @@ import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
 
+from booger import Error, Logger
 from config import OCR_ENGINE, OCR_LANGUAGE, OCR_TIMEOUT_SECONDS, TESSERACT_CMD, throw_if
 from src.constants import SUPPORTED_DOCUMENT_TYPES, SUPPORTED_IMAGE_TYPES
 from src.image_processor import ImageProcessor
@@ -62,19 +67,32 @@ from src.visual_quality import VisualQualityAnalyzer, VisualQualityResult
 # ==========================================================================================
 
 class OcrEngine( ):
-	"""
-		Purpose:
-		--------
-		Extract text from alcohol label images and PDF files using a local OCR backend while
-		collecting image-quality and readability diagnostics.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
+	"""Extract text from alcohol label images and PDF files using local OCR.
+
+	The ``OcrEngine`` class is the OCR coordination layer for the Fiddy verification workflow.
+	It determines file type, checks whether uploaded files are supported image or document
+	types, runs image-quality analysis, preprocesses images, invokes local Tesseract OCR,
+	converts PDFs into page images, normalizes extracted text, records processing time, and
+	returns structured ``ExtractedLabel`` objects.
+
+	The engine is intentionally local and deterministic from the application perspective. It
+	delegates image preparation to ``ImageProcessor``, visual diagnostics to
+	``VisualQualityAnalyzer``, and text normalization to ``TextNormalizer``. OCR notes are
+	collected throughout extraction so reviewers can understand timeout conditions,
+	preprocessing steps, unsupported file types, quality warnings, and OCR fallback behavior.
+
+	Attributes:
+		_file_path (Path): Path to the file currently being processed.
+		_file_name (str): Name of the file currently being processed.
+		_file_type (str): Lowercase extension for the current file without the leading period.
+		_raw_text (str): Raw OCR text extracted from the current file.
+		_normalized_text (str): Normalized OCR text generated from the raw OCR output.
+		_ocr_seconds (float): OCR extraction duration in seconds.
+		_processor (ImageProcessor): Image preprocessing service.
+		_normalizer (TextNormalizer): Text normalization service.
+		_quality_analyzer (VisualQualityAnalyzer): Visual-quality analysis service.
+		_quality_result (VisualQualityResult): Visual-quality result for the current image.
+		_notes (List[str]): OCR, preprocessing, and image-quality notes from the latest run.
 	"""
 	_file_path: Path
 	_file_name: str
@@ -89,19 +107,15 @@ class OcrEngine( ):
 	_notes: List[ str ]
 	
 	def __init__( self ) -> None:
-		"""
-			Purpose:
-			--------
-			Initialize the OCR engine and configure local Tesseract when a command path is
-			provided through configuration.
-	
-			Parameters:
-			-----------
-			None
-	
-			Returns:
-			--------
-			None
+		"""Initialize the OCR engine and local helper services.
+
+		The constructor creates the image processor, text normalizer, visual-quality analyzer,
+		and empty notes collection used by OCR extraction runs. When ``TESSERACT_CMD`` is
+		configured, the constructor also assigns it to ``pytesseract`` so local OCR uses the
+		explicit executable path.
+
+		Returns:
+			None.
 		"""
 		self._processor = ImageProcessor( )
 		self._normalizer = TextNormalizer( )
@@ -113,104 +127,115 @@ class OcrEngine( ):
 	
 	@property
 	def notes( self ) -> List[ str ]:
-		"""
-			Purpose:
-			--------
-			Return OCR, preprocessing, and image-quality notes from the latest extraction run.
-	
-			Parameters:
-			-----------
-			None
-	
-			Returns:
-			--------
-			List[str]: OCR and image quality notes.
+		"""Return OCR, preprocessing, and image-quality notes.
+
+		The notes list reflects the most recent extraction workflow. It may include visual
+		quality status, readability metrics, preprocessing actions, OCR timeout messages,
+		unsupported file-type messages, and extraction failure messages.
+
+		Returns:
+			List[str]: OCR and image-quality notes from the latest extraction run.
 		"""
 		return self._notes
 	
 	def get_file_type( self, file_path: str | Path ) -> str:
-		"""
-			Purpose:
-			--------
-			Return a lowercase file extension without the leading period.
-	
-			Parameters:
-			-----------
+		"""Return a lowercase file extension without the leading period.
+
+		This helper normalizes a file path to ``Path`` and extracts the suffix used by supported
+		file-type checks. It does not validate whether the file exists or whether the extension is
+		supported.
+
+		Args:
 			file_path (str | Path): File path to inspect.
-	
-			Returns:
-			--------
-			str: Lowercase file type.
+
+		Returns:
+			str: Lowercase file type without the leading period. If inspection fails, the
+			exception is logged and an empty string is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
 			
 			self._file_path = Path( file_path )
 			return self._file_path.suffix.lower( ).replace( '.', '' )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'get_file_type( file_path: str | Path ) -> str'
+			Logger( ).write( error )
 			return ''
 	
 	def is_supported_image( self, file_path: str | Path ) -> bool:
-		"""
-			Purpose:
-			--------
-			Determine whether a file path points to a supported image type.
-	
-			Parameters:
-			-----------
+		"""Determine whether a file path points to a supported image type.
+
+		This method extracts the file extension through ``get_file_type`` and checks it against
+		``SUPPORTED_IMAGE_TYPES``. It is used by ``extract_text`` to decide whether to route the
+		file through image OCR.
+
+		Args:
 			file_path (str | Path): File path to inspect.
-	
-			Returns:
-			--------
-			bool: True when the extension is a supported image type; otherwise, False.
+
+		Returns:
+			bool: ``True`` when the file extension is a supported image type; otherwise,
+			``False``. If the check fails, the exception is logged and ``False`` is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
 			
 			file_type = self.get_file_type( file_path )
 			return file_type in SUPPORTED_IMAGE_TYPES
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'is_supported_image( file_path: str | Path ) -> bool'
+			Logger( ).write( error )
 			return False
 	
 	def is_supported_pdf( self, file_path: str | Path ) -> bool:
-		"""
-			Purpose:
-			--------
-			Determine whether a file path points to a supported PDF type.
-	
-			Parameters:
-			-----------
+		"""Determine whether a file path points to a supported document type.
+
+		This method extracts the file extension through ``get_file_type`` and checks it against
+		``SUPPORTED_DOCUMENT_TYPES``. In the current workflow this is used to route PDF files to
+		page-image conversion before OCR.
+
+		Args:
 			file_path (str | Path): File path to inspect.
-	
-			Returns:
-			--------
-			bool: True when the extension is PDF; otherwise, False.
+
+		Returns:
+			bool: ``True`` when the file extension is a supported document type; otherwise,
+			``False``. If the check fails, the exception is logged and ``False`` is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
 			
 			file_type = self.get_file_type( file_path )
 			return file_type in SUPPORTED_DOCUMENT_TYPES
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'is_supported_pdf( file_path: str | Path ) -> bool'
+			Logger( ).write( error )
 			return False
 	
 	def create_quality_notes( self, quality_result: VisualQualityResult ) -> List[ str ]:
-		"""
-			Purpose:
-			--------
-			Convert a visual quality result into reviewer-facing OCR notes.
-	
-			Parameters:
-			-----------
+		"""Convert a visual-quality result into reviewer-facing OCR notes.
+
+		This method translates the structured ``VisualQualityResult`` into plain-language notes
+		that can be carried on the final ``ExtractedLabel``. The notes include visual quality
+		status, readability score, brightness, contrast, blur score, glare ratio, skew angle,
+		warnings, and recommendations.
+
+		Args:
 			quality_result (VisualQualityResult): Visual quality analysis result.
-	
-			Returns:
-			--------
-			List[str]: Reviewer-facing quality notes.
+
+		Returns:
+			List[str]: Reviewer-facing quality notes. If note creation fails, the exception is
+			logged and a fallback note is returned.
 		"""
 		try:
 			throw_if( 'quality_result', quality_result )
-			
 			notes = [
 					f'Visual quality status: {quality_result.status}.',
 					f'Readability score: {quality_result.readability_score:.1f}/100.',
@@ -228,152 +253,179 @@ class OcrEngine( ):
 				notes.append( f'Visual recommendation: {recommendation}' )
 			
 			return notes
-		except Exception:
-			return [
-					'Visual quality notes could not be created.'
-			]
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_quality_notes( quality_result: VisualQualityResult ) -> List[str]'
+			Logger( ).write( error )
+			return [ 'Visual quality notes could not be created.' ]
 	
 	def analyze_image_quality_file( self, file_path: str | Path ) -> VisualQualityResult:
-		"""
-			Purpose:
-			--------
-			Analyze one image file and append visual quality notes to the OCR note collection.
-	
-			Parameters:
-			-----------
+		"""Analyze one image file and append visual-quality notes.
+
+		This method runs visual-quality analysis for a file-based image using
+		``VisualQualityAnalyzer.analyze_file``. The resulting metrics and recommendations are
+		converted to OCR notes and appended to the engine note collection before returning the
+		structured visual-quality result.
+
+		Args:
 			file_path (str | Path): Uploaded image file path.
-	
-			Returns:
-			--------
-			VisualQualityResult: Visual quality analysis result.
+
+		Returns:
+			VisualQualityResult: Visual quality analysis result. If analysis fails, the exception
+			is logged, a failure note is appended, and a fallback ``VisualQualityResult`` is
+			returned with the supplied file name.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
-			
 			self._file_path = Path( file_path )
 			self._quality_result = self._quality_analyzer.analyze_file( self._file_path )
 			self._notes.extend( self.create_quality_notes( self._quality_result ) )
 			
 			return self._quality_result
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'analyze_image_quality_file( file_path: str | Path ) -> VisualQualityResult'
+			Logger( ).write( error )
 			self._notes.append( 'Visual quality analysis failed for image file.' )
 			return VisualQualityResult( file_name=str( file_path ) )
 	
 	def analyze_image_quality_pil( self, image: Image.Image,
 			file_name: str = '' ) -> VisualQualityResult:
-		"""
-			Purpose:
-			--------
-			Analyze one in-memory PIL image and append visual quality notes to OCR notes.
-	
-			Parameters:
-			-----------
+		"""Analyze one in-memory PIL image and append visual-quality notes.
+
+		This method runs visual-quality analysis for an in-memory image using
+		``VisualQualityAnalyzer.analyze_image``. The result is converted to OCR notes and appended
+		to the engine note collection. The optional file name is used only as a logical reporting
+		name for the returned result.
+
+		Args:
 			image (Image.Image): Image to analyze.
 			file_name (str): Logical file name for reporting.
-	
-			Returns:
-			--------
-			VisualQualityResult: Visual quality analysis result.
+
+		Returns:
+			VisualQualityResult: Visual quality analysis result. If analysis fails, the exception
+			is logged, a failure note is appended, and a fallback ``VisualQualityResult`` is
+			returned using the supplied logical file name.
 		"""
 		try:
 			throw_if( 'image', image )
-			
 			self._quality_result = self._quality_analyzer.analyze_image( image, file_name )
 			self._notes.extend( self.create_quality_notes( self._quality_result ) )
 			
 			return self._quality_result
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'analyze_image_quality_pil( self, *args ) -> VisualQualityResult'
+			Logger( ).write( error )
 			self._notes.append( 'Visual quality analysis failed for image.' )
 			return VisualQualityResult( file_name=file_name )
 	
 	def image_to_text( self, image: Image.Image, file_name: str = '' ) -> str:
-		"""
-			Purpose:
-			--------
-			Extract text from a single in-memory image using local OCR.
-	
-			Parameters:
-			-----------
+		"""Extract text from one in-memory image using local OCR.
+
+		This method analyzes the image quality, preprocesses the image through
+		``ImageProcessor.process_pil_image``, carries processor notes into the OCR note
+		collection, and invokes ``pytesseract.image_to_string`` using the configured OCR
+		language, timeout, and page-segmentation mode.
+
+		Args:
 			image (Image.Image): PIL image to process with OCR.
-			file_name (str): Logical file name for reporting.
-	
-			Returns:
-			--------
-			str: OCR-extracted text.
+			file_name (str): Logical file name used in quality-analysis reporting.
+
+		Returns:
+			str: OCR-extracted text with leading and trailing whitespace removed. If OCR times out
+			or fails, the exception is logged, the original reviewer-facing note is appended, and
+			an empty string is returned.
 		"""
 		try:
 			throw_if( 'image', image )
-			
 			self.analyze_image_quality_pil( image, file_name )
 			processed = self._processor.process_pil_image( image )
 			self._notes.extend( self._processor.notes )
-			
-			text = pytesseract.image_to_string(
-				processed,
-				lang=OCR_LANGUAGE,
-				timeout=OCR_TIMEOUT_SECONDS,
-				config='--psm 6'
-			)
+			text = pytesseract.image_to_string( processed, lang=OCR_LANGUAGE,
+				timeout=OCR_TIMEOUT_SECONDS, config='--psm 6' )
 			
 			return text.strip( )
-		except RuntimeError:
+		except RuntimeError as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'image_to_text( image: Image.Image, file_name: str ) -> str'
+			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image extraction.' )
 			return ''
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'image_to_text( image: Image.Image, file_name: str ) -> str'
+			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for one image.' )
 			return ''
 	
 	def extract_image_file_text( self, file_path: str | Path ) -> str:
-		"""
-			Purpose:
-			--------
-			Extract OCR text from a supported image file.
-	
-			Parameters:
-			-----------
+		"""Extract OCR text from a supported image file.
+
+		This method performs file-based visual-quality analysis, preprocesses the image file
+		through ``ImageProcessor.process_image_file``, extends the OCR note collection with
+		processor notes, and invokes Tesseract OCR with the configured language, timeout, and
+		page-segmentation mode.
+
+		Args:
 			file_path (str | Path): Path to the uploaded image file.
-	
-			Returns:
-			--------
-			str: OCR-extracted text.
+
+		Returns:
+			str: OCR-extracted text with leading and trailing whitespace removed. If OCR times out
+			or fails, the exception is logged, the original reviewer-facing note is appended, and
+			an empty string is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
-			
 			self._file_path = Path( file_path )
 			self.analyze_image_quality_file( self._file_path )
-			
 			processed = self._processor.process_image_file( self._file_path )
 			self._notes.extend( self._processor.notes )
-			
-			text = pytesseract.image_to_string(
-				processed,
-				lang=OCR_LANGUAGE,
-				timeout=OCR_TIMEOUT_SECONDS,
-				config='--psm 6'
-			)
+			text = pytesseract.image_to_string( processed, lang=OCR_LANGUAGE,
+				timeout=OCR_TIMEOUT_SECONDS, config='--psm 6' )
 			
 			return text.strip( )
-		except RuntimeError:
+		except RuntimeError as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'extract_image_file_text( file_path: str | Path ) -> str'
+			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image file extraction.' )
 			return ''
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'extract_image_file_text( file_path: str | Path ) -> str'
+			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for image file.' )
 			return ''
 	
 	def extract_pdf_file_text( self, file_path: str | Path ) -> str:
-		"""
-			Purpose:
-			--------
-			Convert a PDF into images and extract OCR text from each page.
-	
-			Parameters:
-			-----------
+		"""Convert a PDF into images and extract OCR text from each page.
+
+		This method converts the supplied PDF into page images at 200 DPI and processes each page
+		through ``image_to_text``. Non-empty page OCR output is collected and joined with blank
+		lines so the final raw OCR text preserves page separation.
+
+		Args:
 			file_path (str | Path): Path to the uploaded PDF file.
-	
-			Returns:
-			--------
-			str: OCR-extracted text from all PDF pages.
+
+		Returns:
+			str: OCR-extracted text from all PDF pages. If PDF conversion or page OCR processing
+			fails at the method level, the exception is logged, the original failure note is
+			appended, and an empty string is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -390,33 +442,40 @@ class OcrEngine( ):
 					text_parts.append( text )
 			
 			return '\n\n'.join( text_parts ).strip( )
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'extract_pdf_file_text( file_path: str | Path ) -> str'
+			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for PDF file.' )
 			return ''
 	
 	def extract_text( self, file_path: str | Path ) -> ExtractedLabel:
-		"""
-			Purpose:
-			--------
-			Extract text from one uploaded label file and return a structured extraction result.
-	
-			Parameters:
-			-----------
-			file_path (str | Path): Path to the uploaded image or PDF file.
-	
-			Returns:
-			--------
-			ExtractedLabel: Structured OCR result.
+		"""Extract text from one uploaded label file and return a structured result.
+
+		This method is the main OCR entry point for the verifier. It resets OCR notes, records
+		start time, captures file metadata, routes supported images through image OCR, routes
+		supported PDFs through PDF page conversion and OCR, records an unsupported-file note when
+		the type is not supported, normalizes raw OCR text, measures elapsed OCR time, and returns
+		an ``ExtractedLabel`` containing raw text, normalized text, OCR engine name, processing
+		seconds, and accumulated notes.
+
+		Args:
+			file_path (str | Path): Path to the uploaded image or PDF label file.
+
+		Returns:
+			ExtractedLabel: Structured OCR result. If extraction fails unexpectedly, the exception
+			is logged and the original fallback ``ExtractedLabel`` is returned with a
+			reviewer-facing OCR failure note.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
-			
 			started = time.perf_counter( )
 			self._notes = [ ]
 			self._file_path = Path( file_path )
 			self._file_name = self._file_path.name
 			self._file_type = self.get_file_type( self._file_path )
-			
 			if self.is_supported_image( self._file_path ):
 				self._raw_text = self.extract_image_file_text( self._file_path )
 			elif self.is_supported_pdf( self._file_path ):
@@ -427,25 +486,16 @@ class OcrEngine( ):
 			
 			self._normalized_text = self._normalizer.normalize_label_text( self._raw_text )
 			self._ocr_seconds = time.perf_counter( ) - started
-			
-			return ExtractedLabel(
-				file_name=self._file_name,
-				file_type=self._file_type,
-				raw_text=self._raw_text,
-				normalized_text=self._normalized_text,
-				ocr_engine=OCR_ENGINE,
-				ocr_seconds=self._ocr_seconds,
-				image_quality_notes=self._notes
-			)
-		except Exception:
-			return ExtractedLabel(
-				file_name=Path( file_path ).name if file_path else '',
-				file_type='',
-				raw_text='',
-				normalized_text='',
-				ocr_engine=OCR_ENGINE,
-				ocr_seconds=0.0,
-				image_quality_notes=[
-						'OCR extraction could not be completed.'
-				]
-			)
+			return ExtractedLabel( file_name=self._file_name, file_type=self._file_type,
+				raw_text=self._raw_text, normalized_text=self._normalized_text,
+				ocr_engine=OCR_ENGINE, ocr_seconds=self._ocr_seconds,
+				image_quality_notes=self._notes )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'extract_text( file_path: str | Path ) -> ExtractedLabel'
+			Logger( ).write( error )
+			return ExtractedLabel( file_name=Path( file_path ).name if file_path else '',
+				file_type='', raw_text='', normalized_text='', ocr_engine=OCR_ENGINE,
+				ocr_seconds=0.0, image_quality_notes=[ 'OCR extraction could not be completed.' ] )

@@ -36,7 +36,12 @@
 
     </copyright>
     <summary>
-        batch_processor.py
+        Provides manifest-driven batch processing for Fiddy label verification workflows.
+
+        This module matches uploaded label files to manifest records, runs per-label
+        verification, isolates item-level processing failures, tracks processed and skipped
+        files, and returns batch verification, validation, and performance results suitable
+        for reviewer display and export.
     </summary>
     ******************************************************************************************
 '''
@@ -48,6 +53,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
+from booger import Error, Logger
 from config import throw_if
 from src.batch_manifest import BatchManifest, BatchManifestRecord, BatchManifestValidationResult
 from src.constants import SEVERITY_HIGH, STATUS_REVIEW
@@ -57,28 +63,36 @@ from src.models import BatchVerificationReport, LabelApplication, LabelCheckResu
 from src.performance_monitor import BatchPerformanceSummary, LabelPerformanceResult, \
 	PerformanceMonitor
 
-# ==========================================================================================
-# Batch Processing Result
-# ==========================================================================================
-
 class BatchProcessingResult( BaseModel ):
-	"""
-	Purpose:
-	--------
-	Represent the complete result of a manifest-driven batch verification run.
+	"""Represent the complete result of a manifest-driven batch verification run.
 
-	Parameters:
-	-----------
-	None
+	The ``BatchProcessingResult`` model is the return contract for batch processing operations.
+	It combines the batch verification report, manifest/file validation result, performance
+	summary, per-file timing results, processed file names, skipped file names, errors, and
+	warnings into one object that can be displayed by the Streamlit application or passed to
+	report-writing utilities.
 
-	Returns:
-	--------
-	None
+	This model intentionally separates validation results from processing results. A batch may
+	include validation errors or warnings before verification begins, while item-level OCR or
+	rule execution failures may occur later during processing. Keeping these values together in
+	one model gives the UI a complete view of what happened during a batch run.
+
+	Attributes:
+		batch_report (BatchVerificationReport): Aggregated verification report containing one
+			child report per processed or error-reported file.
+		validation_result (BatchManifestValidationResult): Result of matching manifest records
+			to uploaded label files.
+		performance_summary (BatchPerformanceSummary): Batch-level timing and SLA summary.
+		performance_results (List[LabelPerformanceResult]): Per-label processing timing results.
+		processed_files (List[str]): File names successfully processed through the batch workflow.
+		skipped_files (List[str]): File names skipped because they were missing, extra, or failed
+			during future handling.
+		errors (List[str]): Blocking or reviewer-significant batch processing errors.
+		warnings (List[str]): Non-blocking batch processing warnings.
 	"""
 	
 	batch_report: BatchVerificationReport = Field( default_factory=BatchVerificationReport )
-	validation_result: BatchManifestValidationResult = Field(
-		default_factory=BatchManifestValidationResult )
+	validation_result: BatchManifestValidationResult = Field( default_factory=BatchManifestValidationResult )
 	performance_summary: BatchPerformanceSummary = Field( default_factory=BatchPerformanceSummary )
 	performance_results: List[ LabelPerformanceResult ] = Field( default_factory=list )
 	processed_files: List[ str ] = Field( default_factory=list )
@@ -87,18 +101,22 @@ class BatchProcessingResult( BaseModel ):
 	warnings: List[ str ] = Field( default_factory=list )
 	
 	def to_summary_record( self ) -> Dict[ str, object ]:
-		"""
-		Purpose:
-		--------
-		Convert the batch processing result into a flat summary record.
+		"""Convert the batch processing result into a flat summary record.
 
-		Parameters:
-		-----------
-		None
+		This method converts nested batch result state into a compact dictionary suitable for
+		Streamlit metric panels, summary tables, CSV export, or JSON serialization. It reports
+		processed and skipped file counts, manifest validity, manifest/upload matching counts,
+		performance metrics, SLA breach counts, and aggregate error/warning counts.
+
+		The method intentionally reports counts instead of full nested lists because this summary
+		is intended for dashboards and top-level review. Detailed lists remain available on the
+		model itself through ``validation_result``, ``processed_files``, ``skipped_files``,
+		``errors``, and ``warnings``.
 
 		Returns:
-		--------
-		Dict[str, object]: Flat batch processing summary record.
+			Dict[str, object]: Flat batch processing summary record. If rendering fails, the
+			exception is logged and a conservative fallback record is returned with zero counts,
+			``Manifest Valid`` set to ``False``, and ``Errors`` set to ``1``.
 		"""
 		try:
 			return {
@@ -116,7 +134,12 @@ class BatchProcessingResult( BaseModel ):
 					'Errors': len( self.errors ),
 					'Warnings': len( self.warnings )
 			}
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_summary_record( ) -> Dict[str, object]'
+			Logger( ).write( error )
 			return {
 					'Processed Files': 0,
 					'Skipped Files': 0,
@@ -133,25 +156,41 @@ class BatchProcessingResult( BaseModel ):
 					'Warnings': 0
 			}
 
-# ==========================================================================================
-# Batch Processor
-# ==========================================================================================
-
 class BatchProcessor( ):
-	"""
-	Purpose:
-	--------
-	Process a manifest-driven batch of uploaded alcohol label files by matching each uploaded
-	file to its own application record, running OCR/rule verification, isolating per-file
-	errors, and collecting SLA performance metrics.
+	"""Process manifest-driven batches of uploaded alcohol label files.
 
-	Parameters:
-	-----------
-	None
+	The ``BatchProcessor`` class coordinates the batch verification workflow after reviewers
+	provide application data and uploaded label files. It creates lookup maps for uploaded
+	files and manifest records, validates the manifest/file relationship, processes matched
+	items, records skipped files, collects per-label timing data, and returns a complete
+	``BatchProcessingResult``.
 
-	Returns:
-	--------
-	None
+	The class supports two entry points. ``process_manifest_csv`` loads records from a manifest
+	CSV before processing, while ``process_records`` accepts already parsed
+	``BatchManifestRecord`` objects. Both paths preserve the same validation, processing,
+	performance, and fallback behavior.
+
+	Item-level processing is isolated through ``process_one`` so a failure in one file does not
+	need to prevent the batch container from returning a usable result. When an individual item
+	fails, the processor creates a reviewable error report for that file and captures a
+	performance result so the batch output remains structurally complete.
+
+	Attributes:
+		_manifest (BatchManifest): Manifest service used for loading, mapping, and validation.
+		_performance_monitor (PerformanceMonitor): Batch-level performance summarization service.
+		_records (List[BatchManifestRecord]): Manifest records for the active batch.
+		_file_paths (List[Path]): Uploaded label paths for the active batch.
+		_file_map (Dict[str, Path]): Uploaded file lookup keyed by lowercase file name.
+		_record_map (Dict[str, BatchManifestRecord]): Manifest record lookup keyed by lowercase
+			file name.
+		_batch_report (BatchVerificationReport): Aggregated batch verification report.
+		_validation_result (BatchManifestValidationResult): Manifest/file validation result.
+		_performance_results (List[LabelPerformanceResult]): Per-label timing results.
+		_processed_files (List[str]): File names successfully processed.
+		_skipped_files (List[str]): File names skipped or not processable.
+		_errors (List[str]): Batch-level processing errors.
+		_warnings (List[str]): Batch-level processing warnings.
+		_max_workers (int): Maximum number of parallel worker threads used by the executor.
 	"""
 	
 	_manifest: BatchManifest
@@ -170,19 +209,22 @@ class BatchProcessor( ):
 	_max_workers: int
 	
 	def __init__( self, max_workers: int = 4, sla_seconds: float | None = None ) -> None:
-		"""
-		Purpose:
-		--------
-		Initialize the batch processor with manifest and performance-monitor services.
+		"""Initialize the batch processor and its supporting services.
 
-		Parameters:
-		-----------
-		max_workers (int): Maximum number of parallel worker threads.
-		sla_seconds (float | None): Optional per-label SLA threshold in seconds.
+		The constructor creates a manifest service, a performance monitor, an empty batch report,
+		and empty collections for performance results, processed files, skipped files, errors,
+		and warnings. The worker count is normalized to at least one worker to prevent invalid
+		thread-pool configuration.
+
+		Args:
+			max_workers (int): Maximum number of parallel worker threads used by
+				``ThreadPoolExecutor`` during matched-file processing. Values below one are
+				normalized to one.
+			sla_seconds (float | None): Optional per-label service-level threshold in seconds.
+				When ``None``, the ``PerformanceMonitor`` applies its configured default.
 
 		Returns:
-		--------
-		None
+			None.
 		"""
 		self._manifest = BatchManifest( )
 		self._performance_monitor = PerformanceMonitor( sla_seconds=sla_seconds )
@@ -196,51 +238,48 @@ class BatchProcessor( ):
 	
 	@property
 	def max_workers( self ) -> int:
-		"""
-		Purpose:
-		--------
-		Return the configured maximum number of worker threads.
+		"""Return the configured maximum number of worker threads.
 
-		Parameters:
-		-----------
-		None
+		This property exposes the normalized worker count that will be passed to the thread-pool
+		executor when batch records are processed. It is useful for diagnostics, UI display, and
+		tests that verify constructor normalization.
 
 		Returns:
-		--------
-		int: Maximum worker count.
+			int: Maximum worker count used by this processor instance.
 		"""
 		return self._max_workers
 	
 	@property
 	def performance_results( self ) -> List[ LabelPerformanceResult ]:
-		"""
-		Purpose:
-		--------
-		Return per-label performance results from the most recent batch run.
+		"""Return per-label performance results from the most recent batch run.
 
-		Parameters:
-		-----------
-		None
+		The returned list contains the performance result for each processed label item captured
+		during the most recent call to ``process_records`` or ``process_manifest_csv``. The list is
+		reset at the beginning of each ``process_records`` run.
 
 		Returns:
-		--------
-		List[LabelPerformanceResult]: Per-label performance results.
+			List[LabelPerformanceResult]: Per-label performance results for the active or most
+			recent batch run.
 		"""
 		return self._performance_results
 	
 	def create_file_map( self, file_paths: Iterable[ str | Path ] ) -> Dict[ str, Path ]:
-		"""
-		Purpose:
-		--------
-		Create a case-insensitive uploaded-file map keyed by file name.
+		"""Create a case-insensitive uploaded-file lookup map.
 
-		Parameters:
-		-----------
-		file_paths (Iterable[str | Path]): Uploaded label file paths.
+		This method normalizes the supplied file-path iterable into ``Path`` objects and builds a
+		dictionary keyed by each file name in trimmed lowercase form. The resulting map is used to
+		match uploaded files against manifest records by file name, regardless of case.
+
+		If duplicate uploaded file names are supplied with different paths, later dictionary
+		assignments will overwrite earlier entries because the original implementation uses a
+		dictionary keyed by lowercased file name. That behavior is preserved.
+
+		Args:
+			file_paths (Iterable[str | Path]): Uploaded label file paths to map.
 
 		Returns:
-		--------
-		Dict[str, Path]: Uploaded-file map keyed by lowercase file name.
+			Dict[str, Path]: Uploaded-file map keyed by lowercase file name. If mapping fails,
+			the exception is logged and an empty dictionary fallback is returned.
 		"""
 		try:
 			throw_if( 'file_paths', file_paths )
@@ -256,23 +295,30 @@ class BatchProcessor( ):
 			}
 			
 			return self._file_map
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_file_map( file_paths: Iterable[str | Path] ) -> Dict[str, Path]'
+			Logger( ).write( error )
 			return { }
 	
 	def create_record_map( self, records: List[ BatchManifestRecord ] ) -> Dict[
 		str, BatchManifestRecord ]:
-		"""
-		Purpose:
-		--------
-		Create a case-insensitive manifest-record map keyed by expected label file name.
+		"""Create a case-insensitive manifest-record lookup map.
 
-		Parameters:
-		-----------
-		records (List[BatchManifestRecord]): Manifest records.
+		This method stores the supplied manifest records on the processor and delegates mapping
+		to ``BatchManifest.get_record_map``. The returned map is keyed by lowercase file name and
+		is used to locate the application-data record associated with each matched uploaded file.
+
+		Args:
+			records (List[BatchManifestRecord]): Manifest records parsed from the application
+				manifest.
 
 		Returns:
-		--------
-		Dict[str, BatchManifestRecord]: Manifest-record map keyed by lowercase file name.
+			Dict[str, BatchManifestRecord]: Manifest-record map keyed by lowercase expected label
+			file name. If mapping fails, the exception is logged and an empty dictionary fallback
+			is returned.
 		"""
 		try:
 			throw_if( 'records', records )
@@ -281,23 +327,30 @@ class BatchProcessor( ):
 			self._record_map = self._manifest.get_record_map( self._records )
 			
 			return self._record_map
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_record_map( records: List[BatchManifestRecord] ) -> Dict[str, BatchManifestRecord]'
+			Logger( ).write( error )
 			return { }
 	
 	def create_error_report( self, file_name: str, message: str ) -> LabelVerificationReport:
-		"""
-		Purpose:
-		--------
-		Create a verification report for a file that could not be processed.
+		"""Create a reviewable verification report for an unprocessed batch item.
 
-		Parameters:
-		-----------
-		file_name (str): Label file name.
-		message (str): Error message to include in the report.
+		This method creates an empty ``LabelVerificationReport`` for the affected file and then
+		replaces its results with a single ``LabelCheckResult`` describing the batch-processing
+		failure. The result is marked ``Needs Review`` with high severity so the reviewer can see
+		that the file was not verified normally and requires manual attention.
+
+		Args:
+			file_name (str): Label file name to place on the fallback report.
+			message (str): Reviewer-facing error message to include as evidence and result text.
 
 		Returns:
-		--------
-		LabelVerificationReport: Error report marked as Needs Review.
+			LabelVerificationReport: Error report marked as needing review. If construction fails,
+			the exception is logged and the original empty-report fallback is returned for the
+			supplied file name.
 		"""
 		try:
 			throw_if( 'file_name', file_name )
@@ -321,25 +374,37 @@ class BatchProcessor( ):
 			
 			report.determine_overall_status( )
 			return report
-		except Exception:
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_error_report( file_name: str, message: str ) -> LabelVerificationReport'
+			Logger( ).write( error )
 			return LabelVerificationReport.empty( file_name=file_name )
 	
-	def process_one( self, record: BatchManifestRecord, file_path: str | Path ) -> Tuple[
-		LabelVerificationReport, LabelPerformanceResult ]:
-		"""
-		Purpose:
-		--------
-		Process one manifest record and matching uploaded label file.
+	def process_one( self, record: BatchManifestRecord, file_path: str | Path ) -> Tuple[ LabelVerificationReport, LabelPerformanceResult ]:
+		"""Process one manifest record and its matching uploaded label file.
 
-		Parameters:
-		-----------
-		record (BatchManifestRecord): Manifest row for the uploaded label.
-		file_path (str | Path): Matching uploaded label file path.
+		This method converts one manifest record into a ``LabelApplication``, creates an
+		``AlcoholLabelVerifier``, starts a per-item ``PerformanceMonitor``, verifies the
+		matching uploaded file, stops the monitor, assigns the measured processing time to the
+		report, recalculates overall status, and returns both the verification report and
+		performance result.
+
+		The method creates a fresh verifier and monitor for each item so individual batch items
+		remain isolated from one another. If item processing fails, a separate monitor is used to
+		return a performance object, and ``create_error_report`` creates a reviewer-facing error
+		report for the affected file.
+
+		Args:
+			record (BatchManifestRecord): Manifest row containing the application data for the
+				uploaded label.
+			file_path (str | Path): Uploaded label file path matched to the manifest row.
 
 		Returns:
-		--------
-		Tuple[LabelVerificationReport, LabelPerformanceResult]: Verification and performance
-		results for one label file.
+			Tuple[LabelVerificationReport, LabelPerformanceResult]: Verification report and
+			performance result for one label file. If item processing fails, the exception is
+			logged and the tuple contains a reviewable error report plus a fallback timing result.
 		"""
 		file_name = Path( file_path ).name
 		
@@ -360,6 +425,12 @@ class BatchProcessor( ):
 			
 			return report, performance
 		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'process_one( self, *args ) -> Tuple[LabelVerificationReport, LabelPerformanceResult]'
+			Logger( ).write( error )
+			
 			monitor = PerformanceMonitor( sla_seconds=self._performance_monitor.sla_seconds )
 			monitor.start( file_name )
 			performance = monitor.stop( file_name )
@@ -373,23 +444,31 @@ class BatchProcessor( ):
 	
 	def process_records( self, records: List[ BatchManifestRecord ],
 			file_paths: Iterable[ str | Path ],
-			progress_callback: Optional[
-				Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
-		"""
-		Purpose:
-		--------
-		Process manifest records and uploaded label files after both have already been loaded.
+			progress_callback: Optional[ Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
+		"""Process already loaded manifest records and uploaded label files.
 
-		Parameters:
-		-----------
-		records (List[BatchManifestRecord]): Manifest records.
-		file_paths (Iterable[str | Path]): Uploaded label file paths.
-		progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback that
-		receives completed count, total count, and current file name.
+		This method is the primary batch execution workflow when manifest records have already
+		been parsed. It resets batch state, normalizes uploaded file paths, creates file and
+		record lookup maps, validates the manifest records against uploaded files, records
+		validation errors and warnings, identifies matched files, records missing and extra files
+		as skipped, and processes matched files in a thread pool.
+
+		Each completed future contributes a verification report, performance result, and processed
+		file name. If a future raises unexpectedly, the method records a batch-level error,
+		creates a reviewable error report for that file, and marks the file as skipped. The
+		optional progress callback is invoked after each completed matched item.
+
+		Args:
+			records (List[BatchManifestRecord]): Manifest records containing application data.
+			file_paths (Iterable[str | Path]): Uploaded label file paths.
+			progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback that
+				receives completed count, total matched count, and the current file name after each
+				future completes.
 
 		Returns:
-		--------
-		BatchProcessingResult: Complete batch processing result.
+			BatchProcessingResult: Complete batch processing result assembled from current
+			processor state. If setup or processing fails unexpectedly, the exception is logged,
+			a batch-level error is appended, and ``create_result`` returns a conservative result.
 		"""
 		try:
 			throw_if( 'records', records )
@@ -409,11 +488,8 @@ class BatchProcessor( ):
 			self._batch_report = BatchVerificationReport( )
 			self._file_map = self.create_file_map( self._file_paths )
 			self._record_map = self.create_record_map( self._records )
-			
-			self._validation_result = self._manifest.validate_against_files(
-				self._records,
-				self._file_paths
-			)
+			self._validation_result = self._manifest.validate_against_files( self._records,
+				self._file_paths )
 			
 			self._errors.extend( self._validation_result.errors )
 			self._warnings.extend( self._validation_result.warnings )
@@ -458,6 +534,11 @@ class BatchProcessor( ):
 						self._performance_results.append( performance )
 						self._processed_files.append( file_name )
 					except Exception as e:
+						error = Error( e )
+						error.cause = self.__class__.__name__
+						error.module = __name__
+						error.method = 'process_records( self, *args ) -> BatchProcessingResult'
+						Logger( ).write( error )
 						self._errors.append( f'Batch future failed for {file_name}: {e}' )
 						report = self.create_error_report( file_name, str( e ) )
 						self._batch_report.add_report( report )
@@ -468,26 +549,37 @@ class BatchProcessor( ):
 			
 			return self.create_result( )
 		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'process_records( self, *args ) -> BatchProcessingResult'
+			Logger( ).write( error )
 			self._errors.append( f'Batch processing failed: {e}' )
 			return self.create_result( )
 	
 	def process_manifest_csv( self, manifest_path: str | Path, file_paths: Iterable[ str | Path ],
 			progress_callback: Optional[ Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
-		"""
-			Purpose:
-			--------
-			Load a manifest CSV file and process the matching uploaded label files.
-	
-			Parameters:
-			-----------
-			manifest_path (str | Path): Path to the application manifest CSV.
+		"""Load a manifest CSV and process its matching uploaded label files.
+
+		This method is the CSV-driven entry point for batch processing. It validates the manifest
+		path and uploaded file iterable, loads records through ``BatchManifest.load_csv``, carries
+		manifest loading errors and warnings forward when no records are returned, and delegates
+		successful record processing to ``process_records``.
+
+		If the manifest cannot be loaded or produces no records, the method creates a validation
+		result marked invalid and returns a batch processing result from current state. This keeps
+		the UI response structured even when the manifest file itself is invalid.
+
+		Args:
+			manifest_path (str | Path): Path to the application-data manifest CSV.
 			file_paths (Iterable[str | Path]): Uploaded label file paths.
 			progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback that
-			receives completed count, total count, and current file name.
-	
-			Returns:
-			--------
-			BatchProcessingResult: Complete batch processing result.
+				receives completed count, total matched count, and current file name.
+
+		Returns:
+			BatchProcessingResult: Complete batch processing result. If manifest loading or
+			delegated processing fails unexpectedly, the exception is logged, a batch-level error
+			is appended, and the current state is converted into a result.
 		"""
 		try:
 			throw_if( 'manifest_path', manifest_path )
@@ -505,22 +597,31 @@ class BatchProcessor( ):
 			
 			return self.process_records( records, file_paths, progress_callback )
 		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'process_manifest_csv( self, *ars ) -> BatchProcessingResult'
+			Logger( ).write( error )
 			self._errors.append( f'Manifest batch processing failed: {e}' )
 			return self.create_result( )
 	
 	def create_result( self ) -> BatchProcessingResult:
-		"""
-		Purpose:
-		--------
-		Create the complete batch processing result from the current processor state.
+		"""Create the complete batch processing result from current processor state.
 
-		Parameters:
-		-----------
-		None
+		This method summarizes per-label performance results, ensures a validation result exists,
+		and returns a ``BatchProcessingResult`` containing the current batch report, validation
+		result, performance summary, per-label performance results, processed file names, skipped
+		file names, errors, and warnings.
+
+		The method is used both after successful processing and after guarded failure paths. That
+		allows the caller to receive a structurally consistent result object even when an earlier
+		stage failed and only partial state is available.
 
 		Returns:
-		--------
-		BatchProcessingResult: Complete batch processing result.
+			BatchProcessingResult: Complete batch processing result assembled from current state.
+			If result construction itself fails, the exception is logged and a conservative
+			``BatchProcessingResult`` fallback is returned with an invalid validation result and
+			the original fallback error message.
 		"""
 		try:
 			performance_summary = self._performance_monitor.summarize( self._performance_results )
@@ -543,6 +644,11 @@ class BatchProcessor( ):
 				warnings=self._warnings
 			)
 		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_result( ) -> BatchProcessingResult'
+			Logger( ).write( error )
 			return BatchProcessingResult( batch_report=self._batch_report,
 				validation_result=BatchManifestValidationResult( is_valid=False,
 					errors=[ f'Batch processing result creation failed: {e}' ] ),
@@ -552,4 +658,3 @@ class BatchProcessor( ):
 				skipped_files=self._skipped_files,
 				errors=[ f'Batch processing result creation failed: {e}' ],
 				warnings=self._warnings )
-
