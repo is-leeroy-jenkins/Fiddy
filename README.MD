@@ -12,7 +12,7 @@
 [Usage](#-usage-examples) •
 [Outputs](#-outputs) •
 [Configuration](#-configuration) •
-[Run](#-run-the-app) •
+[Run](#-run-the-app) 
 ___
 
 **AI-Powered Alcohol Label Verification App**
