@@ -76,21 +76,21 @@ focus reviewer attention on exceptions.
 
 ## ✨ Capabilities
 
-| Capability              | What Fiddy Does                                                                         |
-| -- |  |
-| Label artwork intake    | Accepts image files, PDFs, and ZIP archives containing label artwork.                   |
-| Application data intake | Accepts manifest CSV uploads or manual CAV-style entry.                                 |
-| Local OCR               | Extracts label text using local Tesseract OCR.                                          |
-| Image preparation       | Loads, orients, converts, and prepares label images for OCR.                            |
-| Image diagnostics       | Evaluates practical OCR risk factors such as blur, glare, darkness, contrast, and skew. |
-| Field comparison        | Compares expected application values against extracted or observed label evidence.      |
-| Fuzzy matching          | Tolerates minor text variation where ordinary reviewer judgment would tolerate it.      |
-| Strict warning review   | Handles government-warning text separately from ordinary fuzzy fields.                  |
-| Batch verification      | Processes matched manifest rows and uploaded files as independent label reviews.        |
-| Reviewer guidance       | Provides status, severity, confidence, explanation, and recommended action.             |
-| Downloadable reports    | Exports summary, detail, comparison, performance, JSON, and Markdown outputs.           |
-| Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
-| Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
+| Capability | What Fiddy Does |
+| --- | --- |
+| Label artwork intake | Accepts image files, PDFs, and ZIP archives containing label artwork. |
+| Application data intake | Accepts manifest CSV uploads or manual CAV-style entry. |
+| Local OCR | Extracts label text using local Tesseract OCR. |
+| Image preparation | Loads, orients, converts, and prepares label images for OCR. |
+| Image diagnostics | Evaluates practical OCR risk factors such as blur, glare, darkness, contrast, and skew. |
+| Field comparison | Compares expected application values against extracted or observed label evidence. |
+| Fuzzy matching | Tolerates minor text variation where ordinary reviewer judgment would tolerate it. |
+| Strict warning review | Handles government-warning text separately from ordinary fuzzy fields. |
+| Batch verification | Processes matched manifest rows and uploaded files as independent label reviews. |
+| Reviewer guidance | Provides status, severity, confidence, explanation, and recommended action. |
+| Downloadable reports | Exports summary, detail, comparison, performance, JSON, and Markdown outputs. |
+| Local diagnostics | Supports optional SQLite exception logging for troubleshooting. |
+| Azure fit | Runs as a standalone local-first workload suitable for Azure-hosted deployment. |
 
 
 
