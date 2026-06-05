@@ -492,7 +492,7 @@ Fiddy includes reviewer controls for usability and accessibility:
 
 
 
-## ⚙️ Installation
+## ⚙️ Installation ([Detailed](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md))
 
 ### Prerequisites
 
