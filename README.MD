@@ -4,19 +4,15 @@
 
 
 [Overview](#-overview) •
+[Installation](#-installation) •
 [Capabilities](#-capabilities) •
 [Workflow](#-workflow) •
 [Architecture](#-architecture) •
 [Components](#-component-map) •
 [Usage](#-usage-examples) •
-[Manifest Format](#-manifest-format) •
 [Outputs](#-outputs) •
-[Installation](#-installation) •
 [Configuration](#-configuration) •
 [Run](#-run-the-app) •
-[Testing](#-testing) •
-[Security](#-security-and-data-handling) •
-[Azure](#-azure-deployment-posture) •
 ___
 
 **AI-Powered Alcohol Label Verification App**
