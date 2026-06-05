@@ -19,8 +19,7 @@ ___
 
 Fiddy is a standalone Streamlit application that helps alcohol-label compliance reviewers compare
 submitted label artwork against application data. It combines AI-assisted local OCR, deterministic
-verification
-rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
+verification rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
 into a fast, explainable reviewer-assist workflow.
 
 Fiddy is designed for practical compliance operations: upload the application data, upload the label
@@ -466,7 +465,7 @@ old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled
 ```
 
 | Column              | Description                                                                  |
-| ------------------- | ---------------------------------------------------------------------------- |
+| - | - |
 | `file_name`         | Expected uploaded label filename.                                            |
 | `brand_name`        | Expected brand name.                                                         |
 | `class_type`        | Expected class or type designation.                                          |
@@ -506,7 +505,7 @@ The summary table provides one row per processed label.
 The side-by-side comparison is the primary reviewer surface.
 
 | Column          | Purpose                                               |
-| ----------------| ----------------------------------------------------- |
+|  | -- |
 | File Name       | Identifies the reviewed label file.                   |
 | Field           | Shows the label field being checked.                  |
 | Application     | Displays the expected application value.              |
@@ -520,7 +519,7 @@ The side-by-side comparison is the primary reviewer surface.
 ### Downloadable Files
 
 | Output          | Purpose                                             |
-| --------------- | --------------------------------------------------- |
+|  |  |
 | Summary CSV     | One row per reviewed label.                         |
 | Detail CSV      | One row per rule result.                            |
 | Comparison CSV  | Field-by-field application versus label comparison. |
