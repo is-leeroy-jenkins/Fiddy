@@ -641,7 +641,7 @@ Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
 Configuration is centralized in `config.py`.
 
 | Setting                      | Purpose                                |
-| - | -- |
+|------------------------------|----------------------------------------|
 | `APP_NAME`                   | Application name.                      |
 | `APP_TITLE`                  | Browser and Streamlit title.           |
 | `APP_ICON`                   | Page icon.                             |
@@ -723,7 +723,7 @@ Recommended test coverage includes:
 
 ## 🔐 Security and Data Handling
 
-Fiddy is a standalone prototype and is not an official records-management system.
+Fiddy is a standalone prototype and is not an official US Treasury Compliance System.
 
 The application processes uploaded files through temporary runtime handling. Uploaded labels and
 extracted ZIP contents are not intentionally retained as long-term records. Review outputs are
