@@ -586,7 +586,7 @@ Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
 
 ## 🛠️ Configuration
 
-Configuration is centralized in `config.py`.
+Configuration is centralized in [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py).
 
 | Setting                      | Purpose                                |
 |------------------------------|----------------------------------------|
