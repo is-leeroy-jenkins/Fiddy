@@ -1,6 +1,6 @@
 ###### Fiddy
 
-<img src="assets/images/fiddy_fade_loop_gentle.gif" width="600" height="300">
+<img src="assets/images/fiddy_fade_loop_gentle.gif" width="1200" height="300">
 
 
 [Overview](#-overview) •
