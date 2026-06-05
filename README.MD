@@ -20,13 +20,13 @@ artwork, run verification, review exceptions, and download results.
 [Capabilities](#-capabilities) •
 [Workflow](#-workflow) •
 [Architecture](#-architecture) •
-[Component Map](#-component-map) •
-[Usage Examples](#-usage-examples) •
+[Components](#-component-map) •
+[Usage](#-usage-examples) •
 [Manifest Format](#-manifest-format) •
 [Outputs](#-outputs) •
 [Installation](#-installation) •
 [Configuration](#-configuration) •
-[Run the App](#-run-the-app) •
+[Run](#-run-the-app) •
 [Testing](#-testing) •
 [Security](#-security-and-data-handling) •
 [Azure](#-azure-deployment-posture) •
