@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                normalizer.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="normalizer.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -70,13 +70,13 @@ class TextNormalizer( ):
 	"""
 	
 	apostrophe_chars: tuple[ str, ... ] = ( "'",
-			"’",
-			"‘",
+			"â€™",
+			"â€˜",
 			"`",
-			"´",
-			"ʼ" )
+			"Â´",
+			"Ê¼" )
 	
-	dash_chars: tuple[ str, ... ] = ( "-", "–", "—", "−" )
+	dash_chars: tuple[ str, ... ] = ( "-", "â€“", "â€”", "âˆ’" )
 	
 	whitespace_pattern: str = r'\s+'
 	punctuation_pattern: str = r'[^\w\s.%/]'
@@ -601,10 +601,10 @@ class TextNormalizer( ):
 			throw_if( 'text', text )
 			
 			value = text.replace( '|', ' ' )
-			value = value.replace( '¬', ' ' )
-			value = value.replace( '™', ' ' )
-			value = value.replace( '®', ' ' )
-			value = value.replace( '©', ' ' )
+			value = value.replace( 'Â¬', ' ' )
+			value = value.replace( 'â„¢', ' ' )
+			value = value.replace( 'Â®', ' ' )
+			value = value.replace( 'Â©', ' ' )
 			value = re.sub( r'[_~^]+', ' ', value )
 			value = self.normalize_whitespace( value )
 			

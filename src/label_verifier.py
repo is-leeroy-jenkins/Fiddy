@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                label_verifier.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="label_verifier.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -52,6 +52,8 @@ from src.constants import (
 	SEVERITY_HIGH,
 	STATUS_REVIEW
 )
+
+from src.label_field_extractor import LabelFieldExtractor
 from src.label_rules import AlcoholLabelRules
 from src.models import (
 	BatchVerificationReport,
@@ -92,22 +94,27 @@ class AlcoholLabelVerifier( ):
 	_ocr_engine: OcrEngine
 	_started: float
 	_processing_seconds: float
+	_field_extractor: LabelFieldExtractor
 	
 	def __init__( self ) -> None:
 		"""
-		Purpose:
-		--------
-		Initialize the verifier with the local OCR engine and deterministic rule engine.
-
-		Parameters:
-		-----------
-		None
-
-		Returns:
-		--------
-		None
+		
+			Purpose:
+			--------
+			Initialize the verifier with the local OCR engine, deterministic field extractor, and
+			deterministic rule engine.
+		
+			Parameters:
+			-----------
+			None
+		
+			Returns:
+			--------
+			None
+			
 		"""
 		self._ocr_engine = OcrEngine( )
+		self._field_extractor = LabelFieldExtractor( )
 		self._rules = AlcoholLabelRules( )
 	
 	def create_ocr_review_result( self, extracted_label: ExtractedLabel ) -> LabelCheckResult:
@@ -161,25 +168,27 @@ class AlcoholLabelVerifier( ):
 	def verify_extracted_label( self, application: LabelApplication,
 			extracted_label: ExtractedLabel ) -> LabelVerificationReport:
 		"""
-		Purpose:
-		--------
-		Verify a previously extracted label against expected application data.
-
-		Parameters:
-		-----------
-		application (LabelApplication): Expected application values entered by the reviewer.
-		extracted_label (ExtractedLabel): OCR extraction result for the uploaded label.
-
-		Returns:
-		--------
-		LabelVerificationReport: Complete verification report for the extracted label.
+			
+			Purpose:
+			--------
+			Verify a previously extracted label against expected application data.
+		
+			Parameters:
+			-----------
+			application (LabelApplication): Expected application values entered by the reviewer.
+			extracted_label (ExtractedLabel): OCR extraction result for the uploaded label.
+		
+			Returns:
+			--------
+			LabelVerificationReport: Complete verification report for the extracted label.
+		
 		"""
 		try:
 			throw_if( 'application', application )
 			throw_if( 'extracted_label', extracted_label )
 			
 			self._application = application
-			self._extracted_label = extracted_label
+			self._extracted_label = self.enrich_extracted_label( extracted_label )
 			self._started = time.perf_counter( )
 			
 			self._report = LabelVerificationReport(
@@ -195,6 +204,7 @@ class AlcoholLabelVerifier( ):
 				return self._report
 			
 			results = self._rules.verify( self._application, self._extracted_label.raw_text )
+			
 			for result in results:
 				self._report.add_result( result )
 			
@@ -212,19 +222,21 @@ class AlcoholLabelVerifier( ):
 	def verify_file( self, application: LabelApplication,
 			file_path: str | Path ) -> LabelVerificationReport:
 		"""
-		Purpose:
-		--------
-		Extract text from one uploaded label file and verify it against expected application
-		data.
-
-		Parameters:
-		-----------
-		application (LabelApplication): Expected application values entered by the reviewer.
-		file_path (str | Path): Path to the uploaded label image or PDF file.
-
-		Returns:
-		--------
-		LabelVerificationReport: Complete verification report for the uploaded label.
+		
+			Purpose:
+			--------
+			Extract text and structured fields from one uploaded label file, then verify it against
+			expected application data.
+		
+			Parameters:
+			-----------
+			application (LabelApplication): Expected application values entered by the reviewer.
+			file_path (str | Path): Path to the uploaded label image or PDF file.
+		
+			Returns:
+			--------
+			LabelVerificationReport: Complete verification report for the uploaded label.
+			
 		"""
 		try:
 			throw_if( 'application', application )
@@ -233,6 +245,7 @@ class AlcoholLabelVerifier( ):
 			self._application = application
 			self._file_path = Path( file_path )
 			self._extracted_label = self._ocr_engine.extract_text( self._file_path )
+			self._extracted_label = self.enrich_extracted_label( self._extracted_label )
 			
 			return self.verify_extracted_label( self._application, self._extracted_label )
 		except Exception:
@@ -342,3 +355,4 @@ class AlcoholLabelVerifier( ):
 			)
 		except Exception:
 			return 'Needs Review: report summary unavailable.'
+

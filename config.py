@@ -1,17 +1,16 @@
 '''
-  ******************************************************************************************
-      Assembly:                Name
-      Filename:                name.py
+    ******************************************************************************************
+      Assembly:                Fiddy
+      Filename:                config.py
       Author:                  Terry D. Eppler
-      Created:                 05-31-2022
+      Created:                 06-03-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        05-01-2025
-  ******************************************************************************************
-  <copyright file="guro.py" company="Terry D. Eppler">
+      Last Modified On:        06-03-2026
+    ******************************************************************************************
+    <copyright file="config.py" company="Terry D. Eppler">
 
-	     name.py
-	     Copyright ©  2022  Terry Eppler
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
      of this software and associated documentation files (the “Software”),
@@ -33,11 +32,194 @@
      ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
      DEALINGS IN THE SOFTWARE.
 
-     You can contact me at:  terryeppler@gmail.com or eppler.terry@epa.gov
+     You can contact me at:  terryeppler@gmail.com
 
-  </copyright>
-  <summary>
-    name.py
-  </summary>
-  ******************************************************************************************
-  '''
+    </copyright>
+    <summary>
+        config.py
+    </summary>
+    ******************************************************************************************
+'''
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Optional
+
+from dotenv import load_dotenv
+
+# ==========================================================================================
+# Environment
+# ==========================================================================================
+
+load_dotenv( )
+
+# ==========================================================================================
+# Project Paths
+# ==========================================================================================
+
+ROOT_DIR: Path = Path( __file__ ).resolve( ).parent
+SRC_DIR: Path = ROOT_DIR / 'src'
+ASSETS_DIR: Path = ROOT_DIR / 'assets'
+SAMPLES_DIR: Path = ROOT_DIR / 'samples'
+TESTS_DIR: Path = ROOT_DIR / 'tests'
+LOG_PATH = r'logging/Exceptions.db'
+LOG_FILE = 'Exceptions'
+FAVICON = r'assets/images/favicon.ico'
+LOGO = r'assets/images/fiddy.png'
+TITLE = r'assets/images/title.png'
+BLUE_DIVIDER = "<div style='height:2px;align:left;background:#0078FC;margin:0px 30px 30px 0px;'></div>"
+
+# ==========================================================================================
+# Application Settings
+# ==========================================================================================
+
+APP_NAME: str = os.getenv( 'APP_NAME', '2-Fiddy' )
+APP_TITLE: str = os.getenv( 'APP_TITLE', 'Label Verification' )
+
+APP_DESCRIPTION: str = os.getenv(
+	'APP_DESCRIPTION',
+	'A local-first prototype for alcohol label verification using OCR, deterministic rules, '
+	'fuzzy matching, and human-review flags.' )
+
+APP_ICON: str = os.getenv( 'APP_ICON', '🥃' )
+APP_LAYOUT: str = os.getenv( 'APP_LAYOUT', 'wide' )
+
+# ==========================================================================================
+# Upload Settings
+# ==========================================================================================
+
+MAX_UPLOAD_MB: int = int( os.getenv( 'MAX_UPLOAD_MB', '25' ) )
+MAX_BATCH_FILES: int = int( os.getenv( 'MAX_BATCH_FILES', '25' ) )
+
+SUPPORTED_IMAGE_EXTENSIONS: tuple[ str, ... ] = (
+		'.png',
+		'.jpg',
+		'.jpeg',
+		'.webp',
+		'.bmp',
+		'.tif',
+		'.tiff'
+)
+
+SUPPORTED_PDF_EXTENSIONS: tuple[ str, ... ] = (
+		'.pdf',
+)
+
+SUPPORTED_UPLOAD_EXTENSIONS: tuple[ str, ... ] = (
+		*SUPPORTED_IMAGE_EXTENSIONS,
+		*SUPPORTED_PDF_EXTENSIONS
+)
+
+# ==========================================================================================
+# OCR Settings
+# ==========================================================================================
+
+OCR_ENGINE: str = os.getenv( 'OCR_ENGINE', 'tesseract' )
+TESSERACT_CMD: Optional[ str ] = os.getenv( 'TESSERACT_CMD' )
+OCR_LANGUAGE: str = os.getenv( 'OCR_LANGUAGE', 'eng' )
+OCR_TIMEOUT_SECONDS: int = int( os.getenv( 'OCR_TIMEOUT_SECONDS', '5' ) )
+
+# ==========================================================================================
+# Optional Azure Vision Settings
+# ==========================================================================================
+
+ENABLE_AZURE_VISION: bool = os.getenv( 'ENABLE_AZURE_VISION', 'false' ).lower( ) == 'true'
+AZURE_VISION_ENDPOINT: Optional[ str ] = os.getenv( 'AZURE_VISION_ENDPOINT' )
+AZURE_VISION_KEY: Optional[ str ] = os.getenv( 'AZURE_VISION_KEY' )
+
+# ==========================================================================================
+# Verification Settings
+# ==========================================================================================
+
+BRAND_MATCH_THRESHOLD: float = float( os.getenv( 'BRAND_MATCH_THRESHOLD', '90.0' ) )
+CLASS_TYPE_MATCH_THRESHOLD: float = float( os.getenv( 'CLASS_TYPE_MATCH_THRESHOLD', '85.0' ) )
+LOW_CONFIDENCE_THRESHOLD: float = float( os.getenv( 'LOW_CONFIDENCE_THRESHOLD', '70.0' ) )
+
+DEFAULT_STATUS_PASS: str = 'Pass'
+DEFAULT_STATUS_WARNING: str = 'Warning'
+DEFAULT_STATUS_FAIL: str = 'Fail'
+DEFAULT_STATUS_REVIEW: str = 'Needs Review'
+
+# ==========================================================================================
+# Reporting Settings
+# ==========================================================================================
+
+REPORT_FILENAME_PREFIX: str = os.getenv( 'REPORT_FILENAME_PREFIX', 'fiddy_report' )
+REPORT_DATE_FORMAT: str = os.getenv( 'REPORT_DATE_FORMAT', '%Y-%m-%d %H:%M:%S' )
+
+# ==========================================================================================
+# Streamlit Settings
+# ==========================================================================================
+
+STREAMLIT_SERVER_PORT: int = int(
+	os.getenv( 'PORT', os.getenv( 'STREAMLIT_SERVER_PORT', '8501' ) ) )
+STREAMLIT_SERVER_ADDRESS: str = os.getenv( 'STREAMLIT_SERVER_ADDRESS', '0.0.0.0' )
+
+def throw_if( name: str, value: object ) -> None:
+	"""
+	Purpose:
+	--------
+	Raise a ValueError when a required argument or configuration value is falsy.
+
+	Parameters:
+	-----------
+	name (str): Name of the argument or configuration value being validated.
+	value (object): Value to validate.
+
+	Returns:
+	--------
+	None
+	"""
+	if not value:
+		raise ValueError( f'Argument "{name}" cannot be empty!' )
+
+def get_bool( name: str, default: bool = False ) -> bool:
+	"""
+	Purpose:
+	--------
+	Read a Boolean environment variable using a predictable true-value convention.
+
+	Parameters:
+	-----------
+	name (str): Environment variable name.
+	default (bool): Default value used when the environment variable is not defined.
+
+	Returns:
+	--------
+	bool: Parsed Boolean value.
+	"""
+	try:
+		throw_if( 'name', name )
+		
+		value = os.getenv( name )
+		if value is None:
+			return default
+		
+		return value.strip( ).lower( ) in ( '1', 'true', 'yes', 'y', 'on' )
+	except Exception:
+		return default
+
+def get_path( name: str, default: Path ) -> Path:
+	"""
+	Purpose:
+	--------
+	Read a path environment variable and return a resolved Path object.
+
+	Parameters:
+	-----------
+	name (str): Environment variable name.
+	default (Path): Default path used when the environment variable is not defined.
+
+	Returns:
+	--------
+	Path: Resolved path value.
+	"""
+	try:
+		throw_if( 'name', name )
+		throw_if( 'default', default )
+		
+		value = os.getenv( name )
+		return Path( value ).resolve( ) if value else default.resolve( )
+	except Exception:
+		return default.resolve( )

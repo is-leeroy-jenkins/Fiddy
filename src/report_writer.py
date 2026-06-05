@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                report_writer.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="report_writer.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -56,7 +56,7 @@ class ReportWriter( ):
 	"""
 	Purpose:
 	--------
-	Convert Veritas verification reports into DataFrames, JSON, CSV, Markdown, and optional
+	Convert Fiddy verification reports into DataFrames, JSON, CSV, Markdown, and optional
 	file outputs for reviewer use and downstream testing.
 
 	Parameters:
@@ -273,7 +273,7 @@ class ReportWriter( ):
 			df_details = self.report_to_detail_dataframe( self._report )
 			
 			lines = [
-					f'# Veritas Label Verification Report',
+					f'# Fiddy Label Verification Report',
 					'',
 					f'**File:** {self._report.file_name}',
 					f'**Overall Status:** {self._report.overall_status}',
@@ -319,7 +319,7 @@ class ReportWriter( ):
 			
 			return '\n'.join( lines )
 		except Exception:
-			return '# Veritas Label Verification Report\n\nReport generation failed.'
+			return '# Fiddy Label Verification Report\n\nReport generation failed.'
 	
 	def batch_to_markdown( self, batch_report: BatchVerificationReport ) -> str:
 		"""
@@ -343,7 +343,7 @@ class ReportWriter( ):
 			df_details = self.batch_to_detail_dataframe( self._batch_report )
 			
 			lines = [
-					'# Veritas Batch Verification Report',
+					'# Fiddy Batch Verification Report',
 					'',
 					f'**Created On:** {self._batch_report.created_on.strftime( REPORT_DATE_FORMAT )}',
 					f'**Total Files:** {self._batch_report.total_files( )}',
@@ -375,7 +375,7 @@ class ReportWriter( ):
 			
 			return '\n'.join( lines )
 		except Exception:
-			return '# Veritas Batch Verification Report\n\nBatch report generation failed.'
+			return '# Fiddy Batch Verification Report\n\nBatch report generation failed.'
 	
 	def write_text_file( self, text: str, output_path: str | Path ) -> Path:
 		"""

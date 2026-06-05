@@ -1,0 +1,24 @@
+[theme]
+base = 'dark'
+backgroundColor = '#141414'
+secondaryBackgroundColor = '#414141'
+textColor = '#FFFFFF'
+dataframeBorderColor = '#00254C'
+primaryColor = '#0078FC'
+borderColor = '#565557'
+dataframeHeaderBackgroundColor = '#023770'
+font = 'Roboto'
+baseFontSize = 13
+
+[server]
+headless = true
+address = "0.0.0.0"
+port = 8501
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 25
+
+[browser]
+gatherUsageStats = false
+
+

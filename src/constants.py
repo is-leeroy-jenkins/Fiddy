@@ -1,6 +1,5 @@
-'''
-    ******************************************************************************************
-      Assembly:                Veritas
+﻿''' ******************************************************************************************
+      Assembly:                Fiddy
       Filename:                constants.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +9,10 @@
     ******************************************************************************************
     <copyright file="constants.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +23,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -46,8 +45,8 @@ from __future__ import annotations
 # Application Identity
 # ==========================================================================================
 
-APP_NAME: str = 'Veritas'
-APP_DISPLAY_NAME: str = 'Veritas: AI-Powered Alcohol Label Verification App'
+APP_NAME: str = 'Fiddy'
+APP_DISPLAY_NAME: str = 'Fiddy'
 APP_SUBTITLE: str = 'AI-assisted alcohol label verification for compliance review.'
 
 # ==========================================================================================
@@ -238,7 +237,31 @@ RESULT_COLUMNS: list[ str ] = [
 		RESULT_COLUMN_EVIDENCE,
 		RESULT_COLUMN_MESSAGE
 ]
+# ==========================================================================================
+# Comparison Columns
+# ==========================================================================================
 
+COMPARISON_COLUMN_FILE_NAME: str = 'File Name'
+COMPARISON_COLUMN_FIELD: str = 'Field'
+COMPARISON_COLUMN_APPLICATION: str = 'Application'
+COMPARISON_COLUMN_EXTRACTED: str = 'Extracted'
+COMPARISON_COLUMN_STATUS: str = 'Status'
+COMPARISON_COLUMN_SEVERITY: str = 'Severity'
+COMPARISON_COLUMN_CONFIDENCE: str = 'Confidence'
+COMPARISON_COLUMN_EXPLANATION: str = 'Explanation'
+COMPARISON_COLUMN_EVIDENCE: str = 'Evidence'
+
+COMPARISON_COLUMNS: list[ str ] = [
+		COMPARISON_COLUMN_FILE_NAME,
+		COMPARISON_COLUMN_FIELD,
+		COMPARISON_COLUMN_APPLICATION,
+		COMPARISON_COLUMN_EXTRACTED,
+		COMPARISON_COLUMN_STATUS,
+		COMPARISON_COLUMN_SEVERITY,
+		COMPARISON_COLUMN_CONFIDENCE,
+		COMPARISON_COLUMN_EXPLANATION,
+		COMPARISON_COLUMN_EVIDENCE
+]
 # ==========================================================================================
 # Supported Upload Types
 # ==========================================================================================

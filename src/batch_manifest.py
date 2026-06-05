@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                batch_manifest.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="batch_manifest.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -44,7 +44,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
-
+from io import BytesIO
 import pandas as pd
 from pydantic import BaseModel, Field
 
@@ -372,12 +372,12 @@ class BatchManifest( ):
 		"""
 			Purpose:
 			--------
-			Read a manifest CSV file into a normalized DataFrame.
-	
+			Read a manifest CSV file into a normalized DataFrame using common encoding fallbacks.
+		
 			Parameters:
 			-----------
 			file_path (str | Path): Path to the manifest CSV file.
-	
+		
 			Returns:
 			--------
 			pd.DataFrame: Normalized manifest DataFrame.
@@ -390,7 +390,19 @@ class BatchManifest( ):
 				self._errors.append( f'Manifest file was not found: {path}' )
 				return pd.DataFrame( )
 			
-			self._df_manifest = pd.read_csv( path )
+			file_bytes = path.read_bytes( )
+			encodings = [ 'utf-8-sig', 'utf-8', 'cp1252', 'latin1' ]
+			
+			for encoding in encodings:
+				try:
+					self._df_manifest = pd.read_csv( BytesIO( file_bytes ), encoding=encoding )
+					self._df_manifest = self.normalize_columns( self._df_manifest )
+					return self._df_manifest
+				except UnicodeDecodeError:
+					continue
+			
+			self._df_manifest = pd.read_csv( BytesIO( file_bytes ), encoding='latin1',
+				encoding_errors='replace' )
 			self._df_manifest = self.normalize_columns( self._df_manifest )
 			
 			return self._df_manifest

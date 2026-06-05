@@ -1,17 +1,16 @@
 '''
-  ******************************************************************************************
-      Assembly:                Name
-      Filename:                name.py
+    ******************************************************************************************
+      Assembly:                Fiddy
+      Filename:                app.py
       Author:                  Terry D. Eppler
-      Created:                 05-31-2022
+      Created:                 06-03-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        05-01-2025
-  ******************************************************************************************
-  <copyright file="guro.py" company="Terry D. Eppler">
+      Last Modified On:        06-03-2026
+    ******************************************************************************************
+    <copyright file="app.py" company="Terry D. Eppler">
 
-	     name.py
-	     Copyright ©  2022  Terry Eppler
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
      of this software and associated documentation files (the “Software”),
@@ -33,11 +32,3642 @@
      ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
      DEALINGS IN THE SOFTWARE.
 
-     You can contact me at:  terryeppler@gmail.com or eppler.terry@epa.gov
+     You can contact me at:  terryeppler@gmail.com
 
-  </copyright>
-  <summary>
-    name.py
-  </summary>
-  ******************************************************************************************
-  '''
+    </copyright>
+    <summary>
+        app.py
+    </summary>
+    ******************************************************************************************
+'''
+from __future__ import annotations
+
+import base64
+import tempfile
+import zipfile
+from io import BytesIO
+from pathlib import Path, PurePosixPath
+from typing import Any, Dict, List, Tuple
+
+import pandas as pd
+import streamlit as st
+from PIL import Image, ImageDraw, ImageFont
+
+import config as cfg
+from src.batch_manifest import BatchManifest, BatchManifestRecord
+from src.batch_processor import BatchProcessingResult, BatchProcessor
+from src.constants import (
+	APP_DISPLAY_NAME,
+	BEVERAGE_TYPE_DISTILLED_SPIRITS,
+	BEVERAGE_TYPES,
+	GOVERNMENT_WARNING_TEXT,
+	STATUS_FAIL,
+	STATUS_PASS,
+	STATUS_REVIEW,
+	STATUS_WARNING,
+	SUPPORTED_UPLOAD_TYPES
+)
+from src.label_verifier import AlcoholLabelVerifier
+from src.models import BatchVerificationReport, LabelApplication, LabelVerificationReport
+from src.report_writer import ReportWriter
+
+# ==========================================================================================
+# Session State
+# ==========================================================================================
+
+def initialize_session_state( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Initialize all Streamlit session-state keys before they are read by the application.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	if 'batch_result' not in st.session_state:
+		st.session_state[ 'batch_result' ] = BatchProcessingResult( )
+	
+	if 'batch_report' not in st.session_state:
+		st.session_state[ 'batch_report' ] = BatchVerificationReport( )
+	
+	if 'summary_dataframe' not in st.session_state:
+		st.session_state[ 'summary_dataframe' ] = pd.DataFrame( )
+	
+	if 'detail_dataframe' not in st.session_state:
+		st.session_state[ 'detail_dataframe' ] = pd.DataFrame( )
+	
+	if 'comparison_dataframe' not in st.session_state:
+		st.session_state[ 'comparison_dataframe' ] = pd.DataFrame( )
+	
+	if 'performance_dataframe' not in st.session_state:
+		st.session_state[ 'performance_dataframe' ] = pd.DataFrame( )
+	
+	if 'manifest_dataframe' not in st.session_state:
+		st.session_state[ 'manifest_dataframe' ] = pd.DataFrame( )
+	
+	if 'manifest_records' not in st.session_state:
+		st.session_state[ 'manifest_records' ] = [ ]
+	
+	if 'manifest_loaded' not in st.session_state:
+		st.session_state[ 'manifest_loaded' ] = False
+	
+	if 'manifest_signature' not in st.session_state:
+		st.session_state[ 'manifest_signature' ] = ''
+	
+	if 'manifest_file_name' not in st.session_state:
+		st.session_state[ 'manifest_file_name' ] = ''
+	
+	if 'current_manifest_record_index' not in st.session_state:
+		st.session_state[ 'current_manifest_record_index' ] = 0
+	
+	if 'json_report' not in st.session_state:
+		st.session_state[ 'json_report' ] = '{}'
+	
+	if 'markdown_report' not in st.session_state:
+		st.session_state[ 'markdown_report' ] = ''
+	
+	if 'verification_complete' not in st.session_state:
+		st.session_state[ 'verification_complete' ] = False
+	
+	if 'selected_report_index' not in st.session_state:
+		st.session_state[ 'selected_report_index' ] = 0
+	
+	if 'simple_mode' not in st.session_state:
+		st.session_state[ 'simple_mode' ] = True
+	
+	if 'high_contrast_mode' not in st.session_state:
+		st.session_state[ 'high_contrast_mode' ] = False
+	
+	if 'large_text_mode' not in st.session_state:
+		st.session_state[ 'large_text_mode' ] = False
+	
+	initialize_cav_form_state( )
+
+def clear_results( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Clear prior verification outputs while preserving current widget values.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	st.session_state[ 'batch_result' ] = BatchProcessingResult( )
+	st.session_state[ 'batch_report' ] = BatchVerificationReport( )
+	st.session_state[ 'summary_dataframe' ] = pd.DataFrame( )
+	st.session_state[ 'detail_dataframe' ] = pd.DataFrame( )
+	st.session_state[ 'comparison_dataframe' ] = pd.DataFrame( )
+	st.session_state[ 'performance_dataframe' ] = pd.DataFrame( )
+	st.session_state[ 'json_report' ] = '{}'
+	st.session_state[ 'markdown_report' ] = ''
+	st.session_state[ 'verification_complete' ] = False
+	st.session_state[ 'selected_report_index' ] = 0
+
+# ==========================================================================================
+# CAV Manifest State
+# ==========================================================================================
+
+def get_cav_form_defaults( ) -> Dict[ str, Any ]:
+	"""
+	
+		Purpose:
+		--------
+		Return default session-state values for the CAV application data form.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		Dict[str, Any]: Default CAV form values.
+		
+	"""
+	return {
+			'cav_file_name': '',
+			'cav_brand_name': '',
+			'cav_class_type': '',
+			'cav_beverage_type': BEVERAGE_TYPE_DISTILLED_SPIRITS,
+			'cav_abv': '',
+			'cav_proof': '',
+			'cav_net_contents': '',
+			'cav_producer_bottler': '',
+			'cav_imported': False,
+			'cav_importer': '',
+			'cav_country_of_origin': '',
+			'cav_government_warning': GOVERNMENT_WARNING_TEXT,
+			'cav_cola_id': '',
+			'cav_notes': ''
+	}
+
+def initialize_cav_form_state( ) -> None:
+	"""
+	Purpose:
+	--------
+	Initialize CAV application data form keys before widgets are rendered.
+
+	Parameters:
+	-----------
+	None
+
+	Returns:
+	--------
+	None
+	"""
+	defaults = get_cav_form_defaults( )
+	
+	for key, value in defaults.items( ):
+		if key not in st.session_state:
+			st.session_state[ key ] = value
+
+def clear_cav_form_state( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Clear CAV application form fields when the manifest CSV is unloaded.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	defaults = get_cav_form_defaults( )
+	
+	for key, value in defaults.items( ):
+		st.session_state[ key ] = value
+
+def clear_manifest_state( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Clear manifest records, navigation state, and loaded CAV form values.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	st.session_state[ 'manifest_dataframe' ] = pd.DataFrame( )
+	st.session_state[ 'manifest_records' ] = [ ]
+	st.session_state[ 'manifest_loaded' ] = False
+	st.session_state[ 'manifest_signature' ] = ''
+	st.session_state[ 'manifest_file_name' ] = ''
+	st.session_state[ 'current_manifest_record_index' ] = 0
+	
+	clear_cav_form_state( )
+
+def parse_optional_float( value: object ) -> float | None:
+	"""
+	
+		Purpose:
+		--------
+		Parse optional numeric text into a float value.
+	
+		Parameters:
+		-----------
+		value (object): Text, numeric, or empty value to parse.
+	
+		Returns:
+		--------
+		float | None: Parsed float value, or None when empty or invalid.
+	
+	"""
+	try:
+		if value is None:
+			return None
+		
+		text = str( value ).replace( '%', '' ).strip( )
+		
+		if not text:
+			return None
+		
+		return float( text )
+	except Exception:
+		return None
+
+def get_manifest_upload_signature( uploaded_manifest: object ) -> str:
+	"""
+		
+		Purpose:
+		--------
+		Create a stable signature for the uploaded manifest file.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+	
+		Returns:
+		--------
+		str: Manifest upload signature.
+	
+	"""
+	try:
+		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
+		
+		file_name = getattr( uploaded_manifest, 'name', '' )
+		file_size = getattr( uploaded_manifest, 'size', 0 )
+		
+		return f'{file_name}:{file_size}'
+	except Exception:
+		return ''
+
+def read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame:
+	"""
+	
+		Purpose:
+		--------
+		Read an uploaded manifest CSV using common encoding fallbacks.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Streamlit uploaded manifest object.
+	
+		Returns:
+		--------
+		pd.DataFrame: Parsed manifest DataFrame.
+		
+	"""
+	try:
+		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
+		
+		file_bytes = bytes( uploaded_manifest.getbuffer( ) )
+		encodings = [ 'utf-8-sig', 'utf-8', 'cp1252', 'latin1' ]
+		
+		for encoding in encodings:
+			try:
+				df_manifest = pd.read_csv( BytesIO( file_bytes ), encoding=encoding )
+				
+				if hasattr( uploaded_manifest, 'seek' ):
+					uploaded_manifest.seek( 0 )
+				
+				return df_manifest
+			except UnicodeDecodeError:
+				continue
+		
+		df_manifest = pd.read_csv( BytesIO( file_bytes ), encoding='latin1',
+			encoding_errors='replace' )
+		
+		if hasattr( uploaded_manifest, 'seek' ):
+			uploaded_manifest.seek( 0 )
+		
+		return df_manifest
+	except Exception:
+		return pd.DataFrame( )
+
+def get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[ Any ]:
+	"""
+		
+		Purpose:
+		--------
+		Convert an uploaded manifest DataFrame into navigable manifest records.
+	
+		Parameters:
+		-----------
+		df_manifest (pd.DataFrame): Uploaded manifest DataFrame.
+	
+		Returns:
+		--------
+		List[Any]: Parsed manifest records.
+	
+	"""
+	try:
+		if df_manifest is None or df_manifest.empty:
+			return [ ]
+		
+		manifest = BatchManifest( )
+		df_normalized = manifest.normalize_columns( df_manifest )
+		return manifest.dataframe_to_records( df_normalized )
+	except Exception:
+		return [ ]
+
+def get_record_value( record: object, field_name: str, default: object = '' ) -> object:
+	"""
+		
+		Purpose:
+		--------
+		Read a field value from a manifest record using attribute access.
+	
+		Parameters:
+		-----------
+		record (object): Manifest record.
+		field_name (str): Field name to read.
+		default (object): Default value returned when unavailable.
+	
+		Returns:
+		--------
+		object: Field value or default value.
+	
+	"""
+	try:
+		cfg.throw_if( 'record', record )
+		cfg.throw_if( 'field_name', field_name )
+		
+		return getattr( record, field_name, default )
+	except Exception:
+		return default
+
+def apply_manifest_record_to_form_state( record: object ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Write one manifest record into CAV application form session-state fields.
+	
+		Parameters:
+		-----------
+		record (object): Manifest record to display in the CAV form.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		cfg.throw_if( 'record', record )
+		
+		alcohol_content = get_record_value( record, 'alcohol_content', None )
+		proof = get_record_value( record, 'proof', None )
+		
+		st.session_state[ 'cav_file_name' ] = str( get_record_value( record, 'file_name', '' ) )
+		st.session_state[ 'cav_brand_name' ] = str( get_record_value( record, 'brand_name', '' ) )
+		st.session_state[ 'cav_class_type' ] = str( get_record_value( record, 'class_type', '' ) )
+		st.session_state[ 'cav_beverage_type' ] = str(
+			get_record_value( record, 'beverage_type', BEVERAGE_TYPE_DISTILLED_SPIRITS ) )
+		st.session_state[ 'cav_abv' ] = '' if alcohol_content is None else str( alcohol_content )
+		st.session_state[ 'cav_proof' ] = '' if proof is None else str( proof )
+		st.session_state[ 'cav_net_contents' ] = str(
+			get_record_value( record, 'net_contents', '' ) )
+		st.session_state[ 'cav_producer_bottler' ] = str(
+			get_record_value( record, 'producer_bottler', '' ) )
+		st.session_state[ 'cav_imported' ] = bool(
+			get_record_value( record, 'imported', False ) )
+		st.session_state[ 'cav_importer' ] = str( get_record_value( record, 'importer', '' ) )
+		st.session_state[ 'cav_country_of_origin' ] = str(
+			get_record_value( record, 'country_of_origin', '' ) )
+		st.session_state[ 'cav_government_warning' ] = str(
+			get_record_value( record, 'government_warning', GOVERNMENT_WARNING_TEXT ) )
+		st.session_state[ 'cav_cola_id' ] = str( get_record_value( record, 'cola_id', '' ) )
+		st.session_state[ 'cav_notes' ] = str( get_record_value( record, 'notes', '' ) )
+	except Exception:
+		return None
+
+def get_current_manifest_record( ) -> object | None:
+	"""
+		
+		Purpose:
+		--------
+		Return the currently selected manifest record.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		object | None: Current manifest record, or None when unavailable.
+		
+	"""
+	try:
+		records = st.session_state.get( 'manifest_records', [ ] )
+		
+		if not records:
+			return None
+		
+		index = int( st.session_state.get( 'current_manifest_record_index', 0 ) )
+		index = max( 0, min( index, len( records ) - 1 ) )
+		st.session_state[ 'current_manifest_record_index' ] = index
+		
+		return records[ index ]
+	except Exception:
+		return None
+
+def load_current_manifest_record( ) -> None:
+	"""
+			Purpose:
+		--------
+		Load the current manifest record into CAV application form fields.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+
+	
+	"""
+	try:
+		record = get_current_manifest_record( )
+		
+		if record:
+			apply_manifest_record_to_form_state( record )
+	except Exception:
+		return None
+
+def move_manifest_record( step: int ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Move the active manifest record pointer and load the selected record into the form.
+	
+		Parameters:
+		-----------
+		step (int): Relative movement amount.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		records = st.session_state.get( 'manifest_records', [ ] )
+		
+		if not records:
+			return None
+		
+		index = int( st.session_state.get( 'current_manifest_record_index', 0 ) )
+		index = max( 0, min( index + step, len( records ) - 1 ) )
+		st.session_state[ 'current_manifest_record_index' ] = index
+		
+		apply_manifest_record_to_form_state( records[ index ] )
+	except Exception:
+		return None
+
+def sync_manifest_upload_state( uploaded_manifest: object ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Synchronize manifest upload state, load records when a CSV is present, and clear CAV
+		form fields when the CSV is unloaded.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		initialize_cav_form_state( )
+		
+		if not uploaded_manifest:
+			if st.session_state.get( 'manifest_loaded', False ):
+				clear_manifest_state( )
+			
+			return None
+		
+		signature = get_manifest_upload_signature( uploaded_manifest )
+		current_signature = st.session_state.get( 'manifest_signature', '' )
+		
+		if signature == current_signature and st.session_state.get( 'manifest_loaded', False ):
+			return None
+		
+		df_manifest = read_manifest_upload_dataframe( uploaded_manifest )
+		records = get_manifest_records_from_dataframe( df_manifest )
+		
+		st.session_state[ 'manifest_dataframe' ] = df_manifest
+		st.session_state[ 'manifest_records' ] = records
+		st.session_state[ 'manifest_loaded' ] = True
+		st.session_state[ 'manifest_signature' ] = signature
+		st.session_state[ 'manifest_file_name' ] = getattr( uploaded_manifest, 'name', '' )
+		st.session_state[ 'current_manifest_record_index' ] = 0
+		
+		if records:
+			apply_manifest_record_to_form_state( records[ 0 ] )
+		else:
+			clear_cav_form_state( )
+	except Exception:
+		clear_manifest_state( )
+
+def display_manifest_record_navigation( key_prefix: str = 'cav_form' ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Display manifest record navigation controls for iterating through CSV records.
+	
+		Parameters:
+		-----------
+		key_prefix (str): Unique key prefix for Streamlit navigation buttons.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	records = st.session_state.get( 'manifest_records', [ ] )
+	
+	if not records:
+		return
+	
+	current_index = int( st.session_state.get( 'current_manifest_record_index', 0 ) )
+	total_records = len( records )
+	
+	st.caption( f'CAV manifest record {current_index + 1} of {total_records}' )
+	
+	previous_column, next_column, reload_column = st.columns( [ 0.30, 0.30, 0.40 ] )
+	
+	with previous_column:
+		st.button(
+			'Previous Record',
+			key=f'{key_prefix}_previous_record_button',
+			disabled=current_index <= 0,
+			use_container_width=True,
+			on_click=move_manifest_record,
+			args=(-1,)
+		)
+	
+	with next_column:
+		st.button(
+			'Next Record',
+			key=f'{key_prefix}_next_record_button',
+			disabled=current_index >= total_records - 1,
+			use_container_width=True,
+			on_click=move_manifest_record,
+			args=(1,)
+		)
+	
+	with reload_column:
+		st.button(
+			'Reload Current Record',
+			key=f'{key_prefix}_reload_current_record_button',
+			use_container_width=True,
+			on_click=load_current_manifest_record
+		)
+		
+# ==========================================================================================
+# Page Configuration
+# ==========================================================================================
+
+def get_configured_image_path( value: object ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Return a display-safe image path from a configured absolute or relative path value.
+	
+		Parameters:
+		-----------
+		value (object): Configured image path value.
+	
+		Returns:
+		--------
+		str: Existing image path, or an empty string when unavailable.
+		
+	"""
+	try:
+		if value is None:
+			return ''
+		
+		raw_value = str( value ).strip( )
+		
+		if not raw_value:
+			return ''
+		
+		image_path = Path( raw_value )
+		
+		if image_path.is_absolute( ) and image_path.exists( ):
+			return str( image_path )
+		
+		candidate_paths = [
+				Path.cwd( ) / image_path,
+				cfg.ROOT_DIR / image_path,
+				Path( __file__ ).resolve( ).parent / image_path,
+				Path( __file__ ).resolve( ).parent.parent / image_path
+		]
+		
+		for candidate_path in candidate_paths:
+			if candidate_path.exists( ):
+				return str( candidate_path.resolve( ) )
+		
+		return ''
+	except Exception:
+		return ''
+
+def get_accessibility_css( ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Return accessibility CSS overrides based on current sidebar settings.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		str: CSS override block.
+		
+	"""
+	try:
+		large_text = bool( st.session_state.get( 'large_text_mode', False ) )
+		high_contrast = bool( st.session_state.get( 'high_contrast_mode', False ) )
+		
+		large_text_css = ''
+		high_contrast_css = ''
+		
+		if large_text:
+			large_text_css = """
+			html, body, [class*="css"] {
+				font-size: 18px !important;
+			}
+
+			div.stButton > button,
+			div.stDownloadButton > button {
+				min-height: 3.15rem !important;
+				font-size: 1.05rem !important;
+			}
+
+			div[data-testid="stTextInput"] input,
+			div[data-testid="stNumberInput"] input,
+			textarea,
+			div[data-baseweb="select"] > div {
+				font-size: 1.05rem !important;
+				min-height: 3.00rem !important;
+			}
+
+			.fiddy-title {
+				font-size: 2.20rem !important;
+			}
+
+			.fiddy-panel-title {
+				font-size: 1.30rem !important;
+			}
+
+			.fiddy-panel-text {
+				font-size: 1.08rem !important;
+			}
+			"""
+		
+		if high_contrast:
+			high_contrast_css = """
+			section[data-testid="stSidebar"] {
+				background: #000000 !important;
+				border-right: 2px solid #FFFFFF !important;
+			}
+
+			.block-container {
+				background: #000000 !important;
+			}
+
+			.fiddy-header,
+			.fiddy-panel {
+				background: #000000 !important;
+				border: 2px solid #FFFFFF !important;
+			}
+
+			.fiddy-title,
+			.fiddy-panel-title,
+			label,
+			p,
+			span,
+			div {
+				color: #FFFFFF !important;
+			}
+
+			.fiddy-eyebrow {
+				color: #00A3FF !important;
+			}
+
+			.fiddy-subtitle,
+			.fiddy-panel-text {
+				color: #FFFFFF !important;
+			}
+
+			div.stButton > button,
+			div.stDownloadButton > button {
+				background: #000000 !important;
+				border: 2px solid #FFFFFF !important;
+				color: #FFFFFF !important;
+			}
+
+			div.stButton > button:hover,
+			div.stDownloadButton > button:hover {
+				background: #003B73 !important;
+				border: 2px solid #00A3FF !important;
+				color: #FFFFFF !important;
+			}
+
+			div[data-testid="stTextInput"] input,
+			div[data-testid="stNumberInput"] input,
+			textarea,
+			div[data-baseweb="select"] > div {
+				background-color: #000000 !important;
+				border: 2px solid #FFFFFF !important;
+				color: #FFFFFF !important;
+			}
+			"""
+		
+		return f"""
+		<style>
+			{large_text_css}
+			{high_contrast_css}
+		</style>
+		"""
+	except Exception:
+		return ''
+	
+def configure_page( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Configure the Streamlit page title, favicon, layout, base styling, and accessibility
+		overrides.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	favicon_path = get_configured_image_path( getattr( cfg, 'FAVICON', '' ) )
+	page_icon = favicon_path if favicon_path else getattr( cfg, 'APP_ICON', '🥃' )
+	
+	st.set_page_config( page_title=cfg.APP_TITLE, page_icon=page_icon,
+		layout='wide', initial_sidebar_state='expanded' )
+	
+	st.markdown(
+		"""
+		<style>
+			.block-container {
+				padding-top: 1.8rem;
+				padding-bottom: 2.0rem;
+				max-width: 1320px;
+			}
+
+			section[data-testid="stSidebar"] {
+				background: #414141;
+				border-right: 1px solid #2A2A2D;
+			}
+
+			section[data-testid="stSidebar"] img {
+				max-width: 190px;
+				margin: 0 auto 1.0rem auto;
+				display: block;
+			}
+
+			div[data-testid="stSidebarContent"] {
+				padding-top: 1.2rem;
+			}
+
+			div[data-testid="stTextInput"] input,
+			div[data-testid="stNumberInput"] input,
+			textarea,
+			div[data-baseweb="select"] > div {
+				border-radius: 0.55rem !important;
+				border: 1px solid #2F2F32 !important;
+				background-color: #414141 !important;
+			}
+
+			div[data-testid="stFileUploader"] section {
+				border-radius: 0.85rem;
+				border: 1px dashed #656569;
+				background: linear-gradient(180deg, #202022 0%, #18181A 100%);
+				padding: 1.1rem;
+			}
+
+			div.stButton > button {
+				border-radius: 0.55rem;
+				border: 1px solid #007AFC;
+				background: linear-gradient(180deg, #141414 0%, #292929 100%);
+				color: #FFFFFF;
+				font-weight: 700;
+				min-height: 2.65rem;
+			}
+
+			div.stButton > button:hover {
+				border: 1px solid #007AFC;
+				background: linear-gradient(180deg, #292929 0%, #023B78 100%);
+				color: #FFFFFF;
+			}
+
+			div.stDownloadButton > button {
+				border-radius: 0.55rem;
+				border: 1px solid #3A3A3D;
+				background: #292929;
+				color: #F5F5F5;
+				font-weight: 650;
+				min-height: 2.5rem;
+			}
+
+			div.stDownloadButton > button:hover {
+				border: 1px solid #023B78;
+				color: #FFFFFF;
+			}
+
+			.fiddy-header {
+				border-bottom: 1px solid #2A2A2D;
+				margin-bottom: 1.1rem;
+				padding-bottom: 0.85rem;
+			}
+
+			.fiddy-eyebrow {
+				color: #292929;
+				font-size: 0.74rem;
+				font-weight: 800;
+				letter-spacing: 0.15rem;
+				text-transform: uppercase;
+				margin-bottom: 0.25rem;
+				line-height: 1.4;
+			}
+
+			.fiddy-title {
+				font-size: 1.85rem;
+				line-height: 1.25;
+				font-weight: 850;
+				color: #007AFC;
+				margin-bottom: 0.30rem;
+			}
+
+			.fiddy-subtitle {
+				font-size: 0.96rem;
+				color: #878787;
+				line-height: 1.45;
+				max-width: 1000px;
+			}
+
+			.fiddy-panel {
+				border: 1px solid #343437;
+				border-radius: 0.85rem;
+				background: linear-gradient(180deg, #141414 0%, #282828 100%);
+				padding: 1.05rem 1.10rem;
+				margin-bottom: 1.0rem;
+			}
+
+			.fiddy-panel-title {
+				color: #F5F5F5;
+				font-size: 1.08rem;
+				font-weight: 800;
+				margin-bottom: 0.30rem;
+			}
+
+			.fiddy-panel-text {
+				color: #C8C8C8;
+				font-size: 0.93rem;
+				line-height: 1.50;
+			}
+
+			.status-pass {
+				color: #75D68C;
+				font-weight: 800;
+			}
+
+			.status-warning {
+				color: #FFD166;
+				font-weight: 800;
+			}
+
+			.status-fail {
+				color: #FF6B6B;
+				font-weight: 800;
+			}
+
+			.status-review {
+				color: #8AB4F8;
+				font-weight: 800;
+			}
+
+			div[data-testid="stMetric"] {
+				border: 1px solid #2A2A2D;
+				border-radius: 0.85rem;
+				background: #171717;
+				padding: 0.75rem 0.85rem;
+			}
+		</style>
+		""",
+		unsafe_allow_html=True
+	)
+	
+	st.markdown( get_accessibility_css( ), unsafe_allow_html=True )
+
+# ==========================================================================================
+# Sidebar / Manual Input
+# ==========================================================================================
+
+def display_sidebar_header( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display the configured application logo and collapsible reviewer workflow controls in the
+		sidebar.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	logo_path = get_configured_image_path( getattr( cfg, 'LOGO', '' ) )
+	
+	if logo_path:
+		left_column, center_column, right_column = st.sidebar.columns( [ 0.15, 0.70, 0.15 ] )
+		
+		with center_column:
+			st.image(
+				logo_path,
+				width=90
+			)
+	else:
+		st.sidebar.caption( 'Logo file not found. Check cfg.LOGO path.' )
+	
+	st.sidebar.divider( )
+	
+	with st.sidebar.expander( 'Reviewer Controls', expanded=False ):
+		st.radio(
+			'Review Mode',
+			options=[
+					'Simple',
+					'Advanced'
+			],
+			index=0 if st.session_state.get( 'simple_mode', True ) else 1,
+			key='review_mode',
+			help='Simple mode hides technical OCR, diagnostics, rule detail, and methodology sections.'
+		)
+		
+		st.session_state[ 'simple_mode' ] = st.session_state[ 'review_mode' ] == 'Simple'
+		
+		st.toggle(
+			'High Contrast',
+			key='high_contrast_mode',
+			help='Increase contrast for readability.'
+		)
+		
+		st.toggle(
+			'Large Text',
+			key='large_text_mode',
+			help='Increase text and control sizes.'
+		)
+		
+		mode_text = 'Simple Mode: technical detail hidden.' if st.session_state[ 'simple_mode' ] \
+			else 'Advanced Mode: technical detail visible.'
+		
+		st.caption( mode_text )
+
+def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
+	"""
+	
+		Purpose:
+		--------
+		Display a compact manual CAV form only when no manifest is uploaded and return application
+			values for manual artwork verification.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+	
+		Returns:
+		--------
+		LabelApplication: Expected label application values for manual review.
+		
+	"""
+	initialize_cav_form_state( )
+	
+	if uploaded_manifest:
+		return LabelApplication( )
+	
+	with st.expander( 'Manual CAV Values', expanded=True ):
+		st.caption( 'Complete these fields only when reviewing artwork without a manifest CSV.' )
+		
+		left_column, right_column = st.columns( [ 0.50, 0.50 ] )
+		
+		with left_column:
+			st.text_input(
+				'Brand Name',
+				key='cav_brand_name',
+				help='Used for fuzzy matching against the brand name extracted from the label.'
+			)
+			
+			st.text_input(
+				'Class / Type',
+				key='cav_class_type',
+				help='Product class/type designation.'
+			)
+			
+			st.text_input(
+				'ABV',
+				key='cav_abv',
+				help='Alcohol by volume value used for numeric comparison.'
+			)
+		
+		with right_column:
+			st.text_input(
+				'Net Contents',
+				key='cav_net_contents',
+				help='Container volume used for comparison.'
+			)
+			
+			st.text_input(
+				'Producer / Bottler',
+				key='cav_producer_bottler',
+				help='Producer, bottler, brewer, vintner, importer, or responsible party text.'
+			)
+			
+			st.text_input(
+				'Country of Origin',
+				key='cav_country_of_origin',
+				help='Country of origin value when applicable.'
+			)
+		
+		st.text_area(
+			'Government Warning',
+			key='cav_government_warning',
+			height=95,
+			help='Expected government warning text. Exact-match review is required.'
+		)
+	
+	alcohol_content = parse_optional_float( st.session_state.get( 'cav_abv', '' ) )
+	proof = alcohol_content * 2.0 if alcohol_content is not None else None
+	
+	return LabelApplication(
+		brand_name=st.session_state.get( 'cav_brand_name', '' ),
+		class_type=st.session_state.get( 'cav_class_type', '' ),
+		beverage_type=st.session_state.get(
+			'cav_beverage_type',
+			BEVERAGE_TYPE_DISTILLED_SPIRITS
+		),
+		alcohol_content=alcohol_content,
+		proof=proof,
+		net_contents=st.session_state.get( 'cav_net_contents', '' ),
+		producer_bottler=st.session_state.get( 'cav_producer_bottler', '' ),
+		imported=bool( st.session_state.get( 'cav_imported', False ) ),
+		importer=st.session_state.get( 'cav_importer', '' ),
+		country_of_origin=st.session_state.get( 'cav_country_of_origin', '' ),
+		government_warning=st.session_state.get( 'cav_government_warning', '' ),
+		cola_id=st.session_state.get( 'cav_cola_id', '' ),
+		notes=st.session_state.get( 'cav_notes', '' )
+	)
+
+def create_manual_label_application( ) -> LabelApplication:
+	"""
+	
+		Purpose:
+		--------
+		Display the full reviewer-facing CAV application data form and return application values.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		LabelApplication: Expected label application values entered or loaded by the user.
+		
+	"""
+	initialize_cav_form_state( )
+	
+	st.markdown(
+		"""
+		<div class="fiddy-panel">
+			<div class="fiddy-panel-title">CAV Application Data</div>
+			<div class="fiddy-panel-text">
+				Review, paste, or load the expected CAV application values. These values are
+				compared against the extracted label artwork.
+			</div>
+		</div>
+		""",
+		unsafe_allow_html=True
+	)
+	
+	display_manifest_record_navigation( key_prefix='cav_form' )
+	
+	left_column, right_column = st.columns( [ 0.50, 0.50 ] )
+	
+	with left_column:
+		st.text_input(
+			'Manifest File Name',
+			key='cav_file_name',
+			help='Expected uploaded label artwork filename from the CAV manifest.'
+		)
+		
+		st.text_input(
+			'Brand Name',
+			key='cav_brand_name',
+			help='Used for fuzzy matching against the brand name extracted from the label.'
+		)
+		
+		st.text_input(
+			'Class / Type',
+			key='cav_class_type',
+			help='Spirits, wine, beer, or other product class/type designation.'
+		)
+		
+		st.text_input(
+			'ABV',
+			key='cav_abv',
+			help='Alcohol by volume value used for numeric comparison.'
+		)
+		
+		st.text_input(
+			'Net Contents',
+			key='cav_net_contents',
+			help='Container volume used for label-to-application comparison.'
+		)
+	
+	with right_column:
+		st.selectbox(
+			'Beverage Type',
+			options=BEVERAGE_TYPES,
+			key='cav_beverage_type',
+			help='Product category used to guide label review context.'
+		)
+		
+		st.text_input(
+			'Producer / Bottler',
+			key='cav_producer_bottler',
+			help='Producer, bottler, brewer, vintner, importer, or responsible party text.'
+		)
+		
+		st.text_input(
+			'Country of Origin',
+			key='cav_country_of_origin',
+			help='Country of origin value used for comparison when applicable.'
+		)
+		
+		st.checkbox(
+			'Imported Product',
+			key='cav_imported',
+			help='Select when importer and country-of-origin review should apply.'
+		)
+		
+		st.text_input(
+			'Importer',
+			key='cav_importer',
+			help='Importer name required for imported products.'
+		)
+	
+	st.text_area(
+		'Government Warning',
+		key='cav_government_warning',
+		height=130,
+		help='Expected government warning text. Exact-match review is required.'
+	)
+	
+	st.text_area(
+		'Reviewer Notes',
+		key='cav_notes',
+		height=85,
+		help='Optional notes for reviewer context.'
+	)
+	
+	alcohol_content = parse_optional_float( st.session_state.get( 'cav_abv', '' ) )
+	proof = parse_optional_float( st.session_state.get( 'cav_proof', '' ) )
+	
+	if proof is None and alcohol_content is not None:
+		proof = alcohol_content * 2.0
+	
+	return LabelApplication(
+		brand_name=st.session_state.get( 'cav_brand_name', '' ),
+		class_type=st.session_state.get( 'cav_class_type', '' ),
+		beverage_type=st.session_state.get(
+			'cav_beverage_type',
+			BEVERAGE_TYPE_DISTILLED_SPIRITS
+		),
+		alcohol_content=alcohol_content,
+		proof=proof,
+		net_contents=st.session_state.get( 'cav_net_contents', '' ),
+		producer_bottler=st.session_state.get( 'cav_producer_bottler', '' ),
+		imported=bool( st.session_state.get( 'cav_imported', False ) ),
+		importer=st.session_state.get( 'cav_importer', '' ),
+		country_of_origin=st.session_state.get( 'cav_country_of_origin', '' ),
+		government_warning=st.session_state.get( 'cav_government_warning', '' ),
+		cola_id=st.session_state.get( 'cav_cola_id', '' ),
+		notes=st.session_state.get( 'cav_notes', '' )
+	)
+
+# ==========================================================================================
+# Header / Status Helpers
+# ==========================================================================================
+
+def display_header( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display a compact task-focused application header without duplicating the sidebar logo.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	st.markdown(
+		f"""
+        <div class="fiddy-header">
+            <div class="fiddy-eyebrow">Alcohol Label Review Workspace</div>
+            <div class="fiddy-title">{APP_DISPLAY_NAME}</div>
+            <div class="fiddy-subtitle">
+                Upload an application manifest and matching label artwork, run local OCR/rule
+                verification, review flagged items, and export batch results.
+            </div>
+        </div>
+        """,
+		unsafe_allow_html=True
+	)
+
+def get_status_html( status: str ) -> str:
+	"""
+		
+		Purpose:
+		--------
+		Return styled HTML for a verification status value.
+	
+		Parameters:
+		-----------
+		status (str): Verification status.
+	
+		Returns:
+		--------
+		str: HTML status markup.
+		
+	"""
+	try:
+		cfg.throw_if( 'status', status )
+		
+		if status == STATUS_PASS:
+			return f'<span class="status-pass">{status}</span>'
+		
+		if status == STATUS_WARNING:
+			return f'<span class="status-warning">{status}</span>'
+		
+		if status == STATUS_FAIL:
+			return f'<span class="status-fail">{status}</span>'
+		
+		if status == STATUS_REVIEW:
+			return f'<span class="status-review">{status}</span>'
+		
+		return status
+	except Exception:
+		return STATUS_REVIEW
+
+def get_batch_metrics( batch_report: BatchVerificationReport,
+		batch_result: BatchProcessingResult ) -> Tuple[ int, int, int, int, int ]:
+	"""
+	Purpose:
+	--------
+	Calculate top-level batch metrics for display.
+
+	Parameters:
+	-----------
+	batch_report (BatchVerificationReport): Batch verification report.
+	batch_result (BatchProcessingResult): Batch processing result.
+
+	Returns:
+	--------
+	Tuple[int, int, int, int, int]: Files, failures, warnings, reviews, and SLA breaches.
+	"""
+	try:
+		cfg.throw_if( 'batch_report', batch_report )
+		cfg.throw_if( 'batch_result', batch_result )
+		
+		return (
+				batch_report.total_files( ),
+				batch_report.total_failures( ),
+				batch_report.total_warnings( ),
+				batch_report.total_reviews( ),
+				batch_result.performance_summary.sla_breach_count
+		)
+	except Exception:
+		return 0, 0, 0, 0, 0
+
+# ==========================================================================================
+# Upload / Save Helpers
+# ==========================================================================================
+
+def get_supported_upload_type_values( ) -> List[ str ]:
+	"""
+	
+		Purpose:
+		--------
+		Return Streamlit file-uploader type values including supported artwork and ZIP archives.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		List[str]: Supported uploader type values.
+		
+	"""
+	try:
+		values = list( SUPPORTED_UPLOAD_TYPES )
+		
+		if 'zip' not in values:
+			values.append( 'zip' )
+		
+		return values
+	except Exception:
+		return [
+				'png',
+				'jpg',
+				'jpeg',
+				'webp',
+				'bmp',
+				'tif',
+				'tiff',
+				'pdf',
+				'zip'
+		]
+
+def is_zip_upload( uploaded_file: object ) -> bool:
+	"""
+	
+		Purpose:
+		--------
+		Determine whether an uploaded file is a ZIP archive.
+	
+		Parameters:
+		-----------
+		uploaded_file (object): Streamlit uploaded file object.
+	
+		Returns:
+		--------
+		bool: True when the uploaded file appears to be a ZIP archive.
+		
+	"""
+	try:
+		cfg.throw_if( 'uploaded_file', uploaded_file )
+		
+		file_name = str( getattr( uploaded_file, 'name', '' ) ).lower( )
+		return Path( file_name ).suffix.lower( ) == '.zip'
+	except Exception:
+		return False
+
+def is_supported_artwork_name( file_name: str ) -> bool:
+	"""
+	
+		Purpose:
+		--------
+		Determine whether a file name has a supported image or PDF extension.
+	
+		Parameters:
+		-----------
+		file_name (str): File name to inspect.
+	
+		Returns:
+		--------
+		bool: True when the file extension is supported for OCR.
+		
+	"""
+	try:
+		cfg.throw_if( 'file_name', file_name )
+		
+		file_type = Path( file_name ).suffix.lower( ).replace( '.', '' )
+		return file_type in list( SUPPORTED_UPLOAD_TYPES )
+	except Exception:
+		return False
+
+def is_safe_archive_member_name( member_name: str ) -> bool:
+	"""
+	
+		Purpose:
+		--------
+		Determine whether a ZIP member name is safe to extract.
+	
+		Parameters:
+		-----------
+		member_name (str): ZIP member path.
+	
+		Returns:
+		--------
+		bool: True when the member path is safe and not a directory/system artifact.
+		
+	"""
+	try:
+		cfg.throw_if( 'member_name', member_name )
+		
+		path = PurePosixPath( member_name )
+		parts = path.parts
+		
+		if not parts:
+			return False
+		
+		if member_name.endswith( '/' ):
+			return False
+		
+		if path.is_absolute( ):
+			return False
+		
+		if '..' in parts:
+			return False
+		
+		if parts[ 0 ] == '__MACOSX':
+			return False
+		
+		if Path( member_name ).name.startswith( '.' ):
+			return False
+		
+		return bool( Path( member_name ).name )
+	except Exception:
+		return False
+
+def get_archive_member_file_names( uploaded_file: object ) -> List[ str ]:
+	"""
+		
+		Purpose:
+		--------
+		Return supported label artwork file names contained in an uploaded ZIP archive.
+	
+		Parameters:
+		-----------
+		uploaded_file (object): Streamlit uploaded ZIP file.
+	
+		Returns:
+		--------
+		List[str]: Supported ZIP member basenames.
+	
+	"""
+	try:
+		cfg.throw_if( 'uploaded_file', uploaded_file )
+		
+		file_names = [ ]
+		file_bytes = bytes( uploaded_file.getbuffer( ) )
+		
+		with zipfile.ZipFile( BytesIO( file_bytes ) ) as archive:
+			for info in archive.infolist( ):
+				member_name = info.filename
+				
+				if not is_safe_archive_member_name( member_name ):
+					continue
+				
+				member_file_name = Path( member_name ).name
+				
+				if is_supported_artwork_name( member_file_name ):
+					file_names.append( member_file_name )
+		
+		return file_names
+	except Exception:
+		return [ ]
+
+def save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[ Path ]:
+	"""
+	
+		Purpose:
+		--------
+		Safely extract supported label artwork files from a ZIP archive into a temporary directory.
+	
+		Parameters:
+		-----------
+		uploaded_file (object): Streamlit uploaded ZIP file.
+		temp_dir (str): Temporary extraction directory.
+	
+		Returns:
+		--------
+		List[Path]: Extracted image/PDF file paths.
+		
+	"""
+	file_paths = [ ]
+	
+	try:
+		cfg.throw_if( 'uploaded_file', uploaded_file )
+		cfg.throw_if( 'temp_dir', temp_dir )
+		
+		root_path = Path( temp_dir ).resolve( )
+		file_bytes = bytes( uploaded_file.getbuffer( ) )
+		
+		with zipfile.ZipFile( BytesIO( file_bytes ) ) as archive:
+			for info in archive.infolist( ):
+				member_name = info.filename
+				
+				if not is_safe_archive_member_name( member_name ):
+					continue
+				
+				member_file_name = Path( member_name ).name
+				
+				if not is_supported_artwork_name( member_file_name ):
+					continue
+				
+				output_path = (root_path / member_file_name).resolve( )
+				
+				if root_path not in output_path.parents and output_path != root_path:
+					continue
+				
+				output_path.write_bytes( archive.read( info ) )
+				file_paths.append( output_path )
+		
+		return file_paths
+	except Exception as e:
+		st.warning( f'Unable to extract ZIP archive {getattr( uploaded_file, "name", "" )}: {e}' )
+		return file_paths
+
+def save_uploaded_files( uploaded_files: List[ object ], temp_dir: str ) -> List[ Path ]:
+	"""
+	
+		Purpose:
+		--------
+		Save uploaded label artwork files and safely extract supported ZIP archive contents to a
+		temporary directory for OCR processing.
+	
+		Parameters:
+		-----------
+		uploaded_files (List[object]): Streamlit uploaded file objects.
+		temp_dir (str): Temporary directory path.
+	
+		Returns:
+		--------
+		List[Path]: Paths to temporary image/PDF files.
+		
+	"""
+	file_paths = [ ]
+	
+	try:
+		cfg.throw_if( 'uploaded_files', uploaded_files )
+		cfg.throw_if( 'temp_dir', temp_dir )
+		
+		root_path = Path( temp_dir ).resolve( )
+		
+		for uploaded_file in uploaded_files:
+			if is_zip_upload( uploaded_file ):
+				file_paths.extend( save_zip_artwork_files( uploaded_file, temp_dir ) )
+				continue
+			
+			file_name = Path( uploaded_file.name ).name
+			
+			if not is_supported_artwork_name( file_name ):
+				continue
+			
+			file_path = (root_path / file_name).resolve( )
+			
+			if root_path not in file_path.parents and file_path != root_path:
+				continue
+			
+			file_path.write_bytes( uploaded_file.getbuffer( ) )
+			file_paths.append( file_path )
+		
+		return file_paths
+	except Exception as e:
+		st.error( f'Unable to save uploaded files: {e}' )
+		return file_paths
+
+def save_manifest_file( uploaded_manifest: object, temp_dir: str ) -> Path:
+	"""
+	Purpose:
+	--------
+	Save an uploaded manifest CSV to a temporary directory.
+
+	Parameters:
+	-----------
+	uploaded_manifest (object): Streamlit uploaded manifest object.
+	temp_dir (str): Temporary directory path.
+
+	Returns:
+	--------
+	Path: Saved manifest path.
+	"""
+	try:
+		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
+		cfg.throw_if( 'temp_dir', temp_dir )
+		
+		manifest_path = Path( temp_dir ) / uploaded_manifest.name
+		manifest_path.write_bytes( uploaded_manifest.getbuffer( ) )
+		
+		return manifest_path
+	except Exception:
+		return Path( '' )
+
+def create_uploaded_file_dataframe( uploaded_files: List[ object ] ) -> pd.DataFrame:
+	"""
+		
+		Purpose:
+		--------
+		Create a display table for uploaded label artwork and supported ZIP archive contents.
+	
+		Parameters:
+		-----------
+		uploaded_files (List[object]): Uploaded label files.
+	
+		Returns:
+		--------
+		pd.DataFrame: Uploaded file summary.
+	
+	"""
+	try:
+		records = [ ]
+		
+		for uploaded_file in uploaded_files:
+			if is_zip_upload( uploaded_file ):
+				file_bytes = bytes( uploaded_file.getbuffer( ) )
+				
+				with zipfile.ZipFile( BytesIO( file_bytes ) ) as archive:
+					for info in archive.infolist( ):
+						member_name = info.filename
+						
+						if not is_safe_archive_member_name( member_name ):
+							continue
+						
+						member_file_name = Path( member_name ).name
+						
+						if not is_supported_artwork_name( member_file_name ):
+							continue
+						
+						records.append(
+							{
+									'Source': uploaded_file.name,
+									'File Name': member_file_name,
+									'Size KB': round( info.file_size / 1024.0, 2 ),
+									'Type': Path( member_file_name ).suffix.lower( )
+									.replace( '.', '' ),
+									'Input Type': 'ZIP Member'
+							}
+						)
+				
+				continue
+			
+			records.append(
+				{
+						'Source': uploaded_file.name,
+						'File Name': uploaded_file.name,
+						'Size KB': round( len( uploaded_file.getbuffer( ) ) / 1024.0, 2 ),
+						'Type': Path( uploaded_file.name ).suffix.lower( ).replace( '.', '' ),
+						'Input Type': 'Uploaded File'
+				}
+			)
+		
+		return pd.DataFrame( records )
+	except Exception:
+		return pd.DataFrame(
+			columns=[
+					'Source',
+					'File Name',
+					'Size KB',
+					'Type',
+					'Input Type'
+			]
+		)
+	
+# ==========================================================================================
+# Verification Actions
+# ==========================================================================================
+
+@st.cache_resource( show_spinner=False )
+def load_batch_processor( max_workers: int, sla_seconds: float ) -> BatchProcessor:
+	"""
+	Purpose:
+	--------
+	Load and cache the batch processor resource for Streamlit execution.
+
+	Parameters:
+	-----------
+	max_workers (int): Maximum number of batch worker threads.
+	sla_seconds (float): Per-label SLA threshold in seconds.
+
+	Returns:
+	--------
+	BatchProcessor: Cached batch processor.
+	"""
+	return BatchProcessor( max_workers=max_workers, sla_seconds=sla_seconds )
+
+def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: List[ object ],
+		max_workers: int, sla_seconds: float ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Run manifest-driven batch verification for uploaded label artwork.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded application manifest CSV.
+		uploaded_files (List[object]): Uploaded label artwork files.
+		max_workers (int): Maximum number of worker threads.
+		sla_seconds (float): Per-label SLA threshold.
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	try:
+		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
+		cfg.throw_if( 'uploaded_files', uploaded_files )
+		
+		writer = ReportWriter( )
+		progress_bar = st.progress( 0 )
+		status_text = st.empty( )
+		
+		with tempfile.TemporaryDirectory( ) as temp_dir:
+			manifest_path = save_manifest_file( uploaded_manifest, temp_dir )
+			file_paths = save_uploaded_files( uploaded_files, temp_dir )
+			processor = load_batch_processor( max_workers, sla_seconds )
+			
+			def update_progress( completed: int, total: int, file_name: str ) -> None:
+				"""
+				
+					Purpose:
+					--------
+					Update Streamlit progress from the batch processor.
+	
+					Parameters:
+					-----------
+					completed (int): Completed file count.
+					total (int): Total file count.
+					file_name (str): Current file name.
+	
+					Returns:
+					--------
+					None
+					
+				"""
+				percent = int( completed / total * 100 ) if total else 0
+				progress_bar.progress( min( 100, percent ) )
+				status_text.info( f'Processed {completed} of {total}: {file_name}' )
+			
+			result = processor.process_manifest_csv(
+				manifest_path=manifest_path,
+				file_paths=file_paths,
+				progress_callback=update_progress
+			)
+		
+		df_summary = writer.batch_to_summary_dataframe( result.batch_report )
+		df_details = writer.batch_to_detail_dataframe( result.batch_report )
+		df_comparison = create_batch_comparison_dataframe( result.batch_report )
+		df_performance = pd.DataFrame(
+			[
+					item.to_record( )
+					for item in result.performance_results
+			]
+		)
+		
+		st.session_state[ 'batch_result' ] = result
+		st.session_state[ 'batch_report' ] = result.batch_report
+		st.session_state[ 'summary_dataframe' ] = df_summary
+		st.session_state[ 'detail_dataframe' ] = df_details
+		st.session_state[ 'comparison_dataframe' ] = df_comparison
+		st.session_state[ 'performance_dataframe' ] = df_performance
+		st.session_state[ 'json_report' ] = writer.batch_to_json( result.batch_report )
+		st.session_state[ 'markdown_report' ] = writer.batch_to_markdown( result.batch_report )
+		st.session_state[ 'verification_complete' ] = True
+		st.session_state[ 'selected_report_index' ] = 0
+		
+		progress_bar.progress( 100 )
+		status_text.success( 'Batch verification complete.' )
+	except Exception as e:
+		st.error( f'Batch verification failed: {e}' )
+		st.session_state[ 'verification_complete' ] = False
+
+def run_manual_fallback_verification( application: LabelApplication,
+		uploaded_files: List[ object ] ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Run single-application fallback verification when no manifest is supplied.
+	
+		Parameters:
+		-----------
+		application (LabelApplication): Manual expected application values.
+		uploaded_files (List[object]): Uploaded label artwork files.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		cfg.throw_if( 'application', application )
+		cfg.throw_if( 'uploaded_files', uploaded_files )
+		
+		verifier = AlcoholLabelVerifier( )
+		writer = ReportWriter( )
+		
+		with tempfile.TemporaryDirectory( ) as temp_dir:
+			file_paths = save_uploaded_files( uploaded_files, temp_dir )
+			batch_report = verifier.verify_files( application, file_paths )
+		
+		df_summary = writer.batch_to_summary_dataframe( batch_report )
+		df_details = writer.batch_to_detail_dataframe( batch_report )
+		df_comparison = create_batch_comparison_dataframe( batch_report )
+		
+		result = BatchProcessingResult(
+			batch_report=batch_report,
+			processed_files=[
+					report.file_name
+					for report in batch_report.reports
+			]
+		)
+		
+		st.session_state[ 'batch_result' ] = result
+		st.session_state[ 'batch_report' ] = batch_report
+		st.session_state[ 'summary_dataframe' ] = df_summary
+		st.session_state[ 'detail_dataframe' ] = df_details
+		st.session_state[ 'comparison_dataframe' ] = df_comparison
+		st.session_state[ 'performance_dataframe' ] = pd.DataFrame( )
+		st.session_state[ 'json_report' ] = writer.batch_to_json( batch_report )
+		st.session_state[ 'markdown_report' ] = writer.batch_to_markdown( batch_report )
+		st.session_state[ 'verification_complete' ] = True
+		st.session_state[ 'selected_report_index' ] = 0
+	except Exception as e:
+		st.error( f'Manual fallback verification failed: {e}' )
+		st.session_state[ 'verification_complete' ] = False
+
+# ==========================================================================================
+# Processing Controller
+# ==========================================================================================
+
+def get_uploaded_file_names( uploaded_files: List[ object ] ) -> List[ str ]:
+	"""
+	
+		Purpose:
+		--------
+		Return uploaded label artwork file names, including supported files inside ZIP archives.
+	
+		Parameters:
+		-----------
+		uploaded_files (List[object]): Uploaded label artwork files.
+	
+		Returns:
+		--------
+		List[str]: Uploaded or archived artwork file names.
+	
+	"""
+	try:
+		if not uploaded_files:
+			return [ ]
+		
+		file_names = [ ]
+		
+		for uploaded_file in uploaded_files:
+			if is_zip_upload( uploaded_file ):
+				file_names.extend( get_archive_member_file_names( uploaded_file ) )
+				continue
+			
+			file_name = getattr( uploaded_file, 'name', '' )
+			
+			if file_name and is_supported_artwork_name( file_name ):
+				file_names.append( file_name )
+		
+		return file_names
+	except Exception:
+		return [ ]
+
+def get_manifest_expected_file_names( ) -> List[ str ]:
+	"""
+	
+		Purpose:
+		--------
+		Return expected label artwork file names from the loaded manifest records.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		List[str]: Expected manifest file names.
+		
+	"""
+	try:
+		records = st.session_state.get( 'manifest_records', [ ] )
+		
+		if not records:
+			return [ ]
+		
+		file_names = [ ]
+		
+		for record in records:
+			file_name = str( get_record_value( record, 'file_name', '' ) ).strip( )
+			
+			if file_name:
+				file_names.append( file_name )
+		
+		return file_names
+	except Exception:
+		return [ ]
+
+def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ str, object ]:
+	"""
+	
+		Purpose:
+		--------
+		Compare manifest expected file names against uploaded label artwork file names.
+	
+		Parameters:
+		-----------
+		uploaded_files (List[object]): Uploaded label artwork files.
+	
+		Returns:
+		--------
+		Dict[str, object]: Manifest/upload file matching summary.
+		
+	"""
+	try:
+		expected_names = get_manifest_expected_file_names( )
+		uploaded_names = get_uploaded_file_names( uploaded_files )
+		
+		expected_set = set( expected_names )
+		uploaded_set = set( uploaded_names )
+		
+		matched_files = sorted( expected_set.intersection( uploaded_set ) )
+		missing_files = sorted( expected_set.difference( uploaded_set ) )
+		extra_files = sorted( uploaded_set.difference( expected_set ) )
+		
+		return {
+				'expected_files': expected_names,
+				'uploaded_files': uploaded_names,
+				'matched_files': matched_files,
+				'missing_files': missing_files,
+				'extra_files': extra_files,
+				'matched_count': len( matched_files ),
+				'missing_count': len( missing_files ),
+				'extra_count': len( extra_files )
+		}
+	except Exception:
+		return {
+				'expected_files': [ ],
+				'uploaded_files': [ ],
+				'matched_files': [ ],
+				'missing_files': [ ],
+				'extra_files': [ ],
+				'matched_count': 0,
+				'missing_count': 0,
+				'extra_count': 0
+		}
+
+def has_minimum_cav_application_data( application: LabelApplication ) -> bool:
+	"""
+	
+		Purpose:
+		--------
+		Determine whether the CAV form contains enough application data for manual artwork
+		verification.
+	
+		Parameters:
+		-----------
+		application (LabelApplication): CAV application data.
+	
+		Returns:
+		--------
+		bool: True when the minimum manual-review fields are populated.
+		
+	"""
+	try:
+		if not application:
+			return False
+		
+		required_values = [
+				application.brand_name,
+				application.class_type,
+				application.alcohol_content,
+				application.net_contents,
+				application.producer_bottler,
+				application.government_warning
+		]
+		
+		return all( value is not None and str( value ).strip( ) for value in required_values )
+	except Exception:
+		return False
+
+def get_processing_mode( uploaded_manifest: object, uploaded_files: List[ object ],
+		application: LabelApplication ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Determine the active Fiddy processing mode.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label artwork files.
+		application (LabelApplication): CAV application data.
+	
+		Returns:
+		--------
+		str: Processing mode name.
+		
+	"""
+	try:
+		has_manifest = uploaded_manifest is not None
+		has_artwork = bool( uploaded_files )
+		
+		if has_manifest and has_artwork:
+			return 'Manifest + Artwork Batch'
+		
+		if not has_manifest and has_artwork and has_minimum_cav_application_data( application ):
+			return 'Manual CAV + Artwork Review'
+		
+		return 'Not Ready'
+	except Exception:
+		return 'Not Ready'
+
+def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ object ],
+		application: LabelApplication ) -> Dict[ str, object ]:
+	"""
+	
+		Purpose:
+		--------
+		Determine whether verification can run and provide reviewer-facing readiness details.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label artwork files.
+		application (LabelApplication): CAV application data.
+	
+		Returns:
+		--------
+		Dict[str, object]: Processing readiness information.
+		
+	"""
+	try:
+		has_manifest = uploaded_manifest is not None
+		has_artwork = bool( uploaded_files )
+		records = st.session_state.get( 'manifest_records', [ ] )
+		mode = get_processing_mode( uploaded_manifest, uploaded_files, application )
+		
+		if has_manifest and not records:
+			return {
+					'is_ready': False,
+					'mode': 'Not Ready',
+					'message': 'The manifest is uploaded, but no valid manifest records were loaded.',
+					'match_summary': get_manifest_file_match_summary( uploaded_files )
+			}
+		
+		if has_manifest and not has_artwork:
+			return {
+					'is_ready': False,
+					'mode': 'Not Ready',
+					'message': 'Upload matching label artwork files to run the manifest batch.',
+					'match_summary': get_manifest_file_match_summary( uploaded_files )
+			}
+		
+		if has_manifest and has_artwork:
+			match_summary = get_manifest_file_match_summary( uploaded_files )
+			
+			if int( match_summary.get( 'matched_count', 0 ) ) <= 0:
+				return {
+						'is_ready': False,
+						'mode': 'Not Ready',
+						'message': (
+								'No uploaded label artwork filenames match the manifest file_name '
+								'values.'
+						),
+						'match_summary': match_summary
+				}
+			
+			return {
+					'is_ready': True,
+					'mode': mode,
+					'message': 'Ready to run manifest-driven batch verification.',
+					'match_summary': match_summary
+			}
+		
+		if not has_manifest and not has_artwork:
+			return {
+					'is_ready': False,
+					'mode': 'Not Ready',
+					'message': 'Upload label artwork to enable manual CAV verification.',
+					'match_summary': get_manifest_file_match_summary( uploaded_files )
+			}
+		
+		if not has_manifest and has_artwork and not has_minimum_cav_application_data( application ):
+			return {
+					'is_ready': False,
+					'mode': 'Not Ready',
+					'message': (
+							'Complete the required CAV fields before running manual artwork '
+							'verification.'
+					),
+					'match_summary': get_manifest_file_match_summary( uploaded_files )
+			}
+		
+		return {
+				'is_ready': True,
+				'mode': mode,
+				'message': 'Ready to run manual CAV artwork verification.',
+				'match_summary': get_manifest_file_match_summary( uploaded_files )
+		}
+	except Exception as e:
+		return {
+				'is_ready': False,
+				'mode': 'Not Ready',
+				'message': f'Processing readiness could not be determined: {e}',
+				'match_summary': get_manifest_file_match_summary( uploaded_files )
+		}
+
+def display_processing_readiness( readiness: Dict[ str, object ] ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display processing mode, readiness status, and manifest/artwork matching details in
+		Advanced Mode only.
+	
+		Parameters:
+		-----------
+		readiness (Dict[str, object]): Processing readiness information.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		mode = str( readiness.get( 'mode', 'Not Ready' ) )
+		message = str( readiness.get( 'message', '' ) )
+		is_ready = bool( readiness.get( 'is_ready', False ) )
+		match_summary = readiness.get( 'match_summary', { } )
+		
+		status = 'Ready' if is_ready else 'Not Ready'
+		
+		st.caption( f'Processing Mode: {mode}' )
+		
+		if is_ready:
+			st.success( f'{status}: {message}' )
+		else:
+			st.warning( f'{status}: {message}' )
+		
+		if st.session_state.get( 'simple_mode', True ):
+			return
+		
+		if match_summary and match_summary.get( 'expected_files', [ ] ):
+			match_columns = st.columns( 3 )
+			
+			match_columns[ 0 ].metric(
+				'Manifest Files',
+				len( match_summary.get( 'expected_files', [ ] ) )
+			)
+			
+			match_columns[ 1 ].metric(
+				'Matched Files',
+				int( match_summary.get( 'matched_count', 0 ) )
+			)
+			
+			match_columns[ 2 ].metric(
+				'Missing Files',
+				int( match_summary.get( 'missing_count', 0 ) )
+			)
+			
+			missing_files = match_summary.get( 'missing_files', [ ] )
+			extra_files = match_summary.get( 'extra_files', [ ] )
+			
+			if missing_files:
+				with st.expander( 'Missing Manifest Files', expanded=False ):
+					for file_name in missing_files:
+						st.write( f'- {file_name}' )
+			
+			if extra_files:
+				with st.expander( 'Extra Uploaded Files', expanded=False ):
+					for file_name in extra_files:
+						st.write( f'- {file_name}' )
+	except Exception as e:
+		st.warning( f'Unable to display processing readiness: {e}' )
+
+
+# ==========================================================================================
+# Display Panels
+# ==========================================================================================
+
+def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
+	"""
+	
+		Purpose:
+		--------
+		Display manifest upload controls and label artwork upload controls.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		Tuple[object, List[object]]: Uploaded manifest and uploaded label files.
+		
+	"""
+	st.markdown(
+		"""
+		<div class="fiddy-panel">
+			<div class="fiddy-panel-title">1. Upload Application Data and Label Artwork</div>
+			<div class="fiddy-panel-text">
+				Upload a manifest CSV and matching label artwork. If no manifest is uploaded,
+				Fiddy uses the CAV form values for manual review.
+			</div>
+		</div>
+		""",
+		unsafe_allow_html=True
+	)
+	
+	left_column, right_column = st.columns( [ 0.45, 0.55 ] )
+	
+	with left_column:
+		uploaded_manifest = st.file_uploader(
+			'Application Manifest CSV',
+			type=[ 'csv' ],
+			accept_multiple_files=False,
+			help='CSV should include file_name, brand_name, class_type, beverage_type, '
+			     'alcohol_content, net_contents, producer_bottler, and optional fields.'
+		)
+	
+	with right_column:
+		uploaded_files = st.file_uploader(
+			'Label Artwork Files or ZIP Archive',
+			type=get_supported_upload_type_values( ),
+			accept_multiple_files=True,
+			help='Upload individual image/PDF files or a ZIP archive containing image/PDF labels.'
+		)
+	
+	return uploaded_manifest, uploaded_files or [ ]
+
+def display_upload_preview( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
+	"""
+	Purpose:
+	--------
+	Display manifest and uploaded-file previews in Advanced Mode only.
+
+	Parameters:
+	-----------
+	uploaded_manifest (object): Uploaded manifest file.
+	uploaded_files (List[object]): Uploaded label files.
+
+	Returns:
+	--------
+	None
+	"""
+	try:
+		if st.session_state.get( 'simple_mode', True ):
+			return
+		
+		if uploaded_manifest:
+			df_manifest = st.session_state.get( 'manifest_dataframe', pd.DataFrame( ) )
+			
+			if df_manifest.empty:
+				st.warning( 'Manifest preview unavailable: CSV is empty or could not be read.' )
+			else:
+				st.subheader( 'Manifest Preview' )
+				st.dataframe( df_manifest.head( 20 ), use_container_width=True, hide_index=True )
+		
+		if uploaded_files:
+			st.subheader( 'Uploaded Label Artwork Preview' )
+			st.dataframe(
+				create_uploaded_file_dataframe( uploaded_files ),
+				use_container_width=True,
+				hide_index=True
+			)
+	except Exception as e:
+		st.warning( f'Upload preview unavailable: {e}' )
+
+def display_processing_controls( uploaded_manifest: object, uploaded_files: List[ object ],
+		application: LabelApplication ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display the unified processing controller for manual CAV verification and manifest-driven
+		batch verification.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label files.
+		application (LabelApplication): CAV application values.
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	st.markdown(
+		"""
+		<div class="fiddy-panel">
+			<div class="fiddy-panel-title">2. Run Verification</div>
+			<div class="fiddy-panel-text">
+				Select the active workflow, confirm readiness, and run local OCR/rule
+				verification. Processing runs locally without external OCR or AI endpoints.
+			</div>
+		</div>
+		""",
+		unsafe_allow_html=True
+	)
+	
+	readiness = get_processing_readiness( uploaded_manifest, uploaded_files, application )
+	display_processing_readiness( readiness )
+	
+	col1, col2, col3, col4 = st.columns( [ 0.22, 0.22, 0.28, 0.28 ] )
+	
+	with col1:
+		max_workers = st.number_input(
+			'Workers',
+			min_value=1,
+			max_value=8,
+			value=4,
+			step=1,
+			help='Parallel workers for batch processing.'
+		)
+	
+	with col2:
+		sla_seconds = st.number_input(
+			'SLA Seconds',
+			min_value=1.0,
+			max_value=30.0,
+			value=float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) ),
+			step=0.5,
+			help='Per-label processing target.'
+		)
+	
+	with col3:
+		run_button = st.button(
+			'Run Verification',
+			type='primary',
+			disabled=not bool( readiness.get( 'is_ready', False ) ),
+			use_container_width=True
+		)
+	
+	with col4:
+		clear_button = st.button(
+			'Clear Results',
+			use_container_width=True
+		)
+	
+	if clear_button:
+		clear_results( )
+		st.rerun( )
+	
+	if not run_button:
+		return
+	
+	mode = str( readiness.get( 'mode', 'Not Ready' ) )
+	
+	if mode == 'Manifest + Artwork Batch':
+		run_manifest_batch_verification(
+			uploaded_manifest=uploaded_manifest,
+			uploaded_files=uploaded_files,
+			max_workers=int( max_workers ),
+			sla_seconds=float( sla_seconds )
+		)
+		return
+	
+	if mode == 'Manual CAV + Artwork Review':
+		run_manual_fallback_verification( application, uploaded_files )
+		return
+	
+	st.warning( 'Verification cannot run until the workflow is ready.' )
+
+def display_batch_dashboard( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display batch-level metrics and conditionally display manifest/performance technical detail
+		when Advanced Mode is enabled.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	batch_report = st.session_state[ 'batch_report' ]
+	batch_result = st.session_state[ 'batch_result' ]
+	total_files, failures, warnings, reviews, sla_breaches = get_batch_metrics( batch_report,
+		batch_result )
+	
+	st.markdown(
+		"""
+		<div class="fiddy-panel">
+			<div class="fiddy-panel-title">3. Batch Dashboard</div>
+			<div class="fiddy-panel-text">
+				Review the batch status, failed checks, warnings, human-review items, and SLA
+				breaches.
+			</div>
+		</div>
+		""",
+		unsafe_allow_html=True )
+	
+	col1, col2, col3, col4, col5 = st.columns( 5 )
+	col1.metric( 'Files Reviewed', total_files )
+	col2.metric( 'Failures', failures )
+	col3.metric( 'Warnings', warnings )
+	col4.metric( 'Needs Review', reviews )
+	col5.metric( 'SLA Breaches', sla_breaches )
+	
+	if st.session_state.get( 'simple_mode', True ):
+		return
+	
+	validation_record = batch_result.validation_result.to_record( )
+	performance_record = batch_result.performance_summary.to_record( )
+	
+	left_column, right_column = st.columns( 2 )
+	
+	with left_column:
+		st.subheader( 'Manifest Validation' )
+		st.data_editor(
+			pd.DataFrame( [ validation_record ] ),
+			use_container_width=True,
+			hide_index=True
+		)
+		
+		if batch_result.validation_result.errors:
+			with st.expander( 'Manifest Errors', expanded=False ):
+				for error in batch_result.validation_result.errors:
+					st.error( error )
+		
+		if batch_result.validation_result.warnings:
+			with st.expander( 'Manifest Warnings', expanded=False ):
+				for warning in batch_result.validation_result.warnings:
+					st.warning( warning )
+	
+	with right_column:
+		st.subheader( 'Performance Summary' )
+		st.data_editor(
+			pd.DataFrame( [ performance_record ] ),
+			use_container_width=True,
+			hide_index=True
+		)
+		
+		if not st.session_state[ 'performance_dataframe' ].empty:
+			with st.expander( 'Per-File Performance', expanded=False ):
+				st.data_editor(
+					st.session_state[ 'performance_dataframe' ],
+					use_container_width=True,
+					hide_index=True
+				)
+
+def get_comparison_status_icon( status: str ) -> str:
+	"""
+		Purpose:
+		--------
+		Return a compact status icon and label for the side-by-side comparison table.
+	
+		Parameters:
+		-----------
+		status (str): Rule status value.
+	
+		Returns:
+		--------
+		str: Display-ready status value.
+	"""
+	try:
+		cfg.throw_if( 'status', status )
+		
+		if status == STATUS_PASS:
+			return '✅ Match'
+		
+		if status == STATUS_FAIL:
+			return '❌ Mismatch'
+		
+		if status == STATUS_WARNING:
+			return '⚠️ Warning'
+		
+		if status == STATUS_REVIEW:
+			return '⚠️ Needs Review'
+		
+		return status
+	except Exception:
+		return '⚠️ Needs Review'
+
+def get_reviewer_action( status: str, severity: str ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Return a reviewer-facing action statement based on status and severity.
+	
+		Parameters:
+		-----------
+		status (str): Rule status value.
+		severity (str): Rule severity value.
+	
+		Returns:
+		--------
+		str: Recommended reviewer action.
+		
+	"""
+	try:
+		cfg.throw_if( 'status', status )
+		
+		if status == STATUS_PASS:
+			return 'No action required.'
+		
+		if status == STATUS_FAIL:
+			return 'Correct the application, request corrected artwork, or escalate for review.'
+		
+		if status == STATUS_WARNING:
+			return 'Review the field and confirm whether the variation is acceptable.'
+		
+		if status == STATUS_REVIEW:
+			return 'Human review required before final determination.'
+		
+		return 'Review the field before final determination.'
+	except Exception:
+		return 'Human review required before final determination.'
+
+def get_tooltip_text( field_name: str, expected: object, observed: object, message: str,
+		evidence: str ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Create a tooltip-ready explanation for one comparison row.
+	
+		Parameters:
+		-----------
+		field_name (str): Reviewer-facing field name.
+		expected (object): Application-side expected value.
+		observed (object): Label-side observed value.
+		message (str): Rule explanation message.
+		evidence (str): OCR evidence or extracted context.
+	
+		Returns:
+		--------
+		str: Tooltip-ready explanation text.
+	
+	"""
+	try:
+		cfg.throw_if( 'field_name', field_name )
+		
+		expected_text = str( expected or '' ).strip( )
+		observed_text = str( observed or '' ).strip( )
+		message_text = str( message or '' ).strip( )
+		evidence_text = str( evidence or '' ).strip( )
+		
+		parts = [
+				f'Field: {field_name}',
+				f'Application value: {expected_text or "Not provided"}',
+				f'Extracted value: {observed_text or "Not detected"}'
+		]
+		
+		if message_text:
+			parts.append( f'Explanation: {message_text}' )
+		
+		if evidence_text:
+			parts.append( f'Evidence: {evidence_text}' )
+		
+		return ' | '.join( parts )
+	except Exception:
+		return 'Reviewer should inspect this field manually.'
+
+def get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[ str, object ]:
+	"""
+	
+		Purpose:
+		--------
+		Create one enriched side-by-side comparison record from a rule result and structured
+		extracted label fields.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report containing the rule result.
+		result (object): Rule result to convert.
+	
+		Returns:
+		--------
+		Dict[str, object]: Enriched side-by-side comparison record.
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		cfg.throw_if( 'result', result )
+		
+		field_name = result.field_name
+		expected = result.expected
+		observed = result.observed
+		status = result.status
+		severity = result.severity
+		confidence = result.confidence
+		message = result.message
+		evidence = result.evidence
+		
+		extracted_fields = report.extracted_label.to_extracted_field_map( )
+		structured_observed = extracted_fields.get( field_name, '' )
+		
+		if structured_observed is not None and str( structured_observed ).strip( ):
+			observed = structured_observed
+		
+		return {
+				'File Name': report.file_name,
+				'Field': field_name,
+				'Application': expected,
+				'Extracted': observed,
+				'Status': get_comparison_status_icon( status ),
+				'Severity': severity,
+				'Confidence': round( float( confidence or 0.0 ), 1 ),
+				'Explanation': message,
+				'Reviewer Action': get_reviewer_action( status, severity ),
+				'Tooltip': get_tooltip_text( field_name, expected, observed, message, evidence )
+		}
+	except Exception:
+		return {
+				'File Name': report.file_name if report else '',
+				'Field': '',
+				'Application': '',
+				'Extracted': '',
+				'Status': '⚠️ Needs Review',
+				'Severity': '',
+				'Confidence': 0.0,
+				'Explanation': 'Comparison record could not be created.',
+				'Reviewer Action': 'Human review required before final determination.',
+				'Tooltip': 'Reviewer should inspect this field manually.'
+		}
+
+def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
+	"""
+	
+		Purpose:
+		--------
+		Create an enriched side-by-side reviewer comparison table from one verification report.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to convert.
+	
+		Returns:
+		--------
+		pd.DataFrame: Side-by-side comparison table.
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		records = [
+				get_result_explanation_record( report, result )
+				for result in report.results
+		]
+		
+		if not records:
+			return pd.DataFrame(
+				columns=[
+						'Field',
+						'Application',
+						'Extracted',
+						'Status',
+						'Severity',
+						'Confidence',
+						'Explanation',
+						'Reviewer Action',
+						'Tooltip'
+				]
+			)
+		
+		df_comparison = pd.DataFrame( records )
+		
+		if 'File Name' in df_comparison.columns:
+			df_comparison = df_comparison.drop( columns=[ 'File Name' ] )
+		
+		return df_comparison
+	except Exception:
+		return pd.DataFrame(
+			columns=[
+					'Field',
+					'Application',
+					'Extracted',
+					'Status',
+					'Severity',
+					'Confidence',
+					'Explanation',
+					'Reviewer Action',
+					'Tooltip'
+			]
+		)
+
+def get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame:
+	"""
+	
+		Purpose:
+		--------
+		Return the reviewer-facing comparison DataFrame without internal tooltip/detail columns.
+	
+		Parameters:
+		-----------
+		df_comparison (pd.DataFrame): Source comparison DataFrame.
+	
+		Returns:
+		--------
+		pd.DataFrame: Display-safe comparison DataFrame.
+		
+	"""
+	try:
+		if df_comparison is None or df_comparison.empty:
+			return pd.DataFrame( )
+		
+		drop_columns = [
+				'Tooltip'
+		]
+		
+		display_dataframe = df_comparison.copy( )
+		
+		for column in drop_columns:
+			if column in display_dataframe.columns:
+				display_dataframe = display_dataframe.drop( columns=[ column ] )
+		
+		return display_dataframe
+	except Exception:
+		return pd.DataFrame( )
+
+def display_side_by_side_comparison_table( report: LabelVerificationReport ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Display a reviewer-facing side-by-side comparison table and conditionally display mismatch
+		explanation cards in Advanced Mode.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to display.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		df_comparison = create_side_by_side_comparison_dataframe( report )
+		df_display = get_display_comparison_dataframe( df_comparison )
+		
+		st.markdown(
+			"""
+			<div class="fiddy-panel">
+				<div class="fiddy-panel-title">Side-by-Side Comparison Table</div>
+				<div class="fiddy-panel-text">
+					Compare application values against extracted label values.
+				</div>
+			</div>
+			""",
+			unsafe_allow_html=True
+		)
+		
+		if df_display.empty:
+			st.info( 'No side-by-side comparison records are available for this label.' )
+			return
+		
+		st.data_editor(
+			df_display,
+			use_container_width=True,
+			hide_index=True,
+			column_config={
+					'Field': st.column_config.TextColumn(
+						'Field',
+						width='medium',
+						help='The label field being checked.'
+					),
+					'Application': st.column_config.TextColumn(
+						'Application',
+						width='large',
+						help='Expected value from the CAV application or manifest.'
+					),
+					'Extracted': st.column_config.TextColumn(
+						'Extracted',
+						width='large',
+						help='Structured extracted value when available; otherwise OCR/rule observation.'
+					),
+					'Status': st.column_config.TextColumn(
+						'Status',
+						width='medium',
+						help='Match, mismatch, warning, or needs-review status.'
+					),
+					'Severity': st.column_config.TextColumn(
+						'Severity',
+						width='small',
+						help='Relative review significance.'
+					),
+					'Confidence': st.column_config.NumberColumn(
+						'Confidence',
+						format='%.1f',
+						width='small',
+						help='Rule confidence score.'
+					),
+					'Explanation': st.column_config.TextColumn(
+						'Explanation',
+						width='large',
+						help='Plain-language explanation of the rule result.'
+					),
+					'Reviewer Action': st.column_config.TextColumn(
+						'Reviewer Action',
+						width='large',
+						help='Recommended reviewer action for this result.'
+					)
+			}
+		)
+		
+		if st.session_state.get( 'simple_mode', True ):
+			return
+		
+		df_flagged = df_comparison[
+			df_comparison[ 'Status' ].astype( str ).str.contains(
+				'Mismatch|Warning|Needs Review',
+				case=False,
+				na=False
+			)
+		]
+		
+		if not df_flagged.empty:
+			with st.expander( 'Mismatch Explanation Cards', expanded=False ):
+				for _, row in df_flagged.iterrows( ):
+					st.markdown( f"**{row.get( 'Field', '' )} — {row.get( 'Status', '' )}**" )
+					st.write( row.get( 'Explanation', '' ) )
+					st.caption( f"Application: {row.get( 'Application', '' )}" )
+					st.caption( f"Extracted: {row.get( 'Extracted', '' )}" )
+					st.caption( f"Reviewer Action: {row.get( 'Reviewer Action', '' )}" )
+					
+					tooltip_text = str( row.get( 'Tooltip', '' ) ).strip( )
+					
+					if tooltip_text:
+						st.caption( f'Detail: {tooltip_text}' )
+					
+					st.divider( )
+	except Exception as e:
+		st.warning( f'Unable to display side-by-side comparison table: {e}' )
+
+def create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -> pd.DataFrame:
+	"""
+	
+		Purpose:
+		--------
+		Create an enriched batch-level side-by-side comparison DataFrame from all verification
+		reports.
+	
+		Parameters:
+		-----------
+		batch_report (BatchVerificationReport): Batch verification report to convert.
+	
+		Returns:
+		--------
+		pd.DataFrame: Batch-level side-by-side comparison DataFrame.
+	
+	"""
+	try:
+		cfg.throw_if( 'batch_report', batch_report )
+		
+		records = [ ]
+		
+		for report in batch_report.reports:
+			for result in report.results:
+				records.append( get_result_explanation_record( report, result ) )
+		
+		if not records:
+			return pd.DataFrame(
+				columns=[
+						'File Name',
+						'Field',
+						'Application',
+						'Extracted',
+						'Status',
+						'Severity',
+						'Confidence',
+						'Explanation',
+						'Reviewer Action',
+						'Tooltip'
+				]
+			)
+		
+		return pd.DataFrame( records )
+	except Exception:
+		return pd.DataFrame(
+			columns=[
+					'File Name',
+					'Field',
+					'Application',
+					'Extracted',
+					'Status',
+					'Severity',
+					'Confidence',
+					'Explanation',
+					'Reviewer Action',
+					'Tooltip'
+			]
+		)
+
+def get_image_diagnostic_status( report: LabelVerificationReport ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Determine the reviewer-facing OCR and image diagnostic status for one label report.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to inspect.
+	
+		Returns:
+		--------
+		str: Diagnostic status.
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		if not report.extracted_label.has_text( ):
+			return STATUS_REVIEW
+		
+		if report.extracted_label.image_quality_notes:
+			return STATUS_WARNING
+		
+		return STATUS_PASS
+	except Exception:
+		return STATUS_REVIEW
+
+def get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> str:
+	"""
+	
+		Purpose:
+		--------
+		Return a reviewer-facing recommendation based on OCR text and image-quality notes.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to inspect.
+	
+		Returns:
+		--------
+		str: Recommended reviewer action.
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		if not report.extracted_label.has_text( ):
+			return (
+					'Request clearer artwork or manually review the submitted label because OCR '
+					'did not return readable text.'
+			)
+		
+		notes = report.extracted_label.image_quality_notes
+		
+		if not notes:
+			return 'No image-quality issues were reported by the OCR preprocessing pipeline.'
+		
+		note_text = ' '.join( notes ).lower( )
+		
+		if 'glare' in note_text or 'overexposure' in note_text:
+			return (
+					'Review the label manually or request a new image with reduced glare and more '
+					'even lighting.'
+			)
+		
+		if 'contrast' in note_text or 'dark' in note_text or 'brightness' in note_text:
+			return (
+					'Review the label manually or request a better-lit image with stronger text '
+					'contrast.'
+			)
+		
+		if 'blur' in note_text or 'sharp' in note_text:
+			return (
+					'Review the label manually or request a sharper image captured with better '
+					'focus.'
+			)
+		
+		if 'skew' in note_text or 'angle' in note_text or 'orientation' in note_text:
+			return (
+					'Review the label manually or request a straighter image with less rotation or '
+					'perspective distortion.'
+			)
+		
+		if 'small' in note_text or 'resolution' in note_text or 'resize' in note_text:
+			return (
+					'Review the label manually or request a higher-resolution image so OCR can '
+					'read small text.'
+			)
+		
+		return 'Review the OCR output and image-quality notes before making a final determination.'
+	except Exception:
+		return 'Human review is recommended because image diagnostics could not be evaluated.'
+
+def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
+	"""
+	
+		Purpose:
+		--------
+		Create a structured image and OCR diagnostics DataFrame for one label report.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to convert.
+	
+		Returns:
+		--------
+		pd.DataFrame: Image diagnostics DataFrame.
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		status = get_image_diagnostic_status( report )
+		recommendation = get_image_diagnostic_recommendation( report )
+		has_text = report.extracted_label.has_text( )
+		notes = report.extracted_label.image_quality_notes
+		
+		records = [
+				{
+						'Diagnostic': 'OCR Text Found',
+						'Status': get_comparison_status_icon(
+							STATUS_PASS if has_text else STATUS_REVIEW
+						),
+						'Value': 'Yes' if has_text else 'No',
+						'Reviewer Guidance': recommendation
+				},
+				{
+						'Diagnostic': 'OCR Engine',
+						'Status': get_comparison_status_icon( status ),
+						'Value': report.extracted_label.ocr_engine or 'Not reported',
+						'Reviewer Guidance': 'Confirm OCR output before relying on automated checks.'
+				},
+				{
+						'Diagnostic': 'OCR Seconds',
+						'Status': get_comparison_status_icon( status ),
+						'Value': round( float( report.extracted_label.ocr_seconds or 0.0 ), 3 ),
+						'Reviewer Guidance': 'Longer timing may indicate large files or preprocessing overhead.'
+				}
+		]
+		
+		if notes:
+			for index, note in enumerate( notes, start=1 ):
+				records.append(
+					{
+							'Diagnostic': f'Image Quality Note {index}',
+							'Status': get_comparison_status_icon( STATUS_WARNING ),
+							'Value': note,
+							'Reviewer Guidance': recommendation
+					}
+				)
+		else:
+			records.append(
+				{
+						'Diagnostic': 'Image Quality Notes',
+						'Status': get_comparison_status_icon( STATUS_PASS ),
+						'Value': 'No image-quality notes reported.',
+						'Reviewer Guidance': recommendation
+				}
+			)
+		
+		return pd.DataFrame( records )
+	except Exception:
+		return pd.DataFrame(
+			columns=[
+					'Diagnostic',
+					'Status',
+					'Value',
+					'Reviewer Guidance'
+			]
+		)
+
+def display_image_diagnostics_panel( report: LabelVerificationReport ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display OCR and image-quality diagnostics for one selected label report.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to display.
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		df_diagnostics = create_image_diagnostics_dataframe( report )
+		status = get_image_diagnostic_status( report )
+		recommendation = get_image_diagnostic_recommendation( report )
+		
+		st.markdown(
+			"""
+			<div class="fiddy-panel">
+				<div class="fiddy-panel-title">Image and OCR Diagnostics</div>
+				<div class="fiddy-panel-text">
+					Review OCR readability, processing metadata, and image-quality notes before
+					making a final determination.
+				</div>
+			</div>
+			""",
+			unsafe_allow_html=True
+		)
+		
+		status_column, text_column, time_column = st.columns( [ 0.34, 0.33, 0.33 ] )
+		
+		with status_column:
+			st.metric( 'Diagnostic Status', status )
+		
+		with text_column:
+			st.metric(
+				'OCR Text Found',
+				'Yes' if report.extracted_label.has_text( ) else 'No'
+			)
+		
+		with time_column:
+			st.metric(
+				'OCR Seconds',
+				round( float( report.extracted_label.ocr_seconds or 0.0 ), 3 )
+			)
+		
+		if df_diagnostics.empty:
+			st.info( 'No image diagnostics are available for this label.' )
+		else:
+			st.dataframe(
+				df_diagnostics,
+				use_container_width=True,
+				hide_index=True,
+				column_config={
+						'Diagnostic': st.column_config.TextColumn(
+							'Diagnostic',
+							width='medium',
+							help='Image or OCR diagnostic item.'
+						),
+						'Status': st.column_config.TextColumn(
+							'Status',
+							width='medium',
+							help='Diagnostic status.'
+						),
+						'Value': st.column_config.TextColumn(
+							'Value',
+							width='large',
+							help='Diagnostic value or note.'
+						),
+						'Reviewer Guidance': st.column_config.TextColumn(
+							'Reviewer Guidance',
+							width='large',
+							help='Recommended reviewer action.'
+						)
+				}
+			)
+		
+		st.info( recommendation )
+	except Exception as e:
+		st.warning( f'Unable to display image diagnostics: {e}' )
+
+def display_report_detail( report: LabelVerificationReport ) -> None:
+	"""
+		
+		Purpose:
+		--------
+		Display one report's reviewer-facing comparison and conditionally display technical detail
+		when Advanced Mode is enabled.
+	
+		Parameters:
+		-----------
+		report (LabelVerificationReport): Verification report to display.
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	try:
+		cfg.throw_if( 'report', report )
+		
+		st.markdown(
+			f"""
+            <div class="fiddy-panel">
+                <div class="fiddy-panel-title">Selected Label: {report.file_name}</div>
+                <div class="fiddy-panel-text">
+                    Overall Status: {get_status_html( report.overall_status )}
+                </div>
+            </div>
+            """,
+			unsafe_allow_html=True
+		)
+		
+		display_side_by_side_comparison_table( report )
+		
+		if st.session_state.get( 'simple_mode', True ):
+			return
+		
+		display_image_diagnostics_panel( report )
+		
+		with st.expander( 'Rule-by-Rule Explanation', expanded=False ):
+			for result in report.results:
+				st.markdown( f'**{result.field_name} — {result.status}**' )
+				st.write( result.message )
+				st.caption( f'Expected: {result.expected}' )
+				st.caption( f'Observed: {result.observed}' )
+				st.caption( f'Confidence: {result.confidence:.1f}' )
+				st.caption(
+					f'Reviewer Action: {get_reviewer_action( result.status, result.severity )}' )
+				
+				if result.evidence:
+					st.code( result.evidence, language='text' )
+				
+				st.divider( )
+		
+		with st.expander( 'Extracted Label Text', expanded=False ):
+			st.text_area(
+				'OCR Text',
+				value=report.extracted_label.raw_text or 'No OCR text extracted.',
+				height=250,
+				disabled=True
+			)
+		
+		with st.expander( 'Reviewer Disclaimer', expanded=False ):
+			st.write( report.reviewer_disclaimer )
+	except Exception as e:
+		st.warning( f'Unable to display report details: {e}' )
+
+def display_results_viewer( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display summary tables, side-by-side comparisons, selected-label review, and downloads.
+		Simple Mode hides technical detail.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+	
+	"""
+	batch_report = st.session_state[ 'batch_report' ]
+	df_summary = st.session_state[ 'summary_dataframe' ]
+	df_details = st.session_state[ 'detail_dataframe' ]
+	df_comparison = st.session_state[ 'comparison_dataframe' ]
+	df_display_comparison = get_display_comparison_dataframe( df_comparison )
+	
+	st.success( 'Verification complete. Review the findings below.' )
+	
+	with st.expander( 'Batch Summary Table', expanded=True ):
+		if df_summary.empty:
+			st.info( 'No summary records are available.' )
+		else:
+			st.dataframe( df_summary, use_container_width=True, hide_index=True )
+	
+	with st.expander( 'Side-by-Side Comparison Table', expanded=True ):
+		if df_display_comparison.empty:
+			st.info( 'No side-by-side comparison records are available.' )
+		else:
+			st.dataframe(
+				df_display_comparison,
+				use_container_width=True,
+				hide_index=True,
+				column_config={
+						'File Name': st.column_config.TextColumn(
+							'File Name',
+							width='medium',
+							help='Uploaded label artwork filename.'
+						),
+						'Field': st.column_config.TextColumn(
+							'Field',
+							width='medium',
+							help='The label field being checked.'
+						),
+						'Application': st.column_config.TextColumn(
+							'Application',
+							width='large',
+							help='Expected value from CAV data or manifest.'
+						),
+						'Extracted': st.column_config.TextColumn(
+							'Extracted',
+							width='large',
+							help='Structured extracted value when available; otherwise OCR/rule observation.'
+						),
+						'Status': st.column_config.TextColumn(
+							'Status',
+							width='medium',
+							help='Match, mismatch, warning, or needs-review status.'
+						),
+						'Severity': st.column_config.TextColumn(
+							'Severity',
+							width='small',
+							help='Relative review significance.'
+						),
+						'Confidence': st.column_config.NumberColumn(
+							'Confidence',
+							format='%.1f',
+							width='small',
+							help='Rule confidence score.'
+						),
+						'Explanation': st.column_config.TextColumn(
+							'Explanation',
+							width='large',
+							help='Plain-language explanation of the rule result.'
+						),
+						'Reviewer Action': st.column_config.TextColumn(
+							'Reviewer Action',
+							width='large',
+							help='Recommended reviewer action.'
+						)
+				}
+			)
+	
+	if not st.session_state.get( 'simple_mode', True ):
+		with st.expander( 'Rule Detail Table', expanded=False ):
+			if df_details.empty:
+				st.info( 'No rule detail records are available.' )
+			else:
+				st.dataframe( df_details, use_container_width=True, hide_index=True )
+	
+	if batch_report.reports:
+		flagged_reports = [
+				report
+				for report in batch_report.reports
+				if report.overall_status in (STATUS_FAIL, STATUS_WARNING, STATUS_REVIEW)
+		]
+		
+		report_source = flagged_reports if flagged_reports else batch_report.reports
+		report_names = [
+				report.file_name
+				for report in report_source
+		]
+		
+		selected_name = st.selectbox(
+			'Review flagged label',
+			options=report_names,
+			index=min( st.session_state[ 'selected_report_index' ], len( report_names ) - 1 )
+		)
+		
+		selected_index = report_names.index( selected_name )
+		st.session_state[ 'selected_report_index' ] = selected_index
+		display_report_detail( report_source[ selected_index ] )
+	
+	display_downloads( )
+
+def display_downloads( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display verification report download controls.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	df_summary = st.session_state[ 'summary_dataframe' ]
+	df_details = st.session_state[ 'detail_dataframe' ]
+	df_comparison = st.session_state[ 'comparison_dataframe' ]
+	df_performance = st.session_state[ 'performance_dataframe' ]
+	
+	st.subheader( 'Downloads' )
+	
+	csv_summary = df_summary.to_csv( index=False ) if not df_summary.empty else ''
+	csv_details = df_details.to_csv( index=False ) if not df_details.empty else ''
+	csv_comparison = df_comparison.to_csv( index=False ) if not df_comparison.empty else ''
+	csv_performance = df_performance.to_csv( index=False ) if not df_performance.empty else ''
+	
+	col1, col2, col3, col4, col5, col6 = st.columns( 6 )
+	
+	col1.download_button(
+		label='Summary CSV',
+		data=csv_summary,
+		file_name='fiddy_summary.csv',
+		mime='text/csv',
+		disabled=df_summary.empty,
+		use_container_width=True
+	)
+	
+	col2.download_button(
+		label='Comparison CSV',
+		data=csv_comparison,
+		file_name='fiddy_comparison.csv',
+		mime='text/csv',
+		disabled=df_comparison.empty,
+		use_container_width=True
+	)
+	
+	col3.download_button(
+		label='Details CSV',
+		data=csv_details,
+		file_name='fiddy_details.csv',
+		mime='text/csv',
+		disabled=df_details.empty,
+		use_container_width=True
+	)
+	
+	col4.download_button(
+		label='Performance CSV',
+		data=csv_performance,
+		file_name='fiddy_performance.csv',
+		mime='text/csv',
+		disabled=df_performance.empty,
+		use_container_width=True
+	)
+	
+	col5.download_button(
+		label='JSON Report',
+		data=st.session_state[ 'json_report' ],
+		file_name='fiddy_report.json',
+		mime='application/json',
+		disabled=not bool( st.session_state[ 'json_report' ] ),
+		use_container_width=True
+	)
+	
+	col6.download_button(
+		label='Markdown Report',
+		data=st.session_state[ 'markdown_report' ],
+		file_name='fiddy_report.md',
+		mime='text/markdown',
+		disabled=not bool( st.session_state[ 'markdown_report' ] ),
+		use_container_width=True
+	)
+
+def display_methodology_expander( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display methodology content in Advanced Mode only.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	if not st.session_state[ 'simple_mode' ]:
+		with st.expander( 'Methodology and Safeguards', expanded=False ):
+			st.write(
+				'Fiddy uses local OCR, deterministic rules, fuzzy matching for judgment-sensitive '
+				'comparisons, strict government-warning validation, image-quality risk scoring, '
+				'and batch-level SLA tracking.'
+			)
+			
+			st.markdown(
+				"""
+				- No external OCR or AI endpoint is required.
+				- OCR failures and low-readability images produce review flags.
+				- Near-match warning text does not pass automatically.
+				- Batch processing isolates per-file failures.
+				- Final determinations remain with authorized reviewers.
+				"""
+			)
+
+def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display the streamlined reviewer workflow for Simple Mode.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label artwork files.
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	application = create_simple_label_application( uploaded_manifest )
+	display_processing_controls( uploaded_manifest, uploaded_files, application )
+	
+	if st.session_state[ 'verification_complete' ]:
+		display_batch_dashboard( )
+		display_results_viewer( )
+
+def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Display the full reviewer workflow for Advanced Mode.
+	
+		Parameters:
+		-----------
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label artwork files.
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	application = create_manual_label_application( )
+	display_upload_preview( uploaded_manifest, uploaded_files )
+	display_processing_controls( uploaded_manifest, uploaded_files, application )
+	
+	if st.session_state[ 'verification_complete' ]:
+		display_batch_dashboard( )
+		display_results_viewer( )
+	
+	display_methodology_expander( )
+	
+# ==========================================================================================
+# Main
+# ==========================================================================================
+
+def main( ) -> None:
+	"""
+	
+		Purpose:
+		--------
+		Run the Fiddy Streamlit application with sidebar controls rendered once and workflow
+		content routed by review mode.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
+	configure_page( )
+	initialize_session_state( )
+	
+	with st.sidebar:
+		display_sidebar_header( )
+	
+	display_header( )
+	
+	uploaded_manifest, uploaded_files = display_upload_panel( )
+	sync_manifest_upload_state( uploaded_manifest )
+	
+	if st.session_state.get( 'simple_mode', True ):
+		display_simple_workflow( uploaded_manifest, uploaded_files )
+	else:
+		display_advanced_workflow( uploaded_manifest, uploaded_files )
+
+if __name__ == '__main__':
+	main( )

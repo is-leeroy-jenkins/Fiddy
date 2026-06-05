@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                ocr_engine.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="ocr_engine.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -55,22 +55,27 @@ from src.constants import SUPPORTED_DOCUMENT_TYPES, SUPPORTED_IMAGE_TYPES
 from src.image_processor import ImageProcessor
 from src.models import ExtractedLabel
 from src.normalizer import TextNormalizer
+from src.visual_quality import VisualQualityAnalyzer, VisualQualityResult
+
+# ==========================================================================================
+# OCR Engine
+# ==========================================================================================
 
 class OcrEngine( ):
 	"""
-	Purpose:
-	--------
-	Extract text from alcohol label images and PDF files using a local OCR backend.
-
-	Parameters:
-	-----------
-	None
-
-	Returns:
-	--------
-	None
-	"""
+		Purpose:
+		--------
+		Extract text from alcohol label images and PDF files using a local OCR backend while
+		collecting image-quality and readability diagnostics.
 	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+	"""
 	_file_path: Path
 	_file_name: str
 	_file_type: str
@@ -79,25 +84,28 @@ class OcrEngine( ):
 	_ocr_seconds: float
 	_processor: ImageProcessor
 	_normalizer: TextNormalizer
+	_quality_analyzer: VisualQualityAnalyzer
+	_quality_result: VisualQualityResult
 	_notes: List[ str ]
 	
 	def __init__( self ) -> None:
 		"""
-		Purpose:
-		--------
-		Initialize the OCR engine and configure local Tesseract when a command path is
-		provided through configuration.
-
-		Parameters:
-		-----------
-		None
-
-		Returns:
-		--------
-		None
+			Purpose:
+			--------
+			Initialize the OCR engine and configure local Tesseract when a command path is
+			provided through configuration.
+	
+			Parameters:
+			-----------
+			None
+	
+			Returns:
+			--------
+			None
 		"""
 		self._processor = ImageProcessor( )
 		self._normalizer = TextNormalizer( )
+		self._quality_analyzer = VisualQualityAnalyzer( )
 		self._notes = [ ]
 		
 		if TESSERACT_CMD:
@@ -106,33 +114,33 @@ class OcrEngine( ):
 	@property
 	def notes( self ) -> List[ str ]:
 		"""
-		Purpose:
-		--------
-		Return OCR and image quality notes from the latest extraction run.
-
-		Parameters:
-		-----------
-		None
-
-		Returns:
-		--------
-		List[str]: OCR and image quality notes.
+			Purpose:
+			--------
+			Return OCR, preprocessing, and image-quality notes from the latest extraction run.
+	
+			Parameters:
+			-----------
+			None
+	
+			Returns:
+			--------
+			List[str]: OCR and image quality notes.
 		"""
 		return self._notes
 	
 	def get_file_type( self, file_path: str | Path ) -> str:
 		"""
-		Purpose:
-		--------
-		Return a lowercase file extension without the leading period.
-
-		Parameters:
-		-----------
-		file_path (str | Path): File path to inspect.
-
-		Returns:
-		--------
-		str: Lowercase file type.
+			Purpose:
+			--------
+			Return a lowercase file extension without the leading period.
+	
+			Parameters:
+			-----------
+			file_path (str | Path): File path to inspect.
+	
+			Returns:
+			--------
+			str: Lowercase file type.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -144,7 +152,6 @@ class OcrEngine( ):
 	
 	def is_supported_image( self, file_path: str | Path ) -> bool:
 		"""
-		
 			Purpose:
 			--------
 			Determine whether a file path points to a supported image type.
@@ -156,7 +163,6 @@ class OcrEngine( ):
 			Returns:
 			--------
 			bool: True when the extension is a supported image type; otherwise, False.
-			
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -168,7 +174,6 @@ class OcrEngine( ):
 	
 	def is_supported_pdf( self, file_path: str | Path ) -> bool:
 		"""
-			
 			Purpose:
 			--------
 			Determine whether a file path points to a supported PDF type.
@@ -180,7 +185,6 @@ class OcrEngine( ):
 			Returns:
 			--------
 			bool: True when the extension is PDF; otherwise, False.
-		
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -190,9 +194,100 @@ class OcrEngine( ):
 		except Exception:
 			return False
 	
-	def image_to_text( self, image: Image.Image ) -> str:
+	def create_quality_notes( self, quality_result: VisualQualityResult ) -> List[ str ]:
 		"""
-		
+			Purpose:
+			--------
+			Convert a visual quality result into reviewer-facing OCR notes.
+	
+			Parameters:
+			-----------
+			quality_result (VisualQualityResult): Visual quality analysis result.
+	
+			Returns:
+			--------
+			List[str]: Reviewer-facing quality notes.
+		"""
+		try:
+			throw_if( 'quality_result', quality_result )
+			
+			notes = [
+					f'Visual quality status: {quality_result.status}.',
+					f'Readability score: {quality_result.readability_score:.1f}/100.',
+					f'Brightness: {quality_result.brightness:.1f}; '
+					f'contrast: {quality_result.contrast:.1f}; '
+					f'blur score: {quality_result.blur_score:.1f}; '
+					f'glare ratio: {quality_result.glare_ratio:.3f}; '
+					f'skew angle: {quality_result.skew_angle:.1f}.'
+			]
+			
+			for warning in quality_result.warnings:
+				notes.append( f'Visual warning: {warning}' )
+			
+			for recommendation in quality_result.recommendations:
+				notes.append( f'Visual recommendation: {recommendation}' )
+			
+			return notes
+		except Exception:
+			return [
+					'Visual quality notes could not be created.'
+			]
+	
+	def analyze_image_quality_file( self, file_path: str | Path ) -> VisualQualityResult:
+		"""
+			Purpose:
+			--------
+			Analyze one image file and append visual quality notes to the OCR note collection.
+	
+			Parameters:
+			-----------
+			file_path (str | Path): Uploaded image file path.
+	
+			Returns:
+			--------
+			VisualQualityResult: Visual quality analysis result.
+		"""
+		try:
+			throw_if( 'file_path', file_path )
+			
+			self._file_path = Path( file_path )
+			self._quality_result = self._quality_analyzer.analyze_file( self._file_path )
+			self._notes.extend( self.create_quality_notes( self._quality_result ) )
+			
+			return self._quality_result
+		except Exception:
+			self._notes.append( 'Visual quality analysis failed for image file.' )
+			return VisualQualityResult( file_name=str( file_path ) )
+	
+	def analyze_image_quality_pil( self, image: Image.Image,
+			file_name: str = '' ) -> VisualQualityResult:
+		"""
+			Purpose:
+			--------
+			Analyze one in-memory PIL image and append visual quality notes to OCR notes.
+	
+			Parameters:
+			-----------
+			image (Image.Image): Image to analyze.
+			file_name (str): Logical file name for reporting.
+	
+			Returns:
+			--------
+			VisualQualityResult: Visual quality analysis result.
+		"""
+		try:
+			throw_if( 'image', image )
+			
+			self._quality_result = self._quality_analyzer.analyze_image( image, file_name )
+			self._notes.extend( self.create_quality_notes( self._quality_result ) )
+			
+			return self._quality_result
+		except Exception:
+			self._notes.append( 'Visual quality analysis failed for image.' )
+			return VisualQualityResult( file_name=file_name )
+	
+	def image_to_text( self, image: Image.Image, file_name: str = '' ) -> str:
+		"""
 			Purpose:
 			--------
 			Extract text from a single in-memory image using local OCR.
@@ -200,15 +295,16 @@ class OcrEngine( ):
 			Parameters:
 			-----------
 			image (Image.Image): PIL image to process with OCR.
+			file_name (str): Logical file name for reporting.
 	
 			Returns:
 			--------
 			str: OCR-extracted text.
-			
 		"""
 		try:
 			throw_if( 'image', image )
 			
+			self.analyze_image_quality_pil( image, file_name )
 			processed = self._processor.process_pil_image( image )
 			self._notes.extend( self._processor.notes )
 			
@@ -229,7 +325,6 @@ class OcrEngine( ):
 	
 	def extract_image_file_text( self, file_path: str | Path ) -> str:
 		"""
-		
 			Purpose:
 			--------
 			Extract OCR text from a supported image file.
@@ -241,12 +336,13 @@ class OcrEngine( ):
 			Returns:
 			--------
 			str: OCR-extracted text.
-			
 		"""
 		try:
 			throw_if( 'file_path', file_path )
 			
 			self._file_path = Path( file_path )
+			self.analyze_image_quality_file( self._file_path )
+			
 			processed = self._processor.process_image_file( self._file_path )
 			self._notes.extend( self._processor.notes )
 			
@@ -267,7 +363,6 @@ class OcrEngine( ):
 	
 	def extract_pdf_file_text( self, file_path: str | Path ) -> str:
 		"""
-		
 			Purpose:
 			--------
 			Convert a PDF into images and extract OCR text from each page.
@@ -279,7 +374,6 @@ class OcrEngine( ):
 			Returns:
 			--------
 			str: OCR-extracted text from all PDF pages.
-			
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -288,8 +382,10 @@ class OcrEngine( ):
 			pages = convert_from_path( self._file_path, dpi=200 )
 			text_parts = [ ]
 			
-			for page in pages:
-				text = self.image_to_text( page )
+			for index, page in enumerate( pages, start=1 ):
+				page_name = f'{self._file_path.name} page {index}'
+				text = self.image_to_text( page, page_name )
+				
 				if text:
 					text_parts.append( text )
 			
@@ -300,7 +396,6 @@ class OcrEngine( ):
 	
 	def extract_text( self, file_path: str | Path ) -> ExtractedLabel:
 		"""
-		
 			Purpose:
 			--------
 			Extract text from one uploaded label file and return a structured extraction result.
@@ -312,7 +407,6 @@ class OcrEngine( ):
 			Returns:
 			--------
 			ExtractedLabel: Structured OCR result.
-			
 		"""
 		try:
 			throw_if( 'file_path', file_path )
@@ -345,7 +439,7 @@ class OcrEngine( ):
 			)
 		except Exception:
 			return ExtractedLabel(
-				file_name=str( file_path ),
+				file_name=Path( file_path ).name if file_path else '',
 				file_type='',
 				raw_text='',
 				normalized_text='',

@@ -1,6 +1,6 @@
-'''
+﻿'''
     ******************************************************************************************
-      Assembly:                Veritas
+      Assembly:                Fiddy
       Filename:                models.py
       Author:                  Terry D. Eppler
       Created:                 06-03-2026
@@ -10,10 +10,10 @@
     ******************************************************************************************
     <copyright file="models.py" company="Terry D. Eppler">
 
-         Veritas: AI-Powered Alcohol Label Verification App
+         Fiddy: AI-Powered Alcohol Label Verification App
 
      Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
+     of this software and associated documentation files (the â€œSoftwareâ€),
      to deal in the Software without restriction,
      including without limitation the rights to use,
      copy, modify, merge, publish, distribute, sublicense,
@@ -24,7 +24,7 @@
      The above copyright notice and this permission notice shall be included in all
      copies or substantial portions of the Software.
 
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+     THE SOFTWARE IS PROVIDED â€œAS ISâ€, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
      INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
      FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
@@ -59,25 +59,22 @@ from src.constants import (
 	SEVERITY_INFO
 )
 
-# ==========================================================================================
-# Label Application Model
-# ==========================================================================================
-
 class LabelApplication( BaseModel ):
 	"""
-	Purpose:
-	--------
-	Represent the expected application data entered by the compliance reviewer.
-
-	Parameters:
-	-----------
-	None
-
-	Returns:
-	--------
-	None
-	"""
 	
+		Purpose:
+		--------
+		Represent the expected application data entered by the compliance reviewer.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+		
+	"""
 	brand_name: str = Field( default='', description='Expected brand name from the application.' )
 	class_type: str = Field( default='', description='Expected class or type designation.' )
 	beverage_type: str = Field( default=BEVERAGE_TYPE_DISTILLED_SPIRITS )
@@ -85,27 +82,30 @@ class LabelApplication( BaseModel ):
 	proof: Optional[ float ] = Field( default=None, description='Expected proof value.' )
 	net_contents: str = Field( default='', description='Expected net contents value.' )
 	producer_bottler: str = Field( default='', description='Expected producer or bottler.' )
-	imported: bool = Field( default=False,
-		description='Indicates whether the product is imported.' )
+	imported: bool = Field( default=False, description='Indicates whether the product is imported.' )
 	importer: str = Field( default='', description='Expected importer name, when applicable.' )
 	country_of_origin: str = Field( default='', description='Expected country of origin.' )
+	government_warning: str = Field( default='',
+		description='Expected government warning statement.' )
 	cola_id: str = Field( default='',
 		description='Optional COLA identifier or application reference.' )
 	notes: str = Field( default='', description='Optional reviewer notes.' )
 	
 	def required_field_map( self ) -> Dict[ str, Any ]:
 		"""
-		Purpose:
-		--------
-		Return expected values keyed by user-facing label field names.
-
-		Parameters:
-		-----------
-		None
-
-		Returns:
-		--------
-		Dict[str, Any]: Dictionary of expected application field values.
+		
+			Purpose:
+			--------
+			Return expected values keyed by user-facing label field names.
+	
+			Parameters:
+			-----------
+			None
+	
+			Returns:
+			--------
+			Dict[str, Any]: Dictionary of expected application field values.
+			
 		"""
 		try:
 			fields = {
@@ -114,40 +114,45 @@ class LabelApplication( BaseModel ):
 					'Alcohol Content': self.alcohol_content,
 					'Proof': self.proof,
 					'Net Contents': self.net_contents,
-					'Producer / Bottler': self.producer_bottler
+					'Producer / Bottler': self.producer_bottler,
+					'Country of Origin': self.country_of_origin,
+					'Government Warning': self.government_warning
 			}
 			
 			if self.imported:
 				fields[ 'Importer' ] = self.importer
-				fields[ 'Country of Origin' ] = self.country_of_origin
 			
 			return fields
 		except Exception:
 			return { }
 
-# ==========================================================================================
-# Extracted Label Model
-# ==========================================================================================
-
 class ExtractedLabel( BaseModel ):
 	"""
-	Purpose:
-	--------
-	Represent OCR and extraction results for one uploaded label file.
-
-	Parameters:
-	-----------
-	None
-
-	Returns:
-	--------
-	None
-	"""
 	
+		Purpose:
+		--------
+		Represent OCR and structured extraction results for one uploaded label file.
+	
+		Parameters:
+		-----------
+		None
+	
+		Returns:
+		--------
+		None
+	
+	"""
 	file_name: str = Field( default='', description='Uploaded file name.' )
 	file_type: str = Field( default='', description='Detected file extension or upload type.' )
 	raw_text: str = Field( default='', description='Raw OCR text extracted from the label.' )
 	normalized_text: str = Field( default='', description='Normalized OCR text for matching.' )
+	brand_name: str = Field( default='', description='Extracted brand name.' )
+	class_type: str = Field( default='', description='Extracted class/type designation.' )
+	alcohol_content: Optional[ float ] = Field( default=None, description='Extracted ABV value.' )
+	net_contents: str = Field( default='', description='Extracted net contents.' )
+	producer_bottler: str = Field( default='', description='Extracted producer/bottler text.' )
+	country_of_origin: str = Field( default='', description='Extracted country of origin.' )
+	government_warning: str = Field( default='', description='Extracted government warning text.' )
 	ocr_engine: str = Field( default='', description='OCR engine used for extraction.' )
 	ocr_seconds: float = Field( default=0.0, description='Elapsed OCR processing time.' )
 	image_quality_notes: List[ str ] = Field( default_factory=list )
@@ -155,22 +160,54 @@ class ExtractedLabel( BaseModel ):
 	
 	def has_text( self ) -> bool:
 		"""
-		Purpose:
-		--------
-		Determine whether OCR produced readable label text.
-
-		Parameters:
-		-----------
-		None
-
-		Returns:
-		--------
-		bool: True when extracted text is present; otherwise, False.
+		
+			Purpose:
+			--------
+			Determine whether OCR produced readable label text.
+	
+			Parameters:
+			-----------
+			None
+	
+			Returns:
+			--------
+			bool: True when extracted text is present; otherwise, False.
+			
 		"""
 		try:
 			return bool( self.raw_text and self.raw_text.strip( ) )
 		except Exception:
 			return False
+	
+	def to_extracted_field_map( self ) -> Dict[ str, Any ]:
+		"""
+		
+			Purpose:
+			--------
+			Return structured extracted label values keyed by reviewer-facing field names.
+	
+			Parameters:
+			-----------
+			None
+	
+			Returns:
+			--------
+			Dict[str, Any]: Structured extracted label field values.
+			
+		"""
+		try:
+			return {
+					'Brand Name': self.brand_name,
+					'Class / Type': self.class_type,
+					'Alcohol Content': self.alcohol_content,
+					'ABV': self.alcohol_content,
+					'Net Contents': self.net_contents,
+					'Producer / Bottler': self.producer_bottler,
+					'Country of Origin': self.country_of_origin,
+					'Government Warning': self.government_warning
+			}
+		except Exception:
+			return { }
 
 # ==========================================================================================
 # Rule Result Model
@@ -700,3 +737,26 @@ class BatchVerificationReport( BaseModel ):
 			return sum( report.has_warnings( ) for report in self.reports )
 		except Exception:
 			return 0
+			
+	def to_summary_records( self ) -> List[ Dict[ str, Any ] ]:
+		"""
+			Purpose:
+			--------
+			Convert all batch reports into flat summary records.
+		
+			Parameters:
+			-----------
+			None
+		
+			Returns:
+			--------
+			List[Dict[str, Any]]: Flat summary records for all reports.
+		"""
+		try:
+			return [
+					report.to_summary_record( )
+					for report in self.reports
+			]
+		except Exception:
+			return [ ]
+
