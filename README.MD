@@ -20,13 +20,22 @@ ___
 Fiddy is a standalone application written in python that helps alcohol-label reviewers compare
 label submissions against data. It combines an AI-assisted local OCR, deterministic
 verification rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
-into a fast, explainable reviewer-assist workflow.
+into a fast, explainable reviewer-assist workflow. Fiddy supports alcohol-label review by comparing
+application data to the text and evidence found on submitted label artwork.
+
+The reviewer can work from a CSV manifest for batch review or enter CAV-style application values
+manually for single-label review. Fiddy then extracts readable label text using local OCR, evaluates
+the label against structured application values, and produces a field-by-field review surface with
+status, severity, confidence, explanation, and recommended reviewer action.
+
+
 
 ## 🎦 Features
 
 Fiddy provides a clear and practical approach to automating
 alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
-workflows.
+workflows. The application is intentionally transparent. If OCR is weak, if an image is difficult to read, or if a visual condition requires judgment, Fiddy
+marks the item for review and explains why.
 
 - **Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
   visual cues directly from label artwork to support reliable field‑level comparison.
@@ -74,7 +83,7 @@ Fiddy is AI-assisted, but not AI-autonomous. The application uses local OCR, ima
 matching, confidence scoring, and deterministic rules to help reviewers evaluate alcohol
 label artwork faster and more consistently.
 
-The AI-assisted pipeline performs four jobs:
+The AI-assisted pipeline consists of a LSTM-based OCR engine that performs four jobs:
 
 1. **Read the label artwork** using local OCR.
 2. **Assess image quality** so weak OCR evidence is not treated as reliable.
