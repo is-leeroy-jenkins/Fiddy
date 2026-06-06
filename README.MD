@@ -434,7 +434,7 @@ old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled
 
 Fiddy presents results in progressively detailed layers.
 
-### Batch Dashboard
+#### Batch Dashboard
 
 The dashboard provides a quick summary of the current review run:
 
@@ -444,11 +444,11 @@ The dashboard provides a quick summary of the current review run:
 * Needs-review items
 * SLA breaches
 
-### Summary Table
+#### Summary Table
 
 The summary table provides one row per processed label.
 
-### Side-by-Side Comparison
+#### Side-by-Side Comparison
 
 The side-by-side comparison is the primary reviewer surface.
 
@@ -464,7 +464,7 @@ The side-by-side comparison is the primary reviewer surface.
 | Explanation     | Explains the finding in reviewer-facing language.     |
 | Reviewer Action | Recommends the next reviewer step.                    |
 
-### Downloadable Files
+#### Downloadable Files
 
 | Output          | Purpose                                              |
 |-----------------|------------------------------------------------------|
@@ -692,7 +692,7 @@ for upload scanning, audit logging, records retention, monitoring, and security 
 
 
 
-## ☁️ Azure Deployment Posture
+## ☁️ Azure Deployment 
 
 Fiddy can run as a standalone Streamlit workload in Azure. The runtime should include Python,
 Tesseract OCR, and Poppler if PDF processing is enabled.
@@ -754,8 +754,6 @@ performance commitments.
 
 ## ⚠️ Limitations
 
-Fiddy is a working prototype, not a production compliance platform.
-
 Known limitations include:
 
 * OCR can struggle with stylized fonts, curved labels, glare, low resolution, and severe image
@@ -770,7 +768,7 @@ Known limitations include:
 
 ## 📦 Dependencies
 
-Fiddy uses a compact Python dependency stack focused on Streamlit UI, local OCR, image processing,
+Fiddy uses a compact Python dependency stack focused on a Web UI, local OCR, image processing,
 fuzzy matching, structured models, and test automation.
 
 | Package                  | Version     | Purpose                                                                                                                     |
@@ -801,7 +799,7 @@ Some Python packages require external system tools.
 
 ## 📄 License
 
-This prototype is distributed under the MIT-style license [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt) included in the source files.
+Fiddy is distributed under the MIT-style license [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt) included in the source files.
 
 
 
