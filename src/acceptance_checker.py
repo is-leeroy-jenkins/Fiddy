@@ -99,10 +99,11 @@ REQUIREMENT_DATA_HANDLING: str = '4.3'
 class RequirementStatus( BaseModel ):
 	"""Represent one stakeholder requirement acceptance determination.
 
-	The ``RequirementStatus`` model stores a requirement identifier, requirement name,
-	acceptance status, evidence statement, recommendation, evaluation timestamp, and optional
-	metric values. It is intentionally flat so the record can be displayed in Streamlit,
-	exported as CSV, serialized as JSON, or inserted into a stakeholder acceptance report.
+	Purpose:
+		The ``RequirementStatus`` model stores a requirement identifier, requirement name,
+		acceptance status, evidence statement, recommendation, evaluation timestamp, and optional
+		metric values. It is intentionally flat so the record can be displayed in Streamlit,
+		exported as CSV, serialized as JSON, or inserted into a stakeholder acceptance report.
 
 	Attributes:
 		requirement_id (str): Requirement identifier from the stakeholder requirements.
@@ -165,9 +166,10 @@ class RequirementStatus( BaseModel ):
 class AcceptanceSummary( BaseModel ):
 	"""Represent the complete acceptance evaluation for one Fiddy run.
 
-	The ``AcceptanceSummary`` model stores all requirement-level acceptance records and provides
-	convenience methods for counting status outcomes, calculating an acceptance percentage, and
-	converting the summary into display or export records.
+	Purpose:
+		The ``AcceptanceSummary`` model stores all requirement-level acceptance records and provides
+		convenience methods for counting status outcomes, calculating an acceptance percentage, and
+		converting the summary into display or export records.
 
 	Attributes:
 		requirements (List[RequirementStatus]): Requirement-level acceptance results.
@@ -306,10 +308,11 @@ class AcceptanceSummary( BaseModel ):
 class AcceptanceChecker( ):
 	"""Evaluate Fiddy runtime evidence against stakeholder prototype requirements.
 
-	The ``AcceptanceChecker`` class inspects a completed ``BatchProcessingResult`` and returns
-	requirement-level acceptance records. It does not rerun OCR or verification. It evaluates
-	existing report objects, performance summaries, validation outputs, configuration switches,
-	and export DataFrames supplied by the caller.
+	Purpose:
+		The ``AcceptanceChecker`` class inspects a completed ``BatchProcessingResult`` and returns
+		requirement-level acceptance records. It does not rerun OCR or verification. It evaluates
+		existing report objects, performance summaries, validation outputs, configuration switches,
+		and export DataFrames supplied by the caller.
 
 	Attributes:
 		_result (BatchProcessingResult): Active batch-processing result under evaluation.
@@ -333,8 +336,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Create empty DataFrame placeholders and an empty requirement list. No evaluation occurs
 			until ``evaluate_batch_result`` is called.
-
-		
 
 		Returns:
 			None.
@@ -383,7 +384,7 @@ class AcceptanceChecker( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_status( self, requirement_id: str, requirement_name: str, status: str, evidence: str, recommendation: str = "", metrics: Dict[str, object] = None ) -> RequirementStatus'
+			error.method = 'create_status( self, *args ) -> RequirementStatus'
 			Logger( ).write( error )
 			return RequirementStatus(
 				requirement_id=requirement_id or '',
@@ -400,8 +401,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Provide a safe accessor for the batch report stored inside the active
 			``BatchProcessingResult``.
-
-		
 
 		Returns:
 			BatchVerificationReport: Active batch report or an empty fallback report.
@@ -423,8 +422,6 @@ class AcceptanceChecker( ):
 			Provide a safe list of reports for requirement checks that inspect extracted labels,
 			rule results, status values, and reviewer flags.
 
-		
-
 		Returns:
 			List[LabelVerificationReport]: Label-level reports.
 		"""
@@ -444,8 +441,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Support the extraction requirement by counting label reports whose extracted label
 			contains raw OCR text.
-
-		
 
 		Returns:
 			int: Count of reports with extracted OCR text.
@@ -471,8 +466,6 @@ class AcceptanceChecker( ):
 			Support comparison-output evaluation by counting reports where deterministic rule
 			evaluation produced structured results.
 
-		
-
 		Returns:
 			int: Count of reports with rule results.
 		"""
@@ -497,8 +490,6 @@ class AcceptanceChecker( ):
 			Support reliability evaluation by counting reports that generated reviewer-visible
 			non-pass outcomes instead of failing silently.
 
-		
-
 		Returns:
 			int: Count of reports with fail, warning, or needs-review status.
 		"""
@@ -522,8 +513,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Determine whether the batch produced extracted-label objects and readable OCR text for
 			processed labels.
-
-		
 
 		Returns:
 			RequirementStatus: Label extraction acceptance record.
@@ -581,8 +570,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Determine whether processed label reports contain structured rule results and whether
 			the comparison DataFrame includes reviewer-facing comparison fields.
-
-		
 
 		Returns:
 			RequirementStatus: Application comparison acceptance record.
@@ -663,8 +650,6 @@ class AcceptanceChecker( ):
 			Determine whether batch processing produced per-label reports and tracked processed or
 			skipped files.
 
-		
-
 		Returns:
 			RequirementStatus: Batch processing acceptance record.
 		"""
@@ -725,8 +710,6 @@ class AcceptanceChecker( ):
 			Inspect the batch performance summary and formal performance acceptance result to
 			determine whether the five-second target was met, not met, or not evaluated.
 
-		
-
 		Returns:
 			RequirementStatus: Performance acceptance record.
 		"""
@@ -775,8 +758,6 @@ class AcceptanceChecker( ):
 		Purpose:
 			Determine whether summary, detail, comparison, and performance outputs exist after a
 			verification run.
-
-		
 
 		Returns:
 			RequirementStatus: Output acceptance record.
@@ -846,8 +827,6 @@ class AcceptanceChecker( ):
 			Determine whether the batch result captured errors, warnings, skipped files, or
 			reviewer-visible non-pass reports without crashing the batch.
 
-		
-
 		Returns:
 			RequirementStatus: Reliability acceptance record.
 		"""
@@ -909,8 +888,6 @@ class AcceptanceChecker( ):
 			Determine whether the completed run exercised the configured prototype batch-size
 			acceptance range.
 
-		
-
 		Returns:
 			RequirementStatus: Scalability acceptance record.
 		"""
@@ -970,9 +947,7 @@ class AcceptanceChecker( ):
 			file path logging, upload persistence, and log retention. Runtime proof still requires a
 			deployment review, but these switches provide acceptance evidence for the prototype
 			posture.
-
-		
-
+			
 		Returns:
 			List[RequirementStatus]: Security and data-handling acceptance records.
 		"""
@@ -1064,8 +1039,6 @@ class AcceptanceChecker( ):
 			Inspect configuration and output evidence for Simple Mode defaults, high contrast,
 			large text, keyboard checklist requirement, progress/performance output, and
 			reviewer-facing comparison guidance.
-
-		
 
 		Returns:
 			List[RequirementStatus]: Usability, interface simplicity, accessibility, and feedback
@@ -1161,8 +1134,6 @@ class AcceptanceChecker( ):
 			container or deployment artifact review, but this method records application-level
 			posture.
 
-		
-
 		Returns:
 			List[RequirementStatus]: Infrastructure and integration acceptance records.
 		"""
@@ -1170,7 +1141,6 @@ class AcceptanceChecker( ):
 			deployment_target = str( getattr( cfg, 'DEPLOYMENT_TARGET', 'local' ) )
 			require_local_ocr = bool( getattr( cfg, 'REQUIRE_LOCAL_OCR', True ) )
 			allow_external_ml = bool( getattr( cfg, 'ALLOW_EXTERNAL_ML_ENDPOINTS', False ) )
-			
 			infrastructure_met = require_local_ocr and not allow_external_ml
 			infrastructure_status = ACCEPTANCE_PARTIAL if infrastructure_met else ACCEPTANCE_NOT_MET
 			
@@ -1266,7 +1236,7 @@ class AcceptanceChecker( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'evaluate_batch_result( self, result: BatchProcessingResult, summary_dataframe: pd.DataFrame = None, detail_dataframe: pd.DataFrame = None, comparison_dataframe: pd.DataFrame = None, performance_dataframe: pd.DataFrame = None ) -> AcceptanceSummary'
+			error.method = 'evaluate_batch_result( self, *args ) -> AcceptanceSummary'
 			Logger( ).write( error )
 			return AcceptanceSummary(
 				requirements=[
