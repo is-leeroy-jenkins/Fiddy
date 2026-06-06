@@ -25,35 +25,50 @@ into a fast, explainable reviewer-assist workflow.
 Fiddy is designed to simplify and expedite compliance operations: upload the application data and label, 
 run a verification, review and download.
 
-Fiddy is intentionally transparent. If the OCR is weak, if an image is difficult to read, 
-or if a visual condition requires judgment, Fiddy marks the item for review and explains why.
-
 Fiddy provides a clear and practical approach to automating
 alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
 workflows.
 
-- **🔍 Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
+- **Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
   visual cues directly from label artwork to support reliable field‑level comparison.
 
-- **⚖️ Transparent, Deterministic Matching** — Each field produces a status, severity, confidence
+- **Transparent, Deterministic Matching** — Each field produces a status, severity, confidence
   score, and concise explanation, reflecting an emphasis on clarity and auditability.
 
-- **📦 Batch Processing via Manifest** — A manifest‑driven workflow enables consistent, repeatable
+- **Batch Processing via Manifest** — A manifest‑driven workflow enables consistent, repeatable
   processing of multiple applications and label sets.
 
-- **🔐 Local‑Only Execution** — All OCR, diagnostics, and matching run locally, avoiding external
+- **Local‑Only Execution** — All OCR, diagnostics, and matching run locally, avoiding external
   inference services and supporting secure, offline operation.
 
-- **🧭 Workflow Aligned With Analyst Practice** — The pipeline mirrors real review steps: *Upload →
+- **Workflow Aligned With Analyst Practice** — The pipeline mirrors real review steps: *Upload →
   Extract → Diagnose → Compare → Flag exceptions → Review → Export.*
 
-- **🧱 Modular Architecture** — OCR, diagnostics, matching, and reporting are separated into clear
+- **Modular Architecture** — OCR, diagnostics, matching, and reporting are separated into clear
   components, making the system maintainable, testable, and easy to extend.
 
-- **🧑‍ Human‑in‑the‑Loop Handling** — Low‑confidence or ambiguous fields are routed for manual
+- **Human‑in‑the‑Loop Handling** — Low‑confidence or ambiguous fields are routed for manual
   review, reducing false positives and supporting compliance‑oriented decision‑making.
 
-  
+## ✨ Capabilities
+
+| Capability              | What Fiddy Does                                                                         |
+|-------------------------|-----------------------------------------------------------------------------------------|
+| Label artwork intake    | Accepts image files, PDFs, and ZIP archives containing label artwork.                   |
+| Application data intake | Accepts manifest CSV uploads or manual CAV-style entry.                                 |
+| Local OCR               | Extracts label text using local Tesseract OCR.                                          |
+| Image preparation       | Loads, orients, converts, and prepares label images for OCR.                            |
+| Image diagnostics       | Evaluates practical OCR risk factors such as blur, glare, darkness, contrast, and skew. |
+| Field comparison        | Compares expected application values against extracted or observed label evidence.      |
+| Fuzzy matching          | Tolerates minor text variation where ordinary reviewer judgment would tolerate it.      |
+| Strict warning review   | Handles government-warning text separately from ordinary fuzzy fields.                  |
+| Batch verification      | Processes matched manifest rows and uploaded files as independent label reviews.        |
+| Reviewer guidance       | Provides status, severity, confidence, explanation, and recommended action.             |
+| Downloadable reports    | Exports summary, detail, comparison, performance, JSON, and Markdown outputs.           |
+| Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
+| Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
+
+
 ## 🧠 AI-Assisted Verification
 
 Fiddy is AI-assisted, bt not AI-autonomous. The application uses local OCR, image analysis, fuzzy
@@ -76,28 +91,10 @@ focus reviewer attention on exceptions.
 |------------------------------|------------------------------------------------------------------------------------------------|
 | OCR extraction               | Converts label artwork into machine-readable text using local Tesseract OCR.                   |
 | Image intelligence           | Evaluates blur, contrast, glare, skew, darkness, and readability before relying on OCR output. |
-| Fuzzy matching               | Handles minor text variations such as punctuation, casing, spacing, and apostrophes.           |
+| Fuzzy matching               | Handles text variations such as punctuation, casing, spacing, and apostrophes.                 |
 | Confidence scoring           | Assigns confidence values to help reviewers understand result strength.                        |
 | Human-review safeguards      | Marks uncertain, low-quality, or visually dependent findings for manual review.                |
 | Deterministic rule reasoning | Applies transparent review logic to extracted evidence and application values.                 |
-
-## ✨ Capabilities
-
-| Capability              | What Fiddy Does                                                                         |
-|-------------------------|-----------------------------------------------------------------------------------------|
-| Label artwork intake    | Accepts image files, PDFs, and ZIP archives containing label artwork.                   |
-| Application data intake | Accepts manifest CSV uploads or manual CAV-style entry.                                 |
-| Local OCR               | Extracts label text using local Tesseract OCR.                                          |
-| Image preparation       | Loads, orients, converts, and prepares label images for OCR.                            |
-| Image diagnostics       | Evaluates practical OCR risk factors such as blur, glare, darkness, contrast, and skew. |
-| Field comparison        | Compares expected application values against extracted or observed label evidence.      |
-| Fuzzy matching          | Tolerates minor text variation where ordinary reviewer judgment would tolerate it.      |
-| Strict warning review   | Handles government-warning text separately from ordinary fuzzy fields.                  |
-| Batch verification      | Processes matched manifest rows and uploaded files as independent label reviews.        |
-| Reviewer guidance       | Provides status, severity, confidence, explanation, and recommended action.             |
-| Downloadable reports    | Exports summary, detail, comparison, performance, JSON, and Markdown outputs.           |
-| Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
-| Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
 
 
 
@@ -135,56 +132,6 @@ Downloadable outputs
 ```
 
 Advanced Mode is useful for testing, troubleshooting, demonstration, and quality review.
-
-## 🏗️ Architecture
-
-Fiddy is organized as a local-first verification pipeline that separates the reviewer interface,
-ingestion workflow, OCR/image processing, verification engine, reporting layer, diagnostics, and
-Azure-compatible runtime boundary.
-
-<p align="center">
-  <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
-</p>
-
-### Runtime Boundary
-
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      AZURE-COMPATIBLE RUNTIME BOUNDARY                       │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Local OCR and deterministic rule execution                                   │
-│ No external machine-learning endpoint dependency                             │
-│ Standalone operation without direct COLA writeback                           │
-│ Temporary upload handling during the active review session                   │
-│ Reports generated only through reviewer-initiated downloads                  │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-## 🧩 Components
-
-| Component                                                                                             | Role                                                                                               |
-|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| [app.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/app.py)                                 | Streamlit interface, workflow routing, uploads, reviewer controls, result display, and downloads.  |
-| [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py)                              | Application settings, paths, upload limits, OCR settings, thresholds, assets, and logging paths.   |
-| [batch_manifest.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_manifest.py)          | CSV manifest parsing, validation, filename matching, and conversion to application records.        |
-| [batch_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_processor.py)        | Batch orchestration, per-file isolation, skipped-file tracking, and batch result assembly.         |
-| [image_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/image_processor.py)        | Image loading, EXIF orientation correction, mode conversion, and OCR preparation.                  |
-| [visual_quality.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/visual_quality.py)          | Blur, contrast, glare, darkness, skew, size, and readability diagnostics.                          |
-| [ocr_engine.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/ocr_engine.py)                  | Local OCR extraction from supported image files and PDF pages.                                     |
-| [normalizer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/normalizer.py)                  | Text, punctuation, whitespace, ABV, proof, and unit normalization.                                 |
-| [label_rules.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_rules.py)                | Field-level verification rules, fuzzy matching, numeric comparison, and result creation.           |
-| [warning_validator.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/warning_validator.py)    | Government-warning presence, exact text, prefix, and visual-review handling.                       |
-| [label_verifier.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_verifier.py)          | Single-label OCR coordination, rule execution, and verification report creation.                   |
-| [performance_monitor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
-| [report_writer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
-| [booger.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
-
-
-## 🗺️ Component UML
-
-<p align="center">
-  <img src="assets/images/fiddy-component-map.png" alt="Fiddy architecture diagram" width="100%">
-</p>
 
 ## 💻 Usage Examples
 
@@ -408,8 +355,6 @@ except Exception as e:
 	print( 'Logged row:', row_id )
 ```
 
-
-
 ## 📄 Manifest Format
 
 A manifest row represents the expected application data for one uploaded label file.
@@ -442,8 +387,6 @@ old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled
 | `country_of_origin`   | Expected country of origin when applicable.                                   |
 | `cola_id`             | Optional application or COLA reference.                                       |
 | `notes`               | Optional reviewer notes.                                                      |
-
-
 
 ## 📊 Outputs
 
@@ -490,26 +433,11 @@ The side-by-side comparison is the primary reviewer surface.
 | JSON Report     | Structured machine-readable report.                  |
 | Markdown Report | Human-readable review report.                        |
 
-
-
-## ♿ Reviewer Controls
-
-Fiddy includes reviewer controls for usability and accessibility:
-
-* Simple Mode
-* Advanced Mode
-* High-contrast mode
-* Large-text mode
-* Clear upload labels
-* Large primary action button
-* Reviewer-facing explanations
-* Confidence and severity indicators
-
-
-
 ## ⚙️ Installation
-- Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended. 
-- Detailed installation instructions can be found in the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md)
+
+- Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended.
+- Detailed installation instructions can be found in
+  the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md)
   that is provided in this repo.
 
 ### Prerequisites
@@ -557,8 +485,6 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-
-
 ## 🔠 OCR Dependencies
 
 ### Tesseract
@@ -600,11 +526,10 @@ Windows:
 
 Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
 
-
-
 ## 🛠️ Configuration
 
-Configuration is centralized in [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py).
+Configuration is centralized
+in [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py).
 
 | Setting                      | Purpose                                |
 |------------------------------|----------------------------------------|
@@ -640,8 +565,6 @@ REPORT_FILENAME_PREFIX=fiddy_report
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-
-
 ## ▶️ Run the App
 
 Start Fiddy:
@@ -655,8 +578,6 @@ Open the local app:
 ```text
 http://localhost:8501
 ```
-
-
 
 ## 🧪 Testing
 
@@ -684,6 +605,71 @@ Recommended test coverage includes:
 * CSV, JSON, and Markdown downloads
 * Temporary file cleanup
 * Exception logging
+
+## 🏗️ Architecture
+
+Fiddy is organized as a local-first verification pipeline that separates the reviewer interface,
+ingestion workflow, OCR/image processing, verification engine, reporting layer, diagnostics, and
+Azure-compatible runtime boundary.
+
+<p align="center">
+  <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
+</p>
+
+### Runtime Boundary
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                      AZURE-COMPATIBLE RUNTIME BOUNDARY                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Local OCR and deterministic rule execution                                   │
+│ No external machine-learning endpoint dependency                             │
+│ Standalone operation without direct COLA writeback                           │
+│ Temporary upload handling during the active review session                   │
+│ Reports generated only through reviewer-initiated downloads                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 🧩 Components
+
+| Component                                                                                             | Role                                                                                               |
+|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| [app.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/app.py)                                 | Streamlit interface, workflow routing, uploads, reviewer controls, result display, and downloads.  |
+| [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py)                              | Application settings, paths, upload limits, OCR settings, thresholds, assets, and logging paths.   |
+| [batch_manifest.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_manifest.py)          | CSV manifest parsing, validation, filename matching, and conversion to application records.        |
+| [batch_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_processor.py)        | Batch orchestration, per-file isolation, skipped-file tracking, and batch result assembly.         |
+| [image_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/image_processor.py)        | Image loading, EXIF orientation correction, mode conversion, and OCR preparation.                  |
+| [visual_quality.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/visual_quality.py)          | Blur, contrast, glare, darkness, skew, size, and readability diagnostics.                          |
+| [ocr_engine.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/ocr_engine.py)                  | Local OCR extraction from supported image files and PDF pages.                                     |
+| [normalizer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/normalizer.py)                  | Text, punctuation, whitespace, ABV, proof, and unit normalization.                                 |
+| [label_rules.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_rules.py)                | Field-level verification rules, fuzzy matching, numeric comparison, and result creation.           |
+| [warning_validator.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/warning_validator.py)    | Government-warning presence, exact text, prefix, and visual-review handling.                       |
+| [label_verifier.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_verifier.py)          | Single-label OCR coordination, rule execution, and verification report creation.                   |
+| [performance_monitor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
+| [report_writer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
+| [booger.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
+
+
+
+## 🗺️ Component UML
+
+<p align="center">
+  <img src="assets/images/fiddy-component-map.png" alt="Fiddy architecture diagram" width="100%">
+</p>
+
+
+## ♿ Reviewer Controls
+
+Fiddy includes reviewer controls for usability and accessibility:
+
+* Simple Mode
+* Advanced Mode
+* High-contrast mode
+* Large-text mode
+* Clear upload labels
+* Large primary action button
+* Reviewer-facing explanations
+* Confidence and severity indicators
 
 
 
