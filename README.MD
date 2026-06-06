@@ -800,7 +800,7 @@ Some Python packages require external system tools.
 
 ## 📄 License
 
-Fiddy is distributed under the MIT-style license [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt) included in the source files.
+Fiddy is distributed for free, general-purpose use under the MIT license located [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt).
 
 
 
