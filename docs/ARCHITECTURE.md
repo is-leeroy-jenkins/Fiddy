@@ -8,7 +8,7 @@ Azure-compatible deployment boundary.
 ## Architecture Diagram
 
 <p align="center">
-  <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
+  <img src="..assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
 </p>
 
 ## Runtime Boundary
@@ -51,7 +51,7 @@ Azure-compatible deployment boundary.
 ## Component Map
 
 <p align="center">
-  <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
+  <img src="..assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
 </p>
 
 ## Deployment Boundary
