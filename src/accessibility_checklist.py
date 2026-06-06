@@ -45,13 +45,18 @@
         The checklist is intentionally designed for manual validation because keyboard
         navigation and focus order must be verified in the browser where Streamlit renders the
         final user interface.
+
+        The module produces tabular, JSON, Markdown, and summary outputs that can be displayed
+        in Streamlit, exported with the acceptance evidence package, or consumed by the
+        acceptance checker.
     </summary>
     ******************************************************************************************
 '''
 from __future__ import annotations
 
+import json
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -74,6 +79,8 @@ CHECK_CATEGORY_VISUAL: str = 'Visual Accessibility'
 CHECK_CATEGORY_WORKFLOW: str = 'Workflow Accessibility'
 CHECK_CATEGORY_RESULTS: str = 'Results Accessibility'
 CHECK_CATEGORY_DOWNLOADS: str = 'Download Accessibility'
+CHECK_CATEGORY_FEEDBACK: str = 'Mismatch Feedback'
+CHECK_CATEGORY_ACCEPTANCE: str = 'Acceptance Evidence'
 
 ACCESSIBILITY_STATUS_MET: str = 'Met'
 ACCESSIBILITY_STATUS_PARTIAL: str = 'Partially Met'
@@ -88,10 +95,10 @@ class AccessibilityChecklistItem( BaseModel ):
 	"""Represent one accessibility validation checklist item.
 
 	Purpose:
-		The ``AccessibilityChecklistItem`` model stores one browser-validation item used to confirm
-		that Fiddy can be operated with keyboard and visual accessibility support. Each item includes
-		a stable identifier, category, plain-language test name, procedure, expected result, current
-		status, tester notes, and evaluation timestamp.
+		Store one browser-validation item used to confirm that Fiddy can be operated with
+		keyboard and visual accessibility support. Each item includes a stable identifier,
+		category, plain-language test name, test procedure, expected result, current status,
+		tester notes, and evaluation timestamp.
 
 	Attributes:
 		item_id (str): Stable checklist item identifier.
@@ -113,7 +120,8 @@ class AccessibilityChecklistItem( BaseModel ):
 	status: str = Field( default=CHECK_STATUS_NOT_TESTED )
 	notes: str = Field( default='' )
 	evaluated_on: str = Field(
-		default_factory=lambda: datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' ) )
+		default_factory=lambda: datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' )
+	)
 	
 	def mark_passed( self, notes: str = '' ) -> None:
 		"""Mark the checklist item as passed.
@@ -165,12 +173,37 @@ class AccessibilityChecklistItem( BaseModel ):
 			Logger( ).write( error )
 			return None
 	
+	def mark_not_tested( self, notes: str = '' ) -> None:
+		"""Mark the checklist item as not tested.
+
+		Purpose:
+			Update the item status to ``Not Tested``, store optional tester notes, and refresh
+			the evaluation timestamp.
+
+		Args:
+			notes (str): Optional tester notes.
+
+		Returns:
+			None.
+		"""
+		try:
+			self.status = CHECK_STATUS_NOT_TESTED
+			self.notes = notes
+			self.evaluated_on = datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'mark_not_tested( self, notes: str = "" ) -> None'
+			Logger( ).write( error )
+			return None
+	
 	def mark_not_applicable( self, notes: str = '' ) -> None:
 		"""Mark the checklist item as not applicable.
 
 		Purpose:
-			Update the item status to ``Not Applicable``, store optional tester notes, and refresh
-			the evaluation timestamp.
+			Update the item status to ``Not Applicable``, store optional tester notes, and
+			refresh the evaluation timestamp.
 
 		Args:
 			notes (str): Optional tester notes.
@@ -190,12 +223,48 @@ class AccessibilityChecklistItem( BaseModel ):
 			Logger( ).write( error )
 			return None
 	
+	def update_status( self, status: str, notes: str = '' ) -> None:
+		"""Update the checklist item using a supplied status value.
+
+		Purpose:
+			Apply one of the recognized checklist statuses to the item and refresh the evaluation
+			timestamp. This supports UI-driven edits, imported checklist results, and test-harness
+			status maps.
+
+		Args:
+			status (str): Status value to apply.
+			notes (str): Optional tester notes.
+
+		Returns:
+			None.
+		"""
+		try:
+			throw_if( 'status', status )
+			
+			if status == CHECK_STATUS_PASS:
+				self.mark_passed( notes )
+			elif status == CHECK_STATUS_FAIL:
+				self.mark_failed( notes )
+			elif status == CHECK_STATUS_NOT_APPLICABLE:
+				self.mark_not_applicable( notes )
+			elif status == CHECK_STATUS_NOT_TESTED:
+				self.mark_not_tested( notes )
+			else:
+				raise ValueError( f'Unsupported accessibility status: {status}' )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'update_status( self, *args ) -> None'
+			Logger( ).write( error )
+			return None
+	
 	def to_record( self ) -> Dict[ str, object ]:
 		"""Convert the checklist item into a flat display/export record.
 
 		Purpose:
-			Return a dictionary suitable for Streamlit display, CSV export, JSON export, Markdown
-			reporting, or test-result archiving.
+			Return a dictionary suitable for Streamlit display, CSV export, JSON export,
+			Markdown reporting, or test-result archiving.
 
 		Returns:
 			Dict[str, object]: Flat checklist item record.
@@ -232,10 +301,10 @@ class AccessibilityChecklistResult( BaseModel ):
 	"""Represent the complete Fiddy accessibility checklist outcome.
 
 	Purpose:
-		The ``AccessibilityChecklistResult`` model stores all checklist items and calculated
-		accessibility status values. It reports whether high-contrast mode is available, whether
-		large-text mode is available, whether keyboard navigation checks are required, which items
-		passed, which items failed, which items remain untested, and the overall status.
+		Store all checklist items and calculated accessibility status values. The result reports
+		whether high-contrast mode is available, whether large-text mode is available, whether
+		keyboard validation is required, which items passed, which items failed, which items
+		remain untested, and the overall accessibility status.
 
 	Attributes:
 		high_contrast_available (bool): Indicates whether high-contrast mode is configured.
@@ -245,6 +314,7 @@ class AccessibilityChecklistResult( BaseModel ):
 		passed_items (List[str]): Names of checklist items marked ``Pass``.
 		failed_items (List[str]): Names of checklist items marked ``Fail``.
 		untested_items (List[str]): Names of checklist items marked ``Not Tested``.
+		not_applicable_items (List[str]): Names of checklist items marked ``Not Applicable``.
 		status (str): Overall accessibility checklist status.
 		message (str): Plain-language summary message.
 		created_on (str): UTC timestamp when the result was created.
@@ -257,85 +327,22 @@ class AccessibilityChecklistResult( BaseModel ):
 	passed_items: List[ str ] = Field( default_factory=list )
 	failed_items: List[ str ] = Field( default_factory=list )
 	untested_items: List[ str ] = Field( default_factory=list )
+	not_applicable_items: List[ str ] = Field( default_factory=list )
 	status: str = Field( default=ACCESSIBILITY_STATUS_NOT_EVALUATED )
 	message: str = Field( default='' )
 	created_on: str = Field(
-		default_factory=lambda: datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' ) )
-	
-	def refresh_status( self ) -> None:
-		"""Refresh item lists and overall accessibility status.
-
-		Purpose:
-			Recalculate passed, failed, and untested item lists from the current checklist items.
-			The overall status is ``Met`` when every applicable item passes, ``Not Met`` when one or
-			more items fail, ``Partially Met`` when some items pass but others remain untested, and
-			``Not Evaluated`` when no applicable item has been tested.
-
-		Returns:
-			None.
-		"""
-		try:
-			applicable_items = [
-					item
-					for item in self.items
-					if item.status != CHECK_STATUS_NOT_APPLICABLE
-			]
-			
-			self.passed_items = [
-					item.name
-					for item in applicable_items
-					if item.status == CHECK_STATUS_PASS
-			]
-			
-			self.failed_items = [
-					item.name
-					for item in applicable_items
-					if item.status == CHECK_STATUS_FAIL
-			]
-			
-			self.untested_items = [
-					item.name
-					for item in applicable_items
-					if item.status == CHECK_STATUS_NOT_TESTED
-			]
-			
-			if not applicable_items:
-				self.status = ACCESSIBILITY_STATUS_NOT_EVALUATED
-				self.message = 'No applicable accessibility checklist items were available.'
-			elif self.failed_items:
-				self.status = ACCESSIBILITY_STATUS_NOT_MET
-				self.message = (
-						f'{len( self.failed_items )} accessibility item(s) failed validation.'
-				)
-			elif len( self.passed_items ) == len( applicable_items ):
-				self.status = ACCESSIBILITY_STATUS_MET
-				self.message = 'All applicable accessibility checklist items passed validation.'
-			elif self.passed_items:
-				self.status = ACCESSIBILITY_STATUS_PARTIAL
-				self.message = (
-						f'{len( self.passed_items )} item(s) passed and '
-						f'{len( self.untested_items )} item(s) remain untested.'
-				)
-			else:
-				self.status = ACCESSIBILITY_STATUS_NOT_EVALUATED
-				self.message = 'Accessibility checklist has not been manually tested.'
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'refresh_status( self ) -> None'
-			Logger( ).write( error )
-			self.status = ACCESSIBILITY_STATUS_NOT_EVALUATED
-			self.message = 'Accessibility checklist status could not be calculated.'
+		default_factory=lambda: datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' )
+	)
 	
 	def status_counts( self ) -> Dict[ str, int ]:
 		"""Return counts of checklist item statuses.
 
 		Purpose:
-			Count checklist items by status for dashboards, summaries, and exports.
+			Count checklist items by status for dashboard metrics, summary records, Markdown
+			output, JSON output, and acceptance evidence.
 
 		Returns:
-			Dict[str, int]: Counts keyed by checklist status value.
+			Dict[str, int]: Status counts keyed by checklist status text.
 		"""
 		try:
 			counts = {
@@ -362,14 +369,82 @@ class AccessibilityChecklistResult( BaseModel ):
 					CHECK_STATUS_NOT_APPLICABLE: 0
 			}
 	
-	def to_records( self ) -> List[ Dict[ str, object ] ]:
-		"""Convert all checklist items into flat records.
+	def refresh_status( self ) -> None:
+		"""Recalculate derived accessibility status fields.
 
 		Purpose:
-			Return one dictionary per checklist item for display and export.
+			Rebuild passed, failed, untested, and not-applicable item lists, then calculate the
+			overall accessibility status and message. High-contrast and large-text support are
+			treated as required visual accessibility capabilities. Keyboard checks remain manual
+			when configured as required.
 
 		Returns:
-			List[Dict[str, object]]: Flat checklist records.
+			None.
+		"""
+		try:
+			self.passed_items = [
+					item.name
+					for item in self.items
+					if item.status == CHECK_STATUS_PASS
+			]
+			self.failed_items = [
+					item.name
+					for item in self.items
+					if item.status == CHECK_STATUS_FAIL
+			]
+			self.untested_items = [
+					item.name
+					for item in self.items
+					if item.status == CHECK_STATUS_NOT_TESTED
+			]
+			self.not_applicable_items = [
+					item.name
+					for item in self.items
+					if item.status == CHECK_STATUS_NOT_APPLICABLE
+			]
+			
+			if not self.items:
+				self.status = ACCESSIBILITY_STATUS_NOT_EVALUATED
+				self.message = 'No accessibility checklist items are available.'
+			elif self.failed_items:
+				self.status = ACCESSIBILITY_STATUS_NOT_MET
+				self.message = (
+						f'{len( self.failed_items )} accessibility checklist item(s) failed and '
+						'require remediation before acceptance.'
+				)
+			elif self.untested_items and self.keyboard_check_required:
+				self.status = ACCESSIBILITY_STATUS_PARTIAL
+				self.message = (
+						f'{len( self.untested_items )} accessibility checklist item(s) remain '
+						'untested. Manual browser validation is required.'
+				)
+			elif not self.high_contrast_available or not self.large_text_available:
+				self.status = ACCESSIBILITY_STATUS_PARTIAL
+				self.message = (
+						'Checklist items are complete, but high-contrast or large-text availability '
+						'was not confirmed.'
+				)
+			else:
+				self.status = ACCESSIBILITY_STATUS_MET
+				self.message = 'All applicable accessibility checklist items passed.'
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'refresh_status( self ) -> None'
+			Logger( ).write( error )
+			self.status = ACCESSIBILITY_STATUS_NOT_EVALUATED
+			self.message = 'Accessibility status could not be refreshed.'
+	
+	def to_records( self ) -> List[ Dict[ str, object ] ]:
+		"""Convert checklist items into flat records.
+
+		Purpose:
+			Convert each accessibility checklist item into a dictionary suitable for DataFrame
+			display, CSV export, JSON export, or Markdown reporting.
+
+		Returns:
+			List[Dict[str, object]]: Flat checklist item records.
 		"""
 		try:
 			return [
@@ -385,7 +460,7 @@ class AccessibilityChecklistResult( BaseModel ):
 			return [ ]
 	
 	def to_dataframe( self ) -> pd.DataFrame:
-		"""Convert the checklist result into a pandas DataFrame.
+		"""Convert checklist results into a pandas DataFrame.
 
 		Purpose:
 			Create a tabular representation of checklist items for Streamlit display, CSV export,
@@ -447,6 +522,89 @@ class AccessibilityChecklistResult( BaseModel ):
 					'Not Applicable Items': 0,
 					'Created On': ''
 			}
+	
+	def to_json( self ) -> str:
+		"""Serialize the accessibility result as formatted JSON.
+
+		Purpose:
+			Create a JSON representation of the accessibility checklist result containing the
+			summary record and every checklist item. The output is suitable for evidence packages,
+			test harnesses, and stakeholder records.
+
+		Returns:
+			str: Formatted JSON string. If serialization fails, returns an empty JSON object.
+		"""
+		try:
+			payload = {
+					'summary': self.to_summary_record( ),
+					'items': self.to_records( )
+			}
+			return json.dumps( payload, indent=2, default=str )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_json( self ) -> str'
+			Logger( ).write( error )
+			return '{}'
+	
+	def to_markdown( self ) -> str:
+		"""Render the accessibility result as Markdown.
+
+		Purpose:
+			Create a stakeholder-readable Markdown report containing the overall accessibility
+			status, summary metrics, and every checklist item with procedure, expected result,
+			status, and tester notes.
+
+		Returns:
+			str: Markdown accessibility report. If rendering fails, returns a fallback report.
+		"""
+		try:
+			summary = self.to_summary_record( )
+			lines = [
+					'# Fiddy Accessibility Checklist',
+					'',
+					f'Created On: {self.created_on}',
+					f'Accessibility Status: {summary.get( "Accessibility Status", "" )}',
+					f'Message: {summary.get( "Accessibility Message", "" )}',
+					'',
+					'## Summary',
+					'',
+					f'- High Contrast Available: {self.high_contrast_available}',
+					f'- Large Text Available: {self.large_text_available}',
+					f'- Keyboard Check Required: {self.keyboard_check_required}',
+					f'- Passed Items: {summary.get( "Passed Items", 0 )}',
+					f'- Failed Items: {summary.get( "Failed Items", 0 )}',
+					f'- Untested Items: {summary.get( "Untested Items", 0 )}',
+					f'- Not Applicable Items: {summary.get( "Not Applicable Items", 0 )}',
+					'',
+					'## Checklist Items',
+					''
+			]
+			
+			for item in self.items:
+				lines.extend(
+					[
+							f'### {item.item_id} - {item.name}',
+							'',
+							f'- Category: {item.category}',
+							f'- Status: {item.status}',
+							f'- Procedure: {item.procedure}',
+							f'- Expected Result: {item.expected_result}',
+							f'- Notes: {item.notes}',
+							f'- Evaluated On: {item.evaluated_on}',
+							''
+					]
+				)
+			
+			return '\n'.join( lines )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_markdown( self ) -> str'
+			Logger( ).write( error )
+			return '# Fiddy Accessibility Checklist\n\nAccessibility report could not be rendered.'
 
 # ==========================================================================================
 # Accessibility Checklist Builder
@@ -456,10 +614,10 @@ class AccessibilityChecklist( ):
 	"""Build and evaluate Fiddy's manual accessibility checklist.
 
 	Purpose:
-		The ``AccessibilityChecklist`` class creates the canonical checklist used to validate the
-		Fiddy prototype in a browser. The checks are intentionally manual because Streamlit renders
-		interactive controls in the browser, and focus order, keyboard activation, and visible focus
-		must be observed in the actual UI.
+		Create the canonical checklist used to validate the Fiddy prototype in a browser. The
+		checks are intentionally manual because Streamlit renders interactive controls in the
+		browser, and focus order, keyboard activation, file upload reachability, download
+		reachability, visible focus, and non-hover guidance must be observed in the actual UI.
 
 	Attributes:
 		_items (List[AccessibilityChecklistItem]): Canonical checklist items.
@@ -472,7 +630,8 @@ class AccessibilityChecklist( ):
 
 		Purpose:
 			Build the default checklist items used for high-contrast, large-text, keyboard
-			navigation, workflow, result-review, and download validation.
+			navigation, keyboard activation, workflow, result review, download validation, and
+			non-hover mismatch guidance.
 
 		Returns:
 			None.
@@ -497,8 +656,8 @@ class AccessibilityChecklist( ):
 		"""Create one accessibility checklist item.
 
 		Purpose:
-			Centralize construction of checklist item records. Required values are validated before
-			the item is created.
+			Centralize construction of checklist item records. Required values are validated
+			before the item is created.
 
 		Args:
 			item_id (str): Stable checklist item identifier.
@@ -542,112 +701,100 @@ class AccessibilityChecklist( ):
 		"""Create the canonical Fiddy accessibility checklist.
 
 		Purpose:
-			Return the standard set of manual browser checks needed to support the stakeholder
-			requirement for high-contrast mode, large text, and keyboard navigation. The checklist
-			also verifies that reviewers are not forced to rely on mouse-only hover behavior.
+			Return checklist items that cover the stakeholder accessibility requirements and the
+			specific UI evidence needed for Fiddy acceptance. The checklist includes high contrast,
+			large text, visible focus, keyboard navigation, keyboard activation, file upload
+			reachability, result review, download reachability, and mismatch explanations that do
+			not depend on hover-only behavior.
 
 		Returns:
-			List[AccessibilityChecklistItem]: Canonical checklist items.
+			List[AccessibilityChecklistItem]: Canonical accessibility checklist items.
 		"""
 		try:
 			return [
 					self.create_item(
-						'A11Y-001',
-						CHECK_CATEGORY_VISUAL,
-						'High Contrast Mode Available',
-						'Open the sidebar, enable High Contrast, and inspect upload controls, buttons, tables, and result panels.',
-						'Controls and text remain readable with strong contrast.'
+						item_id='A11Y-001',
+						category=CHECK_CATEGORY_VISUAL,
+						name='High Contrast Mode Available',
+						procedure='Enable High Contrast in the sidebar and inspect the main workflow, buttons, upload controls, result tables, and download buttons.',
+						expected_result='High Contrast mode increases contrast across controls, panels, text, buttons, and tables without hiding workflow content.'
 					),
 					self.create_item(
-						'A11Y-002',
-						CHECK_CATEGORY_VISUAL,
-						'Large Text Mode Available',
-						'Open the sidebar, enable Large Text, and inspect upload controls, buttons, tables, result panels, and downloads.',
-						'Text and controls are larger without hiding required workflow controls.'
+						item_id='A11Y-002',
+						category=CHECK_CATEGORY_VISUAL,
+						name='Large Text Mode Available',
+						procedure='Enable Large Text in the sidebar and inspect headers, panels, input fields, buttons, tables, and guidance notes.',
+						expected_result='Large Text mode increases readability without clipping labels, hiding controls, or breaking the upload-run-review workflow.'
 					),
 					self.create_item(
-						'A11Y-003',
-						CHECK_CATEGORY_KEYBOARD,
-						'Keyboard Focus Visible',
-						'Press Tab through the interface and watch the active control.',
-						'A visible focus outline appears on active controls.'
+						item_id='A11Y-003',
+						category=CHECK_CATEGORY_KEYBOARD,
+						name='Visible Keyboard Focus',
+						procedure='Use Tab and Shift+Tab through the app controls and observe visible focus indicators.',
+						expected_result='Keyboard focus is visible on buttons, upload controls, input fields, selectors, expanders, and download controls.'
 					),
 					self.create_item(
-						'A11Y-004',
-						CHECK_CATEGORY_KEYBOARD,
-						'Upload Controls Reachable by Keyboard',
-						'Press Tab until the manifest and artwork upload controls receive focus.',
-						'Both upload controls can be reached without a mouse.'
+						item_id='A11Y-004',
+						category=CHECK_CATEGORY_KEYBOARD,
+						name='Keyboard Navigation Order',
+						procedure='Use only the keyboard to move from sidebar reviewer controls through upload controls, processing controls, results, and downloads.',
+						expected_result='Focus order follows the visual workflow and does not trap the reviewer or skip required controls.'
 					),
 					self.create_item(
-						'A11Y-005',
-						CHECK_CATEGORY_KEYBOARD,
-						'Run Verification Button Reachable by Keyboard',
-						'Press Tab until Run Verification receives focus.',
-						'Run Verification can be reached without a mouse.'
+						item_id='A11Y-005',
+						category=CHECK_CATEGORY_KEYBOARD,
+						name='Keyboard Activation',
+						procedure='Use Enter or Space to activate buttons, toggles, expanders, and download controls.',
+						expected_result='All primary workflow controls can be activated without using a mouse.'
 					),
 					self.create_item(
-						'A11Y-006',
-						CHECK_CATEGORY_KEYBOARD,
-						'Run Verification Button Activates by Keyboard',
-						'With Run Verification focused and valid inputs loaded, press Enter or Space.',
-						'Verification starts without requiring mouse click.'
+						item_id='A11Y-006',
+						category=CHECK_CATEGORY_WORKFLOW,
+						name='File Upload Reachability',
+						procedure='Reach the manifest upload and label-artwork upload controls using keyboard navigation.',
+						expected_result='Upload controls are reachable, labeled, and usable in the rendered browser UI.'
 					),
 					self.create_item(
-						'A11Y-007',
-						CHECK_CATEGORY_KEYBOARD,
-						'Backward Keyboard Navigation Works',
-						'Press Shift + Tab from the Run Verification area.',
-						'Focus moves backward through prior controls.'
+						item_id='A11Y-007',
+						category=CHECK_CATEGORY_WORKFLOW,
+						name='Simple Workflow Operable',
+						procedure='Complete the Simple Mode upload-run-review path using the rendered controls.',
+						expected_result='A reviewer can complete the core workflow without hunting through technical controls.'
 					),
 					self.create_item(
-						'A11Y-008',
-						CHECK_CATEGORY_WORKFLOW,
-						'Simple Mode Uses Short Workflow',
-						'Enable Simple Mode and complete a review from upload to results.',
-						'The reviewer can complete the workflow as upload, run, review/download.'
+						item_id='A11Y-008',
+						category=CHECK_CATEGORY_RESULTS,
+						name='Results Review Reachability',
+						procedure='After verification, use keyboard navigation to reach the dashboard, results viewer, comparison table, and acceptance evidence.',
+						expected_result='Results are reachable and readable without requiring pointer-only interaction.'
 					),
 					self.create_item(
-						'A11Y-009',
-						CHECK_CATEGORY_WORKFLOW,
-						'Simple Mode Hides Technical Controls',
-						'Enable Simple Mode and inspect the processing area.',
-						'Worker count and SLA tuning controls are not visible.'
+						item_id='A11Y-009',
+						category=CHECK_CATEGORY_DOWNLOADS,
+						name='Download Controls Reachable',
+						procedure='Use keyboard navigation to reach and activate each enabled download button.',
+						expected_result='Summary, comparison, detail, performance, acceptance, JSON, and Markdown downloads are keyboard reachable when enabled.'
 					),
 					self.create_item(
-						'A11Y-010',
-						CHECK_CATEGORY_RESULTS,
-						'Result Selector Reachable by Keyboard',
-						'After verification, press Tab until the flagged-label selector receives focus.',
-						'The selected result can be changed without a mouse.'
+						item_id='A11Y-010',
+						category=CHECK_CATEGORY_FEEDBACK,
+						name='Mismatch Guidance Does Not Require Hover',
+						procedure='Inspect mismatch, warning, fail, and review rows in the results and comparison outputs.',
+						expected_result='Mismatch explanations and reviewer actions are visible as text or table content and do not depend only on hover tooltips.'
 					),
 					self.create_item(
-						'A11Y-011',
-						CHECK_CATEGORY_RESULTS,
-						'Mismatch Guidance Does Not Require Hover',
-						'Inspect comparison results using keyboard navigation only.',
-						'Mismatch explanation and reviewer action text are visible without mouse-only hover.'
+						item_id='A11Y-011',
+						category=CHECK_CATEGORY_FEEDBACK,
+						name='Confidence and Severity Are Visible',
+						procedure='Inspect result tables and summaries after verification.',
+						expected_result='Confidence values and severity indicators are visible in text or table form.'
 					),
 					self.create_item(
-						'A11Y-012',
-						CHECK_CATEGORY_RESULTS,
-						'Comparison Table Readable',
-						'Inspect the side-by-side comparison table in normal, high-contrast, and large-text modes.',
-						'Application value, extracted value, status, severity, confidence, explanation, and reviewer action remain readable.'
-					),
-					self.create_item(
-						'A11Y-013',
-						CHECK_CATEGORY_DOWNLOADS,
-						'Download Buttons Reachable by Keyboard',
-						'After verification, press Tab until each download button receives focus.',
-						'Summary, comparison, detail, performance, JSON, and Markdown download controls are reachable without a mouse.'
-					),
-					self.create_item(
-						'A11Y-014',
-						CHECK_CATEGORY_DOWNLOADS,
-						'Download Buttons Activate by Keyboard',
-						'With a download button focused, press Enter or Space.',
-						'The browser starts the download action without requiring a mouse.'
+						item_id='A11Y-012',
+						category=CHECK_CATEGORY_ACCEPTANCE,
+						name='Accessibility Evidence Exportable',
+						procedure='Generate the accessibility checklist DataFrame, CSV, JSON, or Markdown output.',
+						expected_result='Accessibility evidence can be exported and included in the stakeholder acceptance package.'
 					)
 			]
 		except Exception as e:
@@ -658,16 +805,47 @@ class AccessibilityChecklist( ):
 			Logger( ).write( error )
 			return [ ]
 	
+	def get_item( self, item_id: str ) -> Optional[ AccessibilityChecklistItem ]:
+		"""Return one checklist item by identifier.
+
+		Purpose:
+			Find one checklist item using its stable item identifier. This supports UI forms,
+			status imports, and targeted updates.
+
+		Args:
+			item_id (str): Checklist item identifier.
+
+		Returns:
+			Optional[AccessibilityChecklistItem]: Matching checklist item, or ``None`` when no
+			item is found.
+		"""
+		try:
+			throw_if( 'item_id', item_id )
+			
+			for item in self._items:
+				if item.item_id == item_id:
+					return item
+			
+			return None
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'get_item( self, item_id: str ) -> Optional[AccessibilityChecklistItem]'
+			Logger( ).write( error )
+			return None
+	
 	def update_item_status( self, item_id: str, status: str, notes: str = '' ) -> None:
 		"""Update one checklist item status.
 
 		Purpose:
-			Find an item by identifier and update its status and notes. Accepted status values are
-			``Pass``, ``Fail``, ``Not Tested``, and ``Not Applicable``.
+			Apply a status and optional notes to one checklist item using its stable identifier.
+			The method supports manual UI updates, imported checklist status maps, and acceptance
+			test harness updates.
 
 		Args:
 			item_id (str): Checklist item identifier.
-			status (str): New item status.
+			status (str): New checklist status.
 			notes (str): Optional tester notes.
 
 		Returns:
@@ -677,34 +855,22 @@ class AccessibilityChecklist( ):
 			throw_if( 'item_id', item_id )
 			throw_if( 'status', status )
 			
-			valid_statuses = {
-					CHECK_STATUS_PASS,
-					CHECK_STATUS_FAIL,
-					CHECK_STATUS_NOT_TESTED,
-					CHECK_STATUS_NOT_APPLICABLE
-			}
+			item = self.get_item( item_id )
 			
-			if status not in valid_statuses:
-				raise ValueError( f'Invalid checklist status: {status}' )
+			if not item:
+				raise ValueError( f'Checklist item was not found: {item_id}' )
 			
-			for item in self._items:
-				if item.item_id == item_id:
-					item.status = status
-					item.notes = notes
-					item.evaluated_on = datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' )
-					return None
-			
-			raise ValueError( f'Checklist item was not found: {item_id}' )
+			item.update_status( status, notes )
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'update_item_status( self, item_id: str, status: str, notes: str = "" ) -> None'
+			error.method = 'update_item_status( self, *args ) -> None'
 			Logger( ).write( error )
 			return None
 	
 	def apply_status_map( self, status_map: Dict[ str, str ],
-			notes_map: Dict[ str, str ] = None ) -> None:
+			notes_map: Optional[ Dict[ str, str ] ] = None ) -> None:
 		"""Apply a mapping of item statuses to the checklist.
 
 		Purpose:
@@ -714,7 +880,7 @@ class AccessibilityChecklist( ):
 
 		Args:
 			status_map (Dict[str, str]): Mapping from item identifier to status.
-			notes_map (Dict[str, str]): Optional mapping from item identifier to notes.
+			notes_map (Optional[Dict[str, str]]): Optional mapping from item identifier to notes.
 
 		Returns:
 			None.
@@ -738,23 +904,80 @@ class AccessibilityChecklist( ):
 			Logger( ).write( error )
 			return None
 	
+	def mark_all_manual_checks_passed( self, notes: str = '' ) -> None:
+		"""Mark every checklist item as passed.
+
+		Purpose:
+			Support acceptance testing after a reviewer has manually validated the rendered
+			browser UI. This method should only be used when the reviewer or test harness has
+			actually performed the browser checks and wants to record the completed evidence.
+
+		Args:
+			notes (str): Optional note applied to every checklist item.
+
+		Returns:
+			None.
+		"""
+		try:
+			for item in self._items:
+				item.mark_passed( notes )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'mark_all_manual_checks_passed( self, notes: str = "" ) -> None'
+			Logger( ).write( error )
+			return None
+	
+	def mark_all_manual_checks_not_tested( self, notes: str = '' ) -> None:
+		"""Mark every checklist item as not tested.
+
+		Purpose:
+			Reset checklist evidence to a not-tested state while preserving the canonical item
+			list. This is useful before rerunning accessibility validation or when clearing prior
+			manual evidence.
+
+		Args:
+			notes (str): Optional note applied to every checklist item.
+
+		Returns:
+			None.
+		"""
+		try:
+			for item in self._items:
+				item.mark_not_tested( notes )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'mark_all_manual_checks_not_tested( self, notes: str = "" ) -> None'
+			Logger( ).write( error )
+			return None
+	
 	def evaluate( self ) -> AccessibilityChecklistResult:
 		"""Evaluate the current checklist status.
 
 		Purpose:
 			Create an ``AccessibilityChecklistResult`` using current checklist items and
-			configuration flags. The result recalculates passed, failed, and untested items before
-			returning.
+			configuration flags. The result recalculates passed, failed, not-tested, and
+			not-applicable items before returning.
 
 		Returns:
 			AccessibilityChecklistResult: Current accessibility checklist result.
 		"""
 		try:
 			result = AccessibilityChecklistResult(
-				high_contrast_available=True,
-				large_text_available=True,
+				high_contrast_available=bool(
+					getattr( cfg, 'DEFAULT_HIGH_CONTRAST_MODE', False )
+					or getattr( cfg, 'HIGH_CONTRAST_AVAILABLE', True )
+				),
+				large_text_available=bool(
+					getattr( cfg, 'DEFAULT_LARGE_TEXT_MODE', False )
+					or getattr( cfg, 'LARGE_TEXT_AVAILABLE', True )
+				),
 				keyboard_check_required=bool(
-					getattr( cfg, 'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK', True ) ),
+					getattr( cfg, 'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK', True )
+				),
 				items=self._items
 			)
 			
@@ -780,7 +1003,7 @@ class AccessibilityChecklist( ):
 
 		Purpose:
 			Return checklist items as tabular records before or after manual validation. This is
-			useful for display, export, and acceptance documentation.
+			useful for Streamlit display, CSV export, and acceptance documentation.
 
 		Returns:
 			pd.DataFrame: Checklist item DataFrame.
@@ -795,3 +1018,65 @@ class AccessibilityChecklist( ):
 			error.method = 'to_dataframe( self ) -> pd.DataFrame'
 			Logger( ).write( error )
 			return pd.DataFrame( )
+	
+	def to_summary_dataframe( self ) -> pd.DataFrame:
+		"""Convert the current checklist summary into a one-row DataFrame.
+
+		Purpose:
+			Return high-level accessibility status as a DataFrame for dashboard display,
+			acceptance reports, or CSV export.
+
+		Returns:
+			pd.DataFrame: One-row accessibility summary DataFrame.
+		"""
+		try:
+			result = self.evaluate( )
+			return pd.DataFrame( [ result.to_summary_record( ) ] )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_summary_dataframe( self ) -> pd.DataFrame'
+			Logger( ).write( error )
+			return pd.DataFrame( )
+	
+	def to_json( self ) -> str:
+		"""Serialize the current checklist result as formatted JSON.
+
+		Purpose:
+			Evaluate the current checklist and return its JSON representation for evidence
+			packages, downloads, test harnesses, or stakeholder records.
+
+		Returns:
+			str: Formatted JSON string.
+		"""
+		try:
+			result = self.evaluate( )
+			return result.to_json( )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_json( self ) -> str'
+			Logger( ).write( error )
+			return '{}'
+	
+	def to_markdown( self ) -> str:
+		"""Render the current checklist result as Markdown.
+
+		Purpose:
+			Evaluate the current checklist and return a stakeholder-readable Markdown report.
+
+		Returns:
+			str: Markdown accessibility checklist report.
+		"""
+		try:
+			result = self.evaluate( )
+			return result.to_markdown( )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_markdown( self ) -> str'
+			Logger( ).write( error )
+			return '# Fiddy Accessibility Checklist\n\nAccessibility report could not be rendered.'

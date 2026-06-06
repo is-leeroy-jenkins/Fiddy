@@ -50,7 +50,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -72,11 +72,11 @@ class BatchProcessingResult( BaseModel ):
 	"""Represent the complete result of a manifest-driven batch verification run.
 
 	Purpose:
-		The ``BatchProcessingResult`` model is the return contract for batch processing operations.
-		It combines the batch verification report, manifest/file validation result, performance
-		summary, per-file timing results, processed file names, skipped file names, errors, warnings,
-		and acceptance-oriented evidence into one object that can be displayed by the Streamlit
-		application or passed to report-writing utilities.
+		Store the complete result of manifest-driven batch processing. The model combines the
+		batch verification report, manifest/file validation result, batch-level performance
+		summary, per-label timing results, processed file names, skipped file names, errors,
+		warnings, and acceptance-oriented evidence into one return object for the Streamlit
+		application, report writer, acceptance checker, and stakeholder evidence exports.
 
 	Attributes:
 		batch_report (BatchVerificationReport): Aggregated verification report containing one
@@ -108,11 +108,11 @@ class BatchProcessingResult( BaseModel ):
 		"""Convert the batch processing result into a flat summary record.
 
 		Purpose:
-			Convert nested batch result state into a compact dictionary suitable for Streamlit metric
-			panels, summary tables, CSV export, JSON serialization, and prototype acceptance review.
-			The record reports processed and skipped file counts, manifest validity, manifest/upload
-			matching counts, performance metrics, SLA breach counts, acceptance status, and aggregate
-			error/warning counts.
+			Convert nested batch result state into a compact dictionary suitable for Streamlit
+			metric panels, summary tables, CSV export, JSON serialization, Markdown reporting, and
+			prototype acceptance review. The record reports processed and skipped file counts,
+			manifest validity, manifest/upload matching counts, performance metrics, SLA breach
+			counts, throughput, acceptance status, and aggregate error/warning counts.
 
 		Returns:
 			Dict[str, object]: Flat batch processing summary record. If rendering fails, the
@@ -132,10 +132,17 @@ class BatchProcessingResult( BaseModel ):
 					'Median Seconds': self.acceptance_record.get( 'Median Seconds', 0.0 ),
 					'P95 Seconds': self.acceptance_record.get( 'P95 Seconds', 0.0 ),
 					'Maximum Seconds': round( self.performance_summary.maximum_seconds, 3 ),
+					'SLA Seconds': self.acceptance_record.get( 'SLA Seconds', 0.0 ),
 					'SLA Breaches': self.performance_summary.sla_breach_count,
 					'SLA Breach Rate': self.acceptance_record.get( 'SLA Breach Rate', 0.0 ),
-					'SLA Acceptance': self.acceptance_record.get( 'SLA Acceptance',
-						'Not Evaluated' ),
+					'Throughput Labels Per Minute': self.acceptance_record.get(
+						'Throughput Labels Per Minute',
+						0.0
+					),
+					'SLA Acceptance': self.acceptance_record.get(
+						'SLA Acceptance',
+						'Not Evaluated'
+					),
 					'Batch Size Acceptance': self.acceptance_record.get(
 						'Batch Size Acceptance',
 						'Not Evaluated'
@@ -144,6 +151,10 @@ class BatchProcessingResult( BaseModel ):
 						'Overall Acceptance',
 						'Not Evaluated'
 					),
+					'Acceptance Message': self.acceptance_record.get(
+						'Acceptance Message',
+						''
+					),
 					'Errors': len( self.errors ),
 					'Warnings': len( self.warnings )
 			}
@@ -151,7 +162,7 @@ class BatchProcessingResult( BaseModel ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'to_summary_record( ) -> Dict[str, object]'
+			error.method = 'to_summary_record( self ) -> Dict[str, object]'
 			Logger( ).write( error )
 			return {
 					'Processed Files': 0,
@@ -166,11 +177,14 @@ class BatchProcessingResult( BaseModel ):
 					'Median Seconds': 0.0,
 					'P95 Seconds': 0.0,
 					'Maximum Seconds': 0.0,
+					'SLA Seconds': 0.0,
 					'SLA Breaches': 0,
 					'SLA Breach Rate': 0.0,
+					'Throughput Labels Per Minute': 0.0,
 					'SLA Acceptance': 'Not Evaluated',
 					'Batch Size Acceptance': 'Not Evaluated',
 					'Overall Acceptance': 'Not Evaluated',
+					'Acceptance Message': 'Batch summary could not be rendered.',
 					'Errors': 1,
 					'Warnings': 0
 			}
@@ -183,12 +197,17 @@ class BatchProcessor( ):
 	"""Process manifest-driven batches of uploaded alcohol label files.
 
 	Purpose:
-		The ``BatchProcessor`` class coordinates the batch verification workflow after reviewers
-		provide application data and uploaded label files. It creates lookup maps for uploaded files
-		and manifest records, validates the manifest/file relationship, processes matched items,
-		records skipped files, creates reviewable reports for missing manifest files, collects
-		per-label timing data, and returns a complete ``BatchProcessingResult`` with acceptance
-		evidence.
+		Coordinate the batch verification workflow after reviewers provide application data and
+		uploaded label files. The processor creates lookup maps for uploaded files and manifest
+		records, validates the manifest/file relationship, processes matched items, records
+		skipped files, creates reviewable reports for missing manifest rows, collects per-label
+		timing data, evaluates SLA and prototype-scale evidence, and returns a complete
+		``BatchProcessingResult``.
+
+		The processor supports two entry points. ``process_manifest_csv`` loads records from a
+		manifest CSV before processing, while ``process_records`` accepts already parsed
+		``BatchManifestRecord`` objects. Item-level processing is isolated through ``process_one``
+		so failure in one file does not prevent the batch container from returning a usable result.
 
 	Attributes:
 		_manifest (BatchManifest): Manifest service used for loading, mapping, and validation.
@@ -229,7 +248,7 @@ class BatchProcessor( ):
 		Purpose:
 			Create a manifest service, performance monitor, empty batch report, validation result,
 			and empty collections for performance results, processed files, skipped files, errors,
-			and warnings. The worker count is normalized to at least one and capped later against
+			and warnings. The worker count is normalized to at least one and later capped against
 			the active batch size and configured worker ceiling.
 
 		Args:
@@ -252,6 +271,10 @@ class BatchProcessor( ):
 	def max_workers( self ) -> int:
 		"""Return the configured maximum number of requested worker threads.
 
+		Purpose:
+			Expose the normalized requested worker count for diagnostics, UI display, tests, and
+			acceptance evidence.
+
 		Returns:
 			int: Requested worker count retained by this processor instance.
 		"""
@@ -260,6 +283,10 @@ class BatchProcessor( ):
 	@property
 	def performance_results( self ) -> List[ LabelPerformanceResult ]:
 		"""Return per-label performance results from the most recent batch run.
+
+		Purpose:
+			Expose the per-label timing records captured during the most recent batch run so the
+			application can build a performance DataFrame and acceptance evidence package.
 
 		Returns:
 			List[LabelPerformanceResult]: Per-label performance results.
@@ -308,9 +335,9 @@ class BatchProcessor( ):
 		"""Create a case-insensitive uploaded-file lookup map.
 
 		Purpose:
-			Normalize supplied paths into ``Path`` objects and build a dictionary keyed by trimmed,
-			lowercase file names. Duplicate uploaded filenames are recorded as warnings and later
-			paths preserve the established dictionary overwrite behavior.
+			Normalize supplied paths into ``Path`` objects and build a dictionary keyed by
+			trimmed, lowercase file names. Duplicate uploaded filenames are recorded as warnings
+			while preserving the established dictionary overwrite behavior.
 
 		Args:
 			file_paths (Iterable[str | Path]): Uploaded label file paths to map.
@@ -321,7 +348,10 @@ class BatchProcessor( ):
 		"""
 		try:
 			throw_if( 'file_paths', file_paths )
-			self._file_paths = [ Path( file_path ) for file_path in file_paths ]
+			self._file_paths = [
+					Path( file_path )
+					for file_path in file_paths
+			]
 			self._file_map = { }
 			
 			for file_path in self._file_paths:
@@ -341,7 +371,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_file_map( file_paths: Iterable[str | Path] ) -> Dict[str, Path]'
+			error.method = 'create_file_map( self, file_paths: Iterable[str | Path] ) -> Dict[str, Path]'
 			Logger( ).write( error )
 			return { }
 	
@@ -355,11 +385,13 @@ class BatchProcessor( ):
 			record associated with each matched uploaded file.
 
 		Args:
-			records (List[BatchManifestRecord]): Manifest records parsed from the application manifest.
+			records (List[BatchManifestRecord]): Manifest records parsed from the application
+				manifest.
 
 		Returns:
 			Dict[str, BatchManifestRecord]: Manifest-record map keyed by lowercase expected label
-			file name. If mapping fails, the exception is logged and an empty dictionary is returned.
+			file name. If mapping fails, the exception is logged and an empty dictionary is
+			returned.
 		"""
 		try:
 			throw_if( 'records', records )
@@ -370,7 +402,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_record_map( records: List[BatchManifestRecord] ) -> Dict[str, BatchManifestRecord]'
+			error.method = 'create_record_map( self, records: List[BatchManifestRecord] ) -> Dict[str, BatchManifestRecord]'
 			Logger( ).write( error )
 			return { }
 	
@@ -398,7 +430,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'get_worker_count( matched_count: int ) -> int'
+			error.method = 'get_worker_count( self, matched_count: int ) -> int'
 			Logger( ).write( error )
 			return 1
 	
@@ -422,6 +454,7 @@ class BatchProcessor( ):
 		try:
 			throw_if( 'file_name', file_name )
 			throw_if( 'message', message )
+			
 			safe_message = sanitize_text( message, 300 )
 			report = LabelVerificationReport.empty( file_name=file_name )
 			report.results = [
@@ -444,7 +477,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_error_report( file_name: str, message: str ) -> LabelVerificationReport'
+			error.method = 'create_error_report( self, *args ) -> LabelVerificationReport'
 			Logger( ).write( error )
 			return LabelVerificationReport.empty( file_name=file_name )
 	
@@ -452,9 +485,9 @@ class BatchProcessor( ):
 		"""Create a reviewable report for a manifest row without uploaded artwork.
 
 		Purpose:
-			Represent missing uploaded label artwork as a per-manifest-row review item. This improves
-			batch output completeness because missing manifest rows appear in the report set rather
-			than only in validation metadata.
+			Represent missing uploaded label artwork as a per-manifest-row review item. This
+			improves batch output completeness because missing manifest rows appear in the report
+			set rather than only in validation metadata.
 
 		Args:
 			file_name (str): Manifest file name that was not found among uploaded artwork.
@@ -472,7 +505,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_missing_file_report( file_name: str ) -> LabelVerificationReport'
+			error.method = 'create_missing_file_report( self, file_name: str ) -> LabelVerificationReport'
 			Logger( ).write( error )
 			return LabelVerificationReport.empty( file_name=file_name )
 	
@@ -482,9 +515,9 @@ class BatchProcessor( ):
 
 		Purpose:
 			Convert one manifest record into a ``LabelApplication``, create an isolated
-			``AlcoholLabelVerifier``, time the work with a per-item ``PerformanceMonitor``, verify
-			the matching uploaded file, assign measured processing time to the report, recalculate
-			overall status, and return both verification and performance results.
+			``AlcoholLabelVerifier``, time the work with a per-item ``PerformanceMonitor``,
+			verify the matching uploaded file, assign measured processing time to the report,
+			recalculate overall status, and return both verification and performance results.
 
 		Args:
 			record (BatchManifestRecord): Manifest row containing application data for the label.
@@ -502,19 +535,22 @@ class BatchProcessor( ):
 		try:
 			throw_if( 'record', record )
 			throw_if( 'file_path', file_path )
+			
 			application = record.to_label_application( )
 			verifier = AlcoholLabelVerifier( )
 			report = verifier.verify_file( application, Path( file_path ) )
 			performance = monitor.stop( file_name )
 			report.processing_seconds = performance.processing_seconds
 			report.determine_overall_status( )
+			
 			return report, performance
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'process_one( record: BatchManifestRecord, file_path: str | Path ) -> Tuple[LabelVerificationReport, LabelPerformanceResult]'
+			error.method = 'process_one( self, *args ) -> Tuple[LabelVerificationReport, LabelPerformanceResult]'
 			Logger( ).write( error )
+			
 			performance = monitor.stop( file_name )
 			report = self.create_error_report(
 				file_name=file_name,
@@ -522,27 +558,31 @@ class BatchProcessor( ):
 			)
 			report.processing_seconds = performance.processing_seconds
 			report.determine_overall_status( )
+			
 			return report, performance
 	
 	def add_missing_file_reports( self ) -> None:
 		"""Add reviewable reports for manifest rows whose label files are missing.
 
 		Purpose:
-			Convert each validation-level missing file into a report-level review item. This ensures
-			the batch report provides per-manifest-row visibility even when artwork was not uploaded.
+			Convert each validation-level missing file into a report-level review item. This
+			ensures the batch report provides per-manifest-row visibility even when artwork was
+			not uploaded.
 
 		Returns:
 			None.
 		"""
 		try:
 			for file_name in self._validation_result.missing_files:
-				self._skipped_files.append( file_name )
+				if file_name not in self._skipped_files:
+					self._skipped_files.append( file_name )
+				
 				self._batch_report.add_report( self.create_missing_file_report( file_name ) )
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'add_missing_file_reports( ) -> None'
+			error.method = 'add_missing_file_reports( self ) -> None'
 			Logger( ).write( error )
 			return None
 	
@@ -551,15 +591,17 @@ class BatchProcessor( ):
 
 		Purpose:
 			Carry extra uploaded files into skipped-file and warning state. Extra files cannot be
-			verified because they have no application data, but the reviewer should still see that the
-			files were ignored by the manifest-driven batch.
+			verified because they have no application data, but the reviewer should still see that
+			the files were ignored by the manifest-driven batch.
 
 		Returns:
 			None.
 		"""
 		try:
 			for file_name in self._validation_result.extra_files:
-				self._skipped_files.append( file_name )
+				if file_name not in self._skipped_files:
+					self._skipped_files.append( file_name )
+				
 				self._warnings.append(
 					f'Uploaded file did not have a matching manifest row and was skipped: {file_name}'
 				)
@@ -567,7 +609,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'add_extra_file_warnings( ) -> None'
+			error.method = 'add_extra_file_warnings( self ) -> None'
 			Logger( ).write( error )
 			return None
 	
@@ -575,9 +617,9 @@ class BatchProcessor( ):
 		"""Return validation-matched file names that can be processed.
 
 		Purpose:
-			Filter validation-matched names to entries that exist in both the uploaded-file map and
-			the manifest-record map. Missing lookup entries are retained as warnings rather than
-			causing the batch to fail.
+			Filter validation-matched names to entries that exist in both the uploaded-file map
+			and the manifest-record map. Missing lookup entries are retained as warnings rather
+			than causing the batch to fail.
 
 		Returns:
 			List[str]: Matched file names eligible for processing.
@@ -594,14 +636,16 @@ class BatchProcessor( ):
 					self._warnings.append(
 						f'Matched file could not be resolved in processing maps and was skipped: {file_name}'
 					)
-					self._skipped_files.append( file_name )
+					
+					if file_name not in self._skipped_files:
+						self._skipped_files.append( file_name )
 			
 			return matched_names
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'get_matched_file_names( ) -> List[str]'
+			error.method = 'get_matched_file_names( self ) -> List[str]'
 			Logger( ).write( error )
 			return [ ]
 	
@@ -613,27 +657,31 @@ class BatchProcessor( ):
 
 		Purpose:
 			Reset batch state, normalize uploaded file paths, create file and record lookup maps,
-			validate the manifest records against uploaded files, record validation errors and
-			warnings, create review reports for missing artwork, record extra files as skipped, and
-			process matched files in a thread pool with isolated item failure handling.
+			validate manifest records against uploaded files, record validation errors and
+			warnings, create review reports for missing artwork, record extra files as skipped,
+			and process matched files in a thread pool with isolated item failure handling.
 
 		Args:
 			records (List[BatchManifestRecord]): Manifest records containing application data.
 			file_paths (Iterable[str | Path]): Uploaded label file paths.
-			progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback receiving
-				completed count, total matched count, and current file name.
+			progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback
+				receiving completed count, total matched count, and current file name.
 
 		Returns:
-			BatchProcessingResult: Complete batch processing result assembled from current processor
-			state. If setup or processing fails unexpectedly, the exception is logged, a batch-level
-			error is appended, and ``create_result`` returns a conservative result.
+			BatchProcessingResult: Complete batch processing result assembled from current
+			processor state. If setup or processing fails unexpectedly, the exception is logged,
+			a batch-level error is appended, and ``create_result`` returns a conservative result.
 		"""
 		try:
 			throw_if( 'records', records )
 			throw_if( 'file_paths', file_paths )
+			
 			self.reset_state( reset_manifest=False )
 			self._records = records
-			self._file_paths = [ Path( file_path ) for file_path in file_paths ]
+			self._file_paths = [
+					Path( file_path )
+					for file_path in file_paths
+			]
 			self._file_map = self.create_file_map( self._file_paths )
 			self._record_map = self.create_record_map( self._records )
 			self._validation_result = self._manifest.validate_against_files(
@@ -644,6 +692,7 @@ class BatchProcessor( ):
 			self._warnings.extend( self._validation_result.warnings )
 			self.add_missing_file_reports( )
 			self.add_extra_file_warnings( )
+			
 			matched_names = self.get_matched_file_names( )
 			total = len( matched_names )
 			
@@ -676,7 +725,7 @@ class BatchProcessor( ):
 						error = Error( e )
 						error.cause = self.__class__.__name__
 						error.module = __name__
-						error.method = 'process_records( records: List[BatchManifestRecord], file_paths: Iterable[str | Path], progress_callback: Optional[Callable[[int, int, str], None]] = None ) -> BatchProcessingResult'
+						error.method = 'process_records( self, *args ) -> BatchProcessingResult'
 						Logger( ).write( error )
 						self._errors.append(
 							f'Batch future failed for {file_name}. See sanitized diagnostics.' )
@@ -685,7 +734,9 @@ class BatchProcessor( ):
 							message='Batch future failed unexpectedly. Human review required.'
 						)
 						self._batch_report.add_report( report )
-						self._skipped_files.append( file_name )
+						
+						if file_name not in self._skipped_files:
+							self._skipped_files.append( file_name )
 					
 					if progress_callback:
 						progress_callback( completed, total, file_name )
@@ -702,19 +753,21 @@ class BatchProcessor( ):
 			return self.create_result( )
 	
 	def process_manifest_csv( self, manifest_path: str | Path, file_paths: Iterable[ str | Path ],
-			progress_callback: Optional[ Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
+			progress_callback: Optional[
+				Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
 		"""Load a manifest CSV and process its matching uploaded label files.
 
 		Purpose:
-			Reset processor state, load records through ``BatchManifest.load_csv``, carry manifest
-			loading errors and warnings forward when no records are returned, and delegate successful
-			record processing to ``process_records``. This keeps invalid-manifest responses
-			structurally consistent for the UI and report writer.
+			Reset processor state, load records through ``BatchManifest.load_csv``, carry
+			manifest loading errors and warnings forward when no records are returned, and
+			delegate successful record processing to ``process_records``. This keeps
+			invalid-manifest responses structurally consistent for the UI and report writer.
 
 		Args:
 			manifest_path (str | Path): Path to the application-data manifest CSV.
 			file_paths (Iterable[str | Path]): Uploaded label file paths.
-			progress_callback (Optional[Callable[[int, int, str], None]]): Optional progress callback.
+			progress_callback (Optional[Callable[[int, int, str], None]]): Optional progress
+				callback.
 
 		Returns:
 			BatchProcessingResult: Complete batch processing result.
@@ -722,16 +775,24 @@ class BatchProcessor( ):
 		try:
 			throw_if( 'manifest_path', manifest_path )
 			throw_if( 'file_paths', file_paths )
+			
 			self.reset_state( reset_manifest=True )
 			records = self._manifest.load_csv( manifest_path )
 			
 			if not records:
-				self._errors.extend( self._manifest.errors )
-				self._warnings.extend( self._manifest.warnings )
-				self._file_paths = [ Path( file_path ) for file_path in file_paths ]
-				self._validation_result = BatchManifestValidationResult( is_valid=False,
-					total_manifest_rows=0, total_uploaded_files=len( self._file_paths ),
-					errors=self._errors, warnings=self._warnings )
+				self._errors.extend( list( getattr( self._manifest, 'errors', [ ] ) ) )
+				self._warnings.extend( list( getattr( self._manifest, 'warnings', [ ] ) ) )
+				self._file_paths = [
+						Path( file_path )
+						for file_path in file_paths
+				]
+				self._validation_result = BatchManifestValidationResult(
+					is_valid=False,
+					total_manifest_rows=0,
+					total_uploaded_files=len( self._file_paths ),
+					errors=self._errors,
+					warnings=self._warnings
+				)
 				return self.create_result( )
 			
 			return self.process_records( records, file_paths, progress_callback )
@@ -739,7 +800,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'process_manifest_csv( manifest_path: str | Path, file_paths: Iterable[str | Path], progress_callback: Optional[Callable[[int, int, str], None]] = None ) -> BatchProcessingResult'
+			error.method = 'process_manifest_csv( self, *args ) -> BatchProcessingResult'
 			Logger( ).write( error )
 			self._errors.append(
 				'Manifest batch processing failed before completion. See sanitized diagnostics.' )
@@ -749,13 +810,13 @@ class BatchProcessor( ):
 		"""Return a linear-interpolated percentile value.
 
 		Purpose:
-			Calculate percentile values without adding a new dependency. Empty lists return ``0.0``.
-			The method sorts the values, clamps percentile input to 0 through 100, and interpolates
-			between the nearest ranks.
+			Calculate percentile values without adding a new dependency. Empty lists return
+			``0.0``. The method sorts the values, clamps percentile input to zero through one
+			hundred, and interpolates between the nearest ranks.
 
 		Args:
 			values (List[float]): Numeric values to summarize.
-			percentile_value (float): Percentile to calculate from 0 through 100.
+			percentile_value (float): Percentile to calculate from zero through one hundred.
 
 		Returns:
 			float: Percentile value rounded by callers as needed.
@@ -764,118 +825,63 @@ class BatchProcessor( ):
 			if not values:
 				return 0.0
 			
-			active_values = sorted( float( value ) for value in values )
+			active_values = sorted(
+				float( value )
+				for value in values
+			)
 			percent = max( 0.0, min( 100.0, float( percentile_value ) ) )
 			position = (len( active_values ) - 1) * percent / 100.0
 			lower_index = int( position )
 			upper_index = min( lower_index + 1, len( active_values ) - 1 )
 			fraction = position - lower_index
+			
 			return active_values[ lower_index ] + (
-						(active_values[ upper_index ] - active_values[ lower_index ]) * fraction)
+					(active_values[ upper_index ] - active_values[ lower_index ]) * fraction
+			)
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'percentile( values: List[float], percentile_value: float ) -> float'
+			error.method = 'percentile( self, *args ) -> float'
 			Logger( ).write( error )
 			return 0.0
 	
-	def create_acceptance_record( self, performance_summary: BatchPerformanceSummary ) -> Dict[
-		str, object ]:
-		"""Create SLA and prototype-scale acceptance evidence for the batch.
+	def calculate_throughput( self, total_files: int, seconds: List[ float ] ) -> float:
+		"""Calculate throughput as labels per minute.
 
 		Purpose:
-			Summarize processing results into stakeholder-facing acceptance evidence. The method
-			reports average, median, p95, max seconds, breach count, breach rate, SLA acceptance,
-			batch-size acceptance, and an overall acceptance status. Batches below the formal
-			prototype acceptance minimum are marked ``Not Evaluated`` for batch-size acceptance rather
-			than failed, which allows small smoke tests without misrepresenting scale readiness.
+			Convert total elapsed per-label processing time into an approximate throughput metric.
+			This metric supports prototype-scale acceptance review because stakeholders need to
+			understand not only SLA breaches but also batch processing rate.
 
 		Args:
-			performance_summary (BatchPerformanceSummary): Batch-level performance summary.
+			total_files (int): Number of timed files.
+			seconds (List[float]): Per-label processing times.
 
 		Returns:
-			Dict[str, object]: Acceptance evidence record.
+			float: Approximate labels processed per minute. If throughput cannot be calculated,
+			returns ``0.0``.
 		"""
 		try:
-			seconds = [ result.processing_seconds for result in self._performance_results ]
-			total = len( seconds )
-			average_seconds = float( performance_summary.average_seconds or 0.0 )
-			maximum_seconds = float( performance_summary.maximum_seconds or 0.0 )
-			median_seconds = self.percentile( seconds, 50.0 )
-			p95_seconds = self.percentile( seconds, 95.0 )
-			breach_count = int( performance_summary.sla_breach_count or 0 )
-			breach_rate = (breach_count / total) if total else 0.0
-			configured_sla = float(
-				getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', performance_summary.sla_seconds ) )
-			max_average = float(
-				getattr( cfg, 'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS', configured_sla ) )
-			max_p95 = float( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_P95_SECONDS', configured_sla ) )
-			max_breach_rate = float( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_BREACH_RATE', 0.0 ) )
-			minimum_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MIN_FILES', 20 ) )
-			maximum_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_FILES', 50 ) )
-			sla_met = bool(
-				total > 0
-				and average_seconds <= max_average
-				and p95_seconds <= max_p95
-				and breach_rate <= max_breach_rate
+			if total_files <= 0 or not seconds:
+				return 0.0
+			
+			total_seconds = sum(
+				float( value )
+				for value in seconds
 			)
 			
-			if total < minimum_files:
-				batch_size_acceptance = 'Not Evaluated'
-			elif total <= maximum_files:
-				batch_size_acceptance = 'Met'
-			else:
-				batch_size_acceptance = 'Not Met'
+			if total_seconds <= 0:
+				return 0.0
 			
-			if total == 0:
-				sla_acceptance = 'Not Evaluated'
-			elif sla_met:
-				sla_acceptance = 'Met'
-			else:
-				sla_acceptance = 'Not Met'
-			
-			if sla_acceptance == 'Met' and batch_size_acceptance in ('Met', 'Not Evaluated'):
-				overall_acceptance = 'Met' if batch_size_acceptance == 'Met' else 'Partially Evaluated'
-			elif sla_acceptance == 'Not Evaluated':
-				overall_acceptance = 'Not Evaluated'
-			else:
-				overall_acceptance = 'Not Met'
-			
-			return {
-					'Processed Files': total,
-					'Minimum Acceptance Files': minimum_files,
-					'Maximum Acceptance Files': maximum_files,
-					'Average Seconds': round( average_seconds, 3 ),
-					'Median Seconds': round( median_seconds, 3 ),
-					'P95 Seconds': round( p95_seconds, 3 ),
-					'Maximum Seconds': round( maximum_seconds, 3 ),
-					'SLA Seconds': round( configured_sla, 3 ),
-					'SLA Breaches': breach_count,
-					'SLA Breach Rate': round( breach_rate, 4 ),
-					'SLA Acceptance': sla_acceptance,
-					'Batch Size Acceptance': batch_size_acceptance,
-					'Overall Acceptance': overall_acceptance,
-					'Acceptance Message': self.create_acceptance_message(
-						total,
-						sla_acceptance,
-						batch_size_acceptance,
-						overall_acceptance
-					)
-			}
+			return round( (float( total_files ) / total_seconds) * 60.0, 3 )
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_acceptance_record( performance_summary: BatchPerformanceSummary ) -> Dict[str, object]'
+			error.method = 'calculate_throughput( self, *args ) -> float'
 			Logger( ).write( error )
-			return {
-					'Processed Files': 0,
-					'SLA Acceptance': 'Not Evaluated',
-					'Batch Size Acceptance': 'Not Evaluated',
-					'Overall Acceptance': 'Not Evaluated',
-					'Acceptance Message': 'Acceptance evidence could not be generated.'
-			}
+			return 0.0
 	
 	def create_acceptance_message( self, processed_files: int, sla_acceptance: str,
 			batch_size_acceptance: str, overall_acceptance: str ) -> str:
@@ -907,28 +913,142 @@ class BatchProcessor( ):
 			Logger( ).write( error )
 			return 'Acceptance message could not be generated.'
 	
+	def create_acceptance_record( self, performance_summary: BatchPerformanceSummary ) -> Dict[
+		str, object ]:
+		"""Create SLA and prototype-scale acceptance evidence for the batch.
+
+		Purpose:
+			Summarize processing results into stakeholder-facing acceptance evidence. The method
+			reports processed file count, target batch-size range, average, median, p95, maximum
+			seconds, SLA threshold, breach count, breach rate, throughput, SLA acceptance,
+			batch-size acceptance, and overall acceptance status. Batches below the formal
+			prototype acceptance minimum are marked ``Not Evaluated`` for batch-size acceptance
+			rather than failed, which allows small smoke tests without misrepresenting scale
+			readiness.
+
+		Args:
+			performance_summary (BatchPerformanceSummary): Batch-level performance summary.
+
+		Returns:
+			Dict[str, object]: Acceptance evidence record.
+		"""
+		try:
+			seconds = [
+					float( result.processing_seconds )
+					for result in self._performance_results
+			]
+			total = len( seconds )
+			average_seconds = float( getattr( performance_summary, 'average_seconds', 0.0 ) or 0.0 )
+			maximum_seconds = float( getattr( performance_summary, 'maximum_seconds', 0.0 ) or 0.0 )
+			median_seconds = self.percentile( seconds, 50.0 )
+			p95_seconds = self.percentile( seconds, 95.0 )
+			breach_count = int( getattr( performance_summary, 'sla_breach_count', 0 ) or 0 )
+			breach_rate = (breach_count / total) if total else 0.0
+			configured_sla = float(
+				getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS',
+					getattr( performance_summary, 'sla_seconds', 5.0 ) ) )
+			max_average = float(
+				getattr( cfg, 'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS', configured_sla ) )
+			max_p95 = float(
+				getattr( cfg, 'BATCH_ACCEPTANCE_MAX_P95_SECONDS', configured_sla ) )
+			max_breach_rate = float( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_BREACH_RATE', 0.0 ) )
+			minimum_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MIN_FILES', 20 ) )
+			maximum_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_FILES', 50 ) )
+			throughput = self.calculate_throughput( total, seconds )
+			sla_met = bool(
+				total > 0
+				and average_seconds <= max_average
+				and p95_seconds <= max_p95
+				and breach_rate <= max_breach_rate
+			)
+			
+			if total < minimum_files:
+				batch_size_acceptance = 'Not Evaluated'
+			elif total <= maximum_files:
+				batch_size_acceptance = 'Met'
+			else:
+				batch_size_acceptance = 'Not Met'
+			
+			if total == 0:
+				sla_acceptance = 'Not Evaluated'
+			elif sla_met:
+				sla_acceptance = 'Met'
+			else:
+				sla_acceptance = 'Not Met'
+			
+			if sla_acceptance == 'Met' and batch_size_acceptance == 'Met':
+				overall_acceptance = 'Met'
+			elif sla_acceptance == 'Met' and batch_size_acceptance == 'Not Evaluated':
+				overall_acceptance = 'Partially Evaluated'
+			elif sla_acceptance == 'Not Evaluated':
+				overall_acceptance = 'Not Evaluated'
+			else:
+				overall_acceptance = 'Not Met'
+			
+			return {
+					'Processed Files': total,
+					'Minimum Acceptance Files': minimum_files,
+					'Maximum Acceptance Files': maximum_files,
+					'Average Seconds': round( average_seconds, 3 ),
+					'Median Seconds': round( median_seconds, 3 ),
+					'P95 Seconds': round( p95_seconds, 3 ),
+					'Maximum Seconds': round( maximum_seconds, 3 ),
+					'SLA Seconds': round( configured_sla, 3 ),
+					'SLA Breaches': breach_count,
+					'SLA Breach Rate': round( breach_rate, 4 ),
+					'Throughput Labels Per Minute': throughput,
+					'SLA Acceptance': sla_acceptance,
+					'Batch Size Acceptance': batch_size_acceptance,
+					'Overall Acceptance': overall_acceptance,
+					'Acceptance Message': self.create_acceptance_message(
+						total,
+						sla_acceptance,
+						batch_size_acceptance,
+						overall_acceptance
+					)
+			}
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'create_acceptance_record( self, *args ) -> Dict[str, object]'
+			Logger( ).write( error )
+			return {
+					'Processed Files': 0,
+					'Minimum Acceptance Files': int(
+						getattr( cfg, 'BATCH_ACCEPTANCE_MIN_FILES', 20 ) ),
+					'Maximum Acceptance Files': int(
+						getattr( cfg, 'BATCH_ACCEPTANCE_MAX_FILES', 50 ) ),
+					'Average Seconds': 0.0,
+					'Median Seconds': 0.0,
+					'P95 Seconds': 0.0,
+					'Maximum Seconds': 0.0,
+					'SLA Seconds': float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) ),
+					'SLA Breaches': 0,
+					'SLA Breach Rate': 0.0,
+					'Throughput Labels Per Minute': 0.0,
+					'SLA Acceptance': 'Not Evaluated',
+					'Batch Size Acceptance': 'Not Evaluated',
+					'Overall Acceptance': 'Not Evaluated',
+					'Acceptance Message': 'Acceptance evidence could not be generated.'
+			}
+	
 	def create_result( self ) -> BatchProcessingResult:
 		"""Create the complete batch processing result from current processor state.
 
 		Purpose:
 			Summarize per-label performance results, ensure a validation result exists, generate
-			acceptance evidence, and return a structurally consistent ``BatchProcessingResult`` from
-			current state. This method is used after successful processing and guarded failure paths.
+			acceptance evidence, and return a structurally consistent ``BatchProcessingResult``
+			from current state. This method is used after successful processing and guarded
+			failure paths.
 
 		Returns:
-			BatchProcessingResult: Complete batch processing result assembled from current state. If
-			result construction itself fails, a conservative fallback result is returned.
+			BatchProcessingResult: Complete batch processing result assembled from current state.
+			If result construction fails, a conservative fallback result is returned.
 		"""
 		try:
 			performance_summary = self._performance_monitor.summarize( self._performance_results )
 			acceptance_record = self.create_acceptance_record( performance_summary )
-			
-			if not hasattr( self, '_validation_result' ):
-				self._validation_result = BatchManifestValidationResult(
-					is_valid=False,
-					errors=self._errors,
-					warnings=self._warnings
-				)
 			
 			return BatchProcessingResult(
 				batch_report=self._batch_report,
@@ -945,23 +1065,29 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_result( ) -> BatchProcessingResult'
+			error.method = 'create_result( self ) -> BatchProcessingResult'
 			Logger( ).write( error )
 			safe_message = 'Batch processing result creation failed. See sanitized diagnostics.'
+			
 			return BatchProcessingResult(
-				batch_report=getattr( self, '_batch_report', BatchVerificationReport( ) ),
+				batch_report=BatchVerificationReport(
+					reports=[
+							self.create_error_report(
+								file_name='Batch processing result unavailable',
+								message=safe_message
+							)
+					]
+				),
 				validation_result=BatchManifestValidationResult(
 					is_valid=False,
-					errors=[ safe_message ],
-					warnings=getattr( self, '_warnings', [ ] )
+					errors=[ safe_message ]
 				),
-				performance_summary=BatchPerformanceSummary( ),
-				performance_results=getattr( self, '_performance_results', [ ] ),
-				processed_files=getattr( self, '_processed_files', [ ] ),
-				skipped_files=getattr( self, '_skipped_files', [ ] ),
 				errors=[ safe_message ],
-				warnings=getattr( self, '_warnings', [ ] ),
+				warnings=[ ],
 				acceptance_record={
+						'Processed Files': 0,
+						'SLA Acceptance': 'Not Evaluated',
+						'Batch Size Acceptance': 'Not Evaluated',
 						'Overall Acceptance': 'Not Evaluated',
 						'Acceptance Message': safe_message
 				}
