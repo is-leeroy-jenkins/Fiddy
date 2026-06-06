@@ -443,10 +443,10 @@ The side-by-side comparison is the primary reviewer surface.
 
 ### Prerequisites
 
-* Python 3.12 or newer ([download](https://www.python.org/downloads/))
-* Tesseract OCR ([download](https://github.com/UB-Mannheim/tesseract/wiki))
-* Poppler for PDF support ([download](https://github.com/oschwartz10612/poppler-windows))
-* Git  ([download](https://git-scm.com/install/windows))
+* [Python](https://www.python.org/downloads/) 3.12 or newer
+* [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) for OCR
+* [Poppler](https://github.com/oschwartz10612/poppler-windows) for PDF support 
+* [Git](https://git-scm.com/install/windows) for version control
 * Python virtual environment support
 
 ### Clone the Repository
