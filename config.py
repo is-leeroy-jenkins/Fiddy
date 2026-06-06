@@ -36,7 +36,13 @@
 
     </copyright>
     <summary>
-        config.py
+        Provides application configuration constants and environment-variable helpers for
+        Fiddy.
+
+        This module centralizes project paths, logging locations, branding assets, Streamlit
+        settings, upload limits, OCR configuration, optional Azure Vision settings, verification
+        thresholds, report settings, and small validation helpers used throughout the
+        application.
     </summary>
     ******************************************************************************************
 '''
@@ -156,38 +162,49 @@ STREAMLIT_SERVER_PORT: int = int(
 	os.getenv( 'PORT', os.getenv( 'STREAMLIT_SERVER_PORT', '8501' ) ) )
 STREAMLIT_SERVER_ADDRESS: str = os.getenv( 'STREAMLIT_SERVER_ADDRESS', '0.0.0.0' )
 
-def throw_if( name: str, value: object ) -> None:
-	"""
-	Purpose:
-	--------
-	Raise a ValueError when a required argument or configuration value is falsy.
+# ==========================================================================================
+# App-level Utility Functions
+# ==========================================================================================
 
-	Parameters:
-	-----------
-	name (str): Name of the argument or configuration value being validated.
-	value (object): Value to validate.
+def throw_if( name: str, value: object ) -> None:
+	"""Raise ``ValueError`` when a required value is empty.
+
+	This helper provides a small, consistent guard for required arguments and configuration
+	values. It treats falsy values as invalid and raises a ``ValueError`` that includes the
+	caller-supplied argument or setting name.
+
+	The function intentionally has no internal exception handler. It is designed to raise when
+	validation fails so calling code can handle the error in the appropriate guarded execution
+	path.
+
+	Args:
+		name (str): Name of the argument or configuration value being validated.
+		value (object): Value to validate.
 
 	Returns:
-	--------
-	None
+		None.
+
+	Raises:
+		ValueError: Raised when ``value`` is falsy.
 	"""
 	if not value:
 		raise ValueError( f'Argument "{name}" cannot be empty!' )
 
 def get_bool( name: str, default: bool = False ) -> bool:
-	"""
-	Purpose:
-	--------
-	Read a Boolean environment variable using a predictable true-value convention.
+	"""Read a Boolean environment variable using Fiddy's true-value convention.
 
-	Parameters:
-	-----------
-	name (str): Environment variable name.
-	default (bool): Default value used when the environment variable is not defined.
+	This function reads an environment variable by name and converts it to ``True`` only when
+	the trimmed lowercase value is one of ``1``, ``true``, ``yes``, ``y``, or ``on``. Missing
+	environment variables return the supplied default value. Values outside the accepted
+	true-value set return ``False``.
+
+	Args:
+		name (str): Environment variable name.
+		default (bool): Default value used when the environment variable is not defined.
 
 	Returns:
-	--------
-	bool: Parsed Boolean value.
+		bool: Parsed Boolean value. If parsing fails, the exception is logged when Booger is
+		available and the original ``default`` fallback is returned.
 	"""
 	try:
 		throw_if( 'name', name )
@@ -196,24 +213,36 @@ def get_bool( name: str, default: bool = False ) -> bool:
 		if value is None:
 			return default
 		
-		return value.strip( ).lower( ) in ( '1', 'true', 'yes', 'y', 'on' )
-	except Exception:
+		return value.strip( ).lower( ) in ('1', 'true', 'yes', 'y', 'on')
+	except Exception as e:
+		try:
+			from booger import Error, Logger
+			
+			error = Error( e )
+			error.cause = 'Configuration'
+			error.module = __name__
+			error.method = 'get_bool( name: str, default: bool ) -> bool'
+			Logger( ).write( error )
+		except Exception:
+			pass
+		
 		return default
 
 def get_path( name: str, default: Path ) -> Path:
-	"""
-	Purpose:
-	--------
-	Read a path environment variable and return a resolved Path object.
+	"""Read a path environment variable and return a resolved ``Path``.
 
-	Parameters:
-	-----------
-	name (str): Environment variable name.
-	default (Path): Default path used when the environment variable is not defined.
+	This function reads an environment variable by name and resolves it into a ``Path`` when the
+	value is present. If the environment variable is missing, the supplied default path is
+	resolved and returned. The helper is used for configurable filesystem locations while
+	preserving deterministic fallback behavior.
+
+	Args:
+		name (str): Environment variable name.
+		default (Path): Default path used when the environment variable is not defined.
 
 	Returns:
-	--------
-	Path: Resolved path value.
+		Path: Resolved path value. If path parsing fails, the exception is logged when Booger is
+		available and the resolved default path is returned.
 	"""
 	try:
 		throw_if( 'name', name )
@@ -221,5 +250,16 @@ def get_path( name: str, default: Path ) -> Path:
 		
 		value = os.getenv( name )
 		return Path( value ).resolve( ) if value else default.resolve( )
-	except Exception:
+	except Exception as e:
+		try:
+			from booger import Error, Logger
+			
+			error = Error( e )
+			error.cause = 'Configuration'
+			error.module = __name__
+			error.method = 'get_path( name: str, default: Path ) -> Path'
+			Logger( ).write( error )
+		except Exception:
+			pass
+		
 		return default.resolve( )
