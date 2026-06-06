@@ -71,7 +71,7 @@ def get_config_bool( name: str, default: bool = False ) -> bool:
 		Safely read a Boolean configuration value without requiring every deployment of Fiddy to
 		define the newest configuration switches. Missing values return the supplied default.
 
-	Parameters:
+	Args:
 		name (str): Configuration attribute name.
 		default (bool): Default value used when the attribute is not available.
 
@@ -92,7 +92,7 @@ def get_config_int( name: str, default: int ) -> int:
 		define the newest configuration switches. Missing or invalid values return the supplied
 		default.
 
-	Parameters:
+	Args:
 		name (str): Configuration attribute name.
 		default (int): Default value used when the attribute is not available or invalid.
 
@@ -115,7 +115,7 @@ def sanitize_text( value: object, max_length: int = 1000 ) -> str:
 		free-form OCR-like text. Raw text logging can only be enabled explicitly through
 		``cfg.ENABLE_RAW_TEXT_LOGGING``.
 
-	Parameters:
+	Args:
 		value (object): Source value to sanitize.
 		max_length (int): Maximum returned string length after masking.
 
@@ -167,7 +167,7 @@ def sanitize_traceback( value: object, max_length: int = 4000 ) -> str:
 		Normalize and mask traceback text before it is stored in SQLite. This function delegates to
 		``sanitize_text`` and uses a larger maximum length appropriate for diagnostic stack traces.
 
-	Parameters:
+	Args:
 		value (object): Traceback value to sanitize.
 		max_length (int): Maximum returned string length.
 
@@ -227,7 +227,7 @@ class Error( Exception ):
 			capture a sanitized formatted traceback, and build a combined sanitized information
 			string suitable for database logging.
 
-		Parameters:
+		Args:
 			error (Exception): Source exception being wrapped.
 			heading (str): Optional user-facing heading.
 			cause (str): Optional component, class, or module purpose that caused the error.
@@ -260,7 +260,7 @@ class Error( Exception ):
 			assign ``cause``, ``module``, and ``method`` afterward. Metadata assignments are
 			sanitized automatically so delayed assignment does not bypass privacy controls.
 
-		Parameters:
+		Args:
 			name (str): Attribute name being assigned.
 			value (object): Attribute value being assigned.
 
@@ -287,8 +287,7 @@ class Error( Exception ):
 			Return the sanitized information string when available, otherwise return the sanitized
 			source exception message. If neither value is available, return an empty string.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			str: Sanitized error information string.
@@ -303,8 +302,7 @@ class Error( Exception ):
 			display. Implementation details and inherited exception internals are intentionally
 			omitted from the returned member list.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[str]: Public error member names.
@@ -347,8 +345,7 @@ class Logger( ):
 			through ``get_table_name``. No database connection is opened until ``ensure_database``,
 			``write``, or ``purge_old_logs`` is called.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -364,8 +361,7 @@ class Logger( ):
 			resolved under ``cfg.ROOT_DIR`` when available. If path resolution fails, the fallback
 			path ``logging/Exceptions.db`` is resolved relative to the current working directory.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Path: Resolved SQLite database path.
@@ -389,8 +385,7 @@ class Logger( ):
 			identifier pattern beginning with a letter or underscore and containing only letters,
 			digits, and underscores. Unsafe or unavailable values fall back to ``Exceptions``.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			str: Safe SQLite table name.
@@ -413,7 +408,7 @@ class Logger( ):
 			other values are sanitized and converted to text, and the text is sliced to the requested
 			length so it fits the logging schema.
 
-		Parameters:
+		Args:
 			value (object): Source value to sanitize, convert, and truncate.
 			length (int): Maximum string length.
 
@@ -437,8 +432,7 @@ class Logger( ):
 			configured table if it does not already exist. The table stores timestamp, cause, module,
 			method, message, info, and trace values, with an autoincrementing primary key.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -477,7 +471,7 @@ class Logger( ):
 			and return the inserted row identifier. If exception logging is disabled or logging fails,
 			return ``0`` without raising another exception.
 
-		Parameters:
+		Args:
 			error (Error): Error object to persist.
 
 		Returns:
@@ -538,7 +532,7 @@ class Logger( ):
 			lived. The method deletes rows whose ``created_on`` timestamp is older than the configured
 			retention window. If retention is set to zero or a negative value, no purge is performed.
 
-		Parameters:
+		Args:
 			retention_days (int): Optional retention window in days. When omitted, the value is read
 				from ``cfg.LOG_RETENTION_DAYS`` and defaults to seven days.
 
@@ -571,7 +565,7 @@ def log_error( error: Exception, heading: str = None, cause: str = None,
 		Create an ``Error`` object and persist it in one step. The wrapped error object is returned
 		so callers can continue to inspect or display structured metadata after logging.
 
-	Parameters:
+	Args:
 		error (Exception): Source exception being wrapped and logged.
 		heading (str): Optional user-facing heading.
 		cause (str): Optional component, class, or module purpose that caused the error.

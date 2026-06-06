@@ -90,8 +90,7 @@ def initialize_session_state( ) -> None:
 		keyboard guidance state, and CAV form fields before widgets or display functions read those
 		keys. The function is idempotent and preserves existing state across Streamlit reruns.
 
-	Parameters:
-		None.
+	
 
 	Returns:
 		None.
@@ -732,8 +731,7 @@ def get_accessibility_css( ) -> str:
 		generated from session-state flags so Simple and Advanced workflows share the same
 		accessibility behavior.
 
-	Parameters:
-		None.
+	
 
 	Returns:
 		str: CSS override block, or an empty string when CSS generation fails.
@@ -1099,8 +1097,7 @@ def display_sidebar_header( ) -> None:
 		updated immediately so the main workflow can hide technical controls and apply
 		accessibility CSS consistently.
 
-	Parameters:
-		None.
+	
 
 	Returns:
 		None.
@@ -2366,8 +2363,7 @@ def display_keyboard_accessibility_notes( ) -> None:
 		supports the accessibility requirement by telling reviewers how to traverse controls,
 		activate buttons, move backward, and reach downloads using standard keyboard operations.
 
-	Parameters:
-		None.
+	
 
 	Returns:
 		None.
@@ -2495,7 +2491,7 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 		controls to preserve a low-navigation reviewer experience, while Advanced Mode exposes
 		those controls for testing and tuning.
 
-	Parameters:
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label files.
 		application (LabelApplication): CAV application values.
@@ -3696,7 +3692,7 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 		review results. Technical processing controls, manifest previews, diagnostics, methodology,
 		and raw rule tables remain hidden unless Advanced Mode is selected.
 
-	Parameters:
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 
@@ -3719,7 +3715,7 @@ def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ 
 		diagnostics, rule detail, downloads, and methodology material for testing, tuning, and
 		developer-level inspection.
 
-	Parameters:
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 

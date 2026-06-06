@@ -14,13 +14,36 @@ theme:
 nav:
   - Home: index.md
   - Installation: INSTALLATION.md
+  - Architecture: ARCHITECTURE.md
+  - API Reference: API.md
+  - Acceptance: ACCEPTANCE.md
+  - Accessibility: ACCESSIBILITY.md
+  - Development: DEVELOPMENT.md
   - Poppler PATH Setup: PATH-POPPLER.md
   - Azure Deployment: AZURE_DEPLOYMENT.md
 
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            members_order: source
+
 markdown_extensions:
   - admonition
-  - toc:
-      permalink: true
   - tables
   - fenced_code
   - codehilite
+  - toc:
+      permalink: true

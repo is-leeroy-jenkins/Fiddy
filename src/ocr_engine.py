@@ -127,8 +127,7 @@ class OcrEngine( ):
 			configuration. When ``TESSERACT_CMD`` is configured, the command path is assigned to
 			``pytesseract``.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -174,8 +173,7 @@ class OcrEngine( ):
 			messages, unsupported file-type messages, PDF page-limit messages, and extraction
 			failure messages.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[str]: OCR and image-quality notes from the latest extraction run.
@@ -191,7 +189,7 @@ class OcrEngine( ):
 			the OCR engine to any specific UI framework. Callback failures are logged and do not
 			interrupt OCR extraction.
 
-		Parameters:
+		Args:
 			progress_callback (Optional[Callable[[str], None]]): Optional callback that receives a
 				status message.
 			message (str): Progress message to send.
@@ -218,7 +216,7 @@ class OcrEngine( ):
 			checks. The method does not validate whether the file exists or whether the extension is
 			supported.
 
-		Parameters:
+		Args:
 			file_path (str | Path): File path to inspect.
 
 		Returns:
@@ -246,7 +244,7 @@ class OcrEngine( ):
 			``SUPPORTED_IMAGE_TYPES``. This method is used by ``extract_text`` to route image
 			files through image OCR.
 
-		Parameters:
+		Args:
 			file_path (str | Path): File path to inspect.
 
 		Returns:
@@ -273,7 +271,7 @@ class OcrEngine( ):
 			``SUPPORTED_DOCUMENT_TYPES``. In the current workflow, this routes PDF files to
 			page-image conversion before OCR.
 
-		Parameters:
+		Args:
 			file_path (str | Path): File path to inspect.
 
 		Returns:
@@ -302,7 +300,7 @@ class OcrEngine( ):
 			brightness, contrast, blur score, glare ratio, skew angle, warnings, and
 			recommendations.
 
-		Parameters:
+		Args:
 			quality_result (VisualQualityResult): Visual-quality analysis result.
 
 		Returns:
@@ -347,7 +345,7 @@ class OcrEngine( ):
 			when normalization fails. This preserves OCR output flow even when normalizer behavior
 			changes during development.
 
-		Parameters:
+		Args:
 			raw_text (str): Raw OCR text to normalize.
 
 		Returns:
@@ -375,7 +373,7 @@ class OcrEngine( ):
 			is more predictable. Images whose maximum dimension is already below the configured
 			limit are returned unchanged. Aspect ratio is preserved.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to inspect and possibly resize.
 			file_name (str): Logical file name used in reviewer-facing notes.
 
@@ -423,7 +421,7 @@ class OcrEngine( ):
 			converted to OCR notes and appended to the engine note collection before returning the
 			structured visual-quality result.
 
-		Parameters:
+		Args:
 			file_path (str | Path): Uploaded image file path.
 
 		Returns:
@@ -457,7 +455,7 @@ class OcrEngine( ):
 			appended to the engine note collection. The optional file name is used only as a logical
 			reporting name for the returned result.
 
-		Parameters:
+		Args:
 			image (Image.Image): Image to analyze.
 			file_name (str): Logical file name for reporting.
 
@@ -491,7 +489,7 @@ class OcrEngine( ):
 			collection, and invoke ``pytesseract.image_to_string`` using configured OCR language,
 			timeout, and Tesseract config.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to process with OCR.
 			file_name (str): Logical file name used in quality-analysis reporting.
 			progress_callback (Optional[Callable[[str], None]]): Optional progress callback.
@@ -550,7 +548,7 @@ class OcrEngine( ):
 			downscale oversized images, preprocess the image, extend OCR notes with processor notes,
 			and invoke Tesseract OCR with configured language, timeout, and OCR config.
 
-		Parameters:
+		Args:
 			file_path (str | Path): Path to the uploaded image file.
 			progress_callback (Optional[Callable[[str], None]]): Optional progress callback.
 
@@ -614,7 +612,7 @@ class OcrEngine( ):
 			prototype defaults to processing the first page to keep per-label processing predictable
 			under the five-second SLA. When the limit is less than one, it is treated as one.
 
-		Parameters:
+		Args:
 			file_path (str | Path): Path to the uploaded PDF file.
 
 		Returns:
@@ -661,7 +659,7 @@ class OcrEngine( ):
 			each converted page through ``image_to_text``. Non-empty page OCR output is collected
 			and joined with blank lines so the final raw OCR text preserves page separation.
 
-		Parameters:
+		Args:
 			file_path (str | Path): Path to the uploaded PDF file.
 			progress_callback (Optional[Callable[[str], None]]): Optional progress callback.
 
@@ -707,8 +705,7 @@ class OcrEngine( ):
 			existing model contract by returning file name, file type, raw text, normalized text, OCR
 			engine name, OCR duration, and image-quality notes.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			ExtractedLabel: Structured OCR result. If object creation fails, a reviewer-safe
@@ -752,7 +749,7 @@ class OcrEngine( ):
 			when available, the configured OCR engine name, zero OCR seconds, and one
 			reviewer-facing note.
 
-		Parameters:
+		Args:
 			file_path (str | Path): File path associated with the failed extraction.
 			message (str): Reviewer-facing fallback note.
 
@@ -803,7 +800,7 @@ class OcrEngine( ):
 			unsupported-file note when the type is not supported, normalizes raw OCR text, measures
 			elapsed OCR time, and returns an ``ExtractedLabel``.
 
-		Parameters:
+		Args:
 			file_path (str | Path): Path to the uploaded image or PDF label file.
 			progress_callback (Optional[Callable[[str], None]]): Optional progress callback.
 

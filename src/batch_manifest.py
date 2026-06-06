@@ -421,8 +421,7 @@ class BatchManifest( ):
 		empty DataFrame so downstream validation can produce clear required-column messages.
 
 		Args:
-			df_manifest (pd.DataFrame): Source manifest DataFrame read from CSV or supplied by a
-			caller.
+			df_manifest: Source manifest DataFrame read from CSV or supplied by a caller.
 
 		Returns:
 			pd.DataFrame: Manifest DataFrame with normalized column names. If column normalization

@@ -490,8 +490,7 @@ class LabelFieldExtractor( ):
 		the enriched object.
 
 		Args:
-			extracted_label (ExtractedLabel): OCR extraction result to enrich with structured
-			fields.
+			extracted_label: OCR extraction result to enrich with structured fields.
 
 		Returns:
 			ExtractedLabel: The supplied extraction result with structured fields populated when

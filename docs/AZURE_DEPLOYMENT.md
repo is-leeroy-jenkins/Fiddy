@@ -42,6 +42,7 @@ Fiddy/
 │   ├── image_processor.py
 │   ├── ocr_engine.py
 │   ├── performance_monitor.py
-│   └── ...
+│   └── 
 └── tests/
     └── __init__.py
+```

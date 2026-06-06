@@ -73,7 +73,7 @@ def throw_if( name: str, value: object ) -> None:
 		function treats falsy values as invalid and raises a ``ValueError`` containing the
 		caller-supplied argument or setting name.
 
-	Parameters:
+	Args:
 		name (str): Name of the argument or configuration value being validated.
 		value (object): Value to validate.
 
@@ -94,7 +94,7 @@ def get_bool( name: str, default: bool = False ) -> bool:
 		return the caller-provided default. Values of ``1``, ``true``, ``yes``, ``y``, and
 		``on`` are treated as ``True``; all other defined values are treated as ``False``.
 
-	Parameters:
+	Args:
 		name (str): Environment variable name.
 		default (bool): Default value used when the environment variable is not defined.
 
@@ -121,7 +121,7 @@ def get_int( name: str, default: int ) -> int:
 		Parse an optional environment variable as an integer while preserving a safe default when
 		the variable is missing, empty, or invalid.
 
-	Parameters:
+	Args:
 		name (str): Environment variable name.
 		default (int): Default integer value used when parsing is not possible.
 
@@ -142,7 +142,7 @@ def get_float( name: str, default: float ) -> float:
 		Parse an optional environment variable as a float while preserving a safe default when the
 		variable is missing, empty, or invalid.
 
-	Parameters:
+	Args:
 		name (str): Environment variable name.
 		default (float): Default floating-point value used when parsing is not possible.
 
@@ -164,7 +164,7 @@ def get_path( name: str, default: Path ) -> Path:
 		the resolved default path. Invalid values return the resolved default path rather than
 		interrupting module import.
 
-	Parameters:
+	Args:
 		name (str): Environment variable name.
 		default (Path): Default path used when the environment variable is not defined.
 

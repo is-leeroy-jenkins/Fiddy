@@ -121,7 +121,7 @@ class AccessibilityChecklistItem( BaseModel ):
 			Update the item status to ``Pass``, store optional tester notes, and refresh the
 			evaluation timestamp.
 
-		Parameters:
+		Args:
 			notes (str): Optional tester notes.
 
 		Returns:
@@ -146,7 +146,7 @@ class AccessibilityChecklistItem( BaseModel ):
 			Update the item status to ``Fail``, store optional tester notes, and refresh the
 			evaluation timestamp.
 
-		Parameters:
+		Args:
 			notes (str): Optional tester notes.
 
 		Returns:
@@ -171,7 +171,7 @@ class AccessibilityChecklistItem( BaseModel ):
 			Update the item status to ``Not Applicable``, store optional tester notes, and refresh
 			the evaluation timestamp.
 
-		Parameters:
+		Args:
 			notes (str): Optional tester notes.
 
 		Returns:
@@ -196,8 +196,7 @@ class AccessibilityChecklistItem( BaseModel ):
 			Return a dictionary suitable for Streamlit display, CSV export, JSON export, Markdown
 			reporting, or test-result archiving.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, object]: Flat checklist item record.
@@ -272,8 +271,7 @@ class AccessibilityChecklistResult( BaseModel ):
 			more items fail, ``Partially Met`` when some items pass but others remain untested, and
 			``Not Evaluated`` when no applicable item has been tested.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -338,8 +336,7 @@ class AccessibilityChecklistResult( BaseModel ):
 		Purpose:
 			Count checklist items by status for dashboards, summaries, and exports.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, int]: Counts keyed by checklist status value.
@@ -375,8 +372,7 @@ class AccessibilityChecklistResult( BaseModel ):
 		Purpose:
 			Return one dictionary per checklist item for display and export.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[Dict[str, object]]: Flat checklist records.
@@ -401,8 +397,7 @@ class AccessibilityChecklistResult( BaseModel ):
 			Create a tabular representation of checklist items for Streamlit display, CSV export,
 			or acceptance evidence.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			pd.DataFrame: Accessibility checklist DataFrame.
@@ -424,8 +419,7 @@ class AccessibilityChecklistResult( BaseModel ):
 			Return high-level accessibility status, configuration flags, item counts, and message
 			values for dashboards and acceptance reports.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, object]: Flat accessibility checklist summary record.
@@ -489,8 +483,7 @@ class AccessibilityChecklist( ):
 			Build the default checklist items used for high-contrast, large-text, keyboard
 			navigation, workflow, result-review, and download validation.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -505,8 +498,7 @@ class AccessibilityChecklist( ):
 			Expose the current checklist item list to callers that need to display, update, or
 			export manual validation records.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[AccessibilityChecklistItem]: Checklist items.
@@ -521,7 +513,7 @@ class AccessibilityChecklist( ):
 			Centralize construction of checklist item records. Required values are validated before
 			the item is created.
 
-		Parameters:
+		Args:
 			item_id (str): Stable checklist item identifier.
 			category (str): Accessibility category.
 			name (str): Plain-language checklist item name.
@@ -567,8 +559,7 @@ class AccessibilityChecklist( ):
 			requirement for high-contrast mode, large text, and keyboard navigation. The checklist
 			also verifies that reviewers are not forced to rely on mouse-only hover behavior.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[AccessibilityChecklistItem]: Canonical checklist items.
@@ -689,7 +680,7 @@ class AccessibilityChecklist( ):
 			Find an item by identifier and update its status and notes. Accepted status values are
 			``Pass``, ``Fail``, ``Not Tested``, and ``Not Applicable``.
 
-		Parameters:
+		Args:
 			item_id (str): Checklist item identifier.
 			status (str): New item status.
 			notes (str): Optional tester notes.
@@ -736,7 +727,7 @@ class AccessibilityChecklist( ):
 			imports, JSON imports, or tests that collect manual accessibility results outside the
 			class.
 
-		Parameters:
+		Args:
 			status_map (Dict[str, str]): Mapping from item identifier to status.
 			notes_map (Dict[str, str]): Optional mapping from item identifier to notes.
 
@@ -770,8 +761,7 @@ class AccessibilityChecklist( ):
 			configuration flags. The result recalculates passed, failed, and untested items before
 			returning.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			AccessibilityChecklistResult: Current accessibility checklist result.
@@ -809,8 +799,7 @@ class AccessibilityChecklist( ):
 			Return checklist items as tabular records before or after manual validation. This is
 			useful for display, export, and acceptance documentation.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			pd.DataFrame: Checklist item DataFrame.

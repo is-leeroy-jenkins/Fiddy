@@ -111,7 +111,7 @@ class ImageProcessor( ):
 			configuration, initialize the notes list, initialize empty quality metrics, and set the
 			default preprocessing profile to ``standard``.
 
-		Parameters:
+		Args:
 			minimum_width (int): Minimum preferred image width for OCR.
 			minimum_height (int): Minimum preferred image height for OCR.
 
@@ -148,8 +148,7 @@ class ImageProcessor( ):
 			preprocessing operations. Callers use these notes to explain OCR limitations or
 			preprocessing actions in downstream reports.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[str]: Current image quality and preprocessing notes.
@@ -164,8 +163,7 @@ class ImageProcessor( ):
 			Expose image width, height, brightness, contrast, blur, glare ratio, dark ratio, and
 			skew angle values computed during the latest quality-estimation workflow.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, float]: Most recent image quality metrics.
@@ -181,8 +179,7 @@ class ImageProcessor( ):
 			values include ``standard``, ``dark_image``, ``low_contrast``, ``glare_review``,
 			``overexposed``, and ``blur_review``.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			str: Preprocessing profile name.
@@ -197,8 +194,7 @@ class ImageProcessor( ):
 			``Image.Resampling.LANCZOS`` and fall back to ``Image.LANCZOS`` for older Pillow
 			versions.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			object: Pillow resampling filter constant.
@@ -216,8 +212,7 @@ class ImageProcessor( ):
 			to returning ``None`` because downstream OCR callers expect a PIL image and can still
 			produce a reviewer-safe no-text result.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Image.Image: White RGB fallback image.
@@ -244,7 +239,7 @@ class ImageProcessor( ):
 			EXIF transpose handling so phone/camera images are oriented correctly, and convert
 			unsupported modes to RGB while recording reviewer-facing notes.
 
-		Parameters:
+		Args:
 			image_path (str | Path): Path to the image file to load.
 
 		Returns:
@@ -283,7 +278,7 @@ class ImageProcessor( ):
 			The method keeps RGB images unchanged and records a reviewer-facing note when a mode
 			conversion is performed.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to inspect and convert when necessary.
 
 		Returns:
@@ -318,7 +313,7 @@ class ImageProcessor( ):
 			proportionally using high-quality Lanczos resampling so small label text has more pixel
 			information available to OCR.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to resize when needed.
 
 		Returns:
@@ -367,7 +362,7 @@ class ImageProcessor( ):
 			time remain predictable under the prototype SLA. Aspect ratio is preserved and the image
 			is unchanged when its largest dimension is already within the configured maximum.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to inspect and possibly downscale.
 
 		Returns:
@@ -416,7 +411,7 @@ class ImageProcessor( ):
 			convert the array to grayscale using OpenCV. The resulting array is used by quality
 			estimation, deskew, thresholding, and OCR preprocessing steps.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to convert.
 
 		Returns:
@@ -451,7 +446,7 @@ class ImageProcessor( ):
 			estimated skew angle from a PIL image. These metrics drive reviewer-facing notes and
 			deterministic preprocessing-profile selection.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to evaluate.
 
 		Returns:
@@ -510,7 +505,7 @@ class ImageProcessor( ):
 			estimated angle is outside a conservative range, or when estimation fails. This prevents
 			aggressive rotation from damaging labels with complex artwork.
 
-		Parameters:
+		Args:
 			gray (np.ndarray): Grayscale image array.
 
 		Returns:
@@ -561,7 +556,7 @@ class ImageProcessor( ):
 			supports imperfect-image OCR without claiming full perspective correction or arbitrary
 			geometric repair.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to deskew when safe.
 
 		Returns:
@@ -620,7 +615,7 @@ class ImageProcessor( ):
 			contrast, blur, glare, and dark-pixel ratio. The profile selects local preprocessing
 			steps but does not change the compliance interpretation of OCR results.
 
-		Parameters:
+		Args:
 			metrics (Dict[str, float]): Quality metrics from ``calculate_quality_metrics``.
 
 		Returns:
@@ -668,7 +663,7 @@ class ImageProcessor( ):
 			when it applies profile-specific processing and explicitly avoids claiming true glare
 			removal or perspective correction.
 
-		Parameters:
+		Args:
 			gray (np.ndarray): Grayscale OpenCV image array.
 			profile (str): Selected preprocessing profile.
 
@@ -729,7 +724,7 @@ class ImageProcessor( ):
 			Use adaptive thresholding for most labels and Otsu thresholding for glare-risk or
 			overexposed labels where adaptive local thresholding can over-amplify bright regions.
 
-		Parameters:
+		Args:
 			gray (np.ndarray): Grayscale OpenCV image array.
 			profile (str): Selected preprocessing profile.
 
@@ -778,7 +773,7 @@ class ImageProcessor( ):
 			after thresholding. This is intentionally conservative so it does not over-process label
 			artwork.
 
-		Parameters:
+		Args:
 			image_array (np.ndarray): Image array to sharpen.
 
 		Returns:
@@ -814,7 +809,7 @@ class ImageProcessor( ):
 			denoising, thresholding, sharpening, and conversion back to a PIL image. The method
 			records all major actions in reviewer-facing notes.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to preprocess for OCR.
 
 		Returns:
@@ -864,7 +859,7 @@ class ImageProcessor( ):
 			contrast, blur risk, glare risk, and skew risk. These notes are advisory and do not
 			replace human review.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to evaluate.
 
 		Returns:
@@ -941,7 +936,7 @@ class ImageProcessor( ):
 			estimate image quality, and apply deterministic OCR preprocessing. This is the primary
 			file-based OCR preparation entry point.
 
-		Parameters:
+		Args:
 			image_path (str | Path): Path to the image file to load and preprocess.
 
 		Returns:
@@ -976,7 +971,7 @@ class ImageProcessor( ):
 			file-based images. This entry point is used for images extracted from PDFs and images
 			already loaded by another component.
 
-		Parameters:
+		Args:
 			image (Image.Image): PIL image to evaluate and preprocess.
 
 		Returns:

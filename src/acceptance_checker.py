@@ -131,8 +131,7 @@ class RequirementStatus( BaseModel ):
 			Convert the structured requirement status into a dictionary suitable for DataFrame
 			display, CSV export, JSON export, or Markdown report generation.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, object]: Flat requirement status record.
@@ -186,8 +185,7 @@ class AcceptanceSummary( BaseModel ):
 			Count requirement records by acceptance status for dashboard display and summary
 			reporting.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, int]: Status counts keyed by status text.
@@ -225,8 +223,7 @@ class AcceptanceSummary( BaseModel ):
 			evaluated requirements. Requirements marked ``Not Evaluated`` are excluded from the
 			denominator so small smoke tests do not distort formal acceptance scoring.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			float: Percentage of evaluated requirements marked ``Met``.
@@ -263,8 +260,7 @@ class AcceptanceSummary( BaseModel ):
 			Convert each requirement status into a dictionary so the full summary can be displayed
 			or exported as a tabular dataset.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[Dict[str, object]]: Requirement status records.
@@ -288,8 +284,7 @@ class AcceptanceSummary( BaseModel ):
 		Purpose:
 			Return a DataFrame suitable for Streamlit display and CSV export.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			pd.DataFrame: Acceptance summary DataFrame.
@@ -339,8 +334,7 @@ class AcceptanceChecker( ):
 			Create empty DataFrame placeholders and an empty requirement list. No evaluation occurs
 			until ``evaluate_batch_result`` is called.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -360,7 +354,7 @@ class AcceptanceChecker( ):
 			Centralize construction of requirement status records so all evaluations produce
 			consistent output. Required text values are validated before record creation.
 
-		Parameters:
+		Args:
 			requirement_id (str): Stakeholder requirement identifier.
 			requirement_name (str): Plain-language requirement name.
 			status (str): Acceptance status.
@@ -407,8 +401,7 @@ class AcceptanceChecker( ):
 			Provide a safe accessor for the batch report stored inside the active
 			``BatchProcessingResult``.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			BatchVerificationReport: Active batch report or an empty fallback report.
@@ -430,8 +423,7 @@ class AcceptanceChecker( ):
 			Provide a safe list of reports for requirement checks that inspect extracted labels,
 			rule results, status values, and reviewer flags.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[LabelVerificationReport]: Label-level reports.
@@ -453,8 +445,7 @@ class AcceptanceChecker( ):
 			Support the extraction requirement by counting label reports whose extracted label
 			contains raw OCR text.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			int: Count of reports with extracted OCR text.
@@ -480,8 +471,7 @@ class AcceptanceChecker( ):
 			Support comparison-output evaluation by counting reports where deterministic rule
 			evaluation produced structured results.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			int: Count of reports with rule results.
@@ -507,8 +497,7 @@ class AcceptanceChecker( ):
 			Support reliability evaluation by counting reports that generated reviewer-visible
 			non-pass outcomes instead of failing silently.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			int: Count of reports with fail, warning, or needs-review status.
@@ -534,8 +523,7 @@ class AcceptanceChecker( ):
 			Determine whether the batch produced extracted-label objects and readable OCR text for
 			processed labels.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Label extraction acceptance record.
@@ -594,8 +582,7 @@ class AcceptanceChecker( ):
 			Determine whether processed label reports contain structured rule results and whether
 			the comparison DataFrame includes reviewer-facing comparison fields.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Application comparison acceptance record.
@@ -676,8 +663,7 @@ class AcceptanceChecker( ):
 			Determine whether batch processing produced per-label reports and tracked processed or
 			skipped files.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Batch processing acceptance record.
@@ -739,8 +725,7 @@ class AcceptanceChecker( ):
 			Inspect the batch performance summary and formal performance acceptance result to
 			determine whether the five-second target was met, not met, or not evaluated.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Performance acceptance record.
@@ -791,8 +776,7 @@ class AcceptanceChecker( ):
 			Determine whether summary, detail, comparison, and performance outputs exist after a
 			verification run.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Output acceptance record.
@@ -862,8 +846,7 @@ class AcceptanceChecker( ):
 			Determine whether the batch result captured errors, warnings, skipped files, or
 			reviewer-visible non-pass reports without crashing the batch.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Reliability acceptance record.
@@ -926,8 +909,7 @@ class AcceptanceChecker( ):
 			Determine whether the completed run exercised the configured prototype batch-size
 			acceptance range.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			RequirementStatus: Scalability acceptance record.
@@ -989,8 +971,7 @@ class AcceptanceChecker( ):
 			deployment review, but these switches provide acceptance evidence for the prototype
 			posture.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[RequirementStatus]: Security and data-handling acceptance records.
@@ -1084,8 +1065,7 @@ class AcceptanceChecker( ):
 			large text, keyboard checklist requirement, progress/performance output, and
 			reviewer-facing comparison guidance.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[RequirementStatus]: Usability, interface simplicity, accessibility, and feedback
@@ -1181,8 +1161,7 @@ class AcceptanceChecker( ):
 			container or deployment artifact review, but this method records application-level
 			posture.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[RequirementStatus]: Infrastructure and integration acceptance records.
@@ -1250,7 +1229,7 @@ class AcceptanceChecker( ):
 			evaluations, and return a complete ``AcceptanceSummary`` containing requirement-level
 			status records.
 
-		Parameters:
+		Args:
 			result (BatchProcessingResult): Completed batch-processing result.
 			summary_dataframe (pd.DataFrame): Optional summary output DataFrame.
 			detail_dataframe (pd.DataFrame): Optional rule-detail output DataFrame.

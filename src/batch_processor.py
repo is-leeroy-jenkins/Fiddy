@@ -113,8 +113,7 @@ class BatchProcessingResult( BaseModel ):
 			matching counts, performance metrics, SLA breach counts, acceptance status, and aggregate
 			error/warning counts.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			Dict[str, object]: Flat batch processing summary record. If rendering fails, the
@@ -233,7 +232,7 @@ class BatchProcessor( ):
 			and warnings. The worker count is normalized to at least one and capped later against
 			the active batch size and configured worker ceiling.
 
-		Parameters:
+		Args:
 			max_workers (int): Requested maximum number of worker threads.
 			sla_seconds (float | None): Optional per-label service-level threshold in seconds.
 
@@ -276,7 +275,7 @@ class BatchProcessor( ):
 			recreate the manifest service so CSV-load errors from a prior run cannot leak into a
 			new manifest-processing attempt.
 
-		Parameters:
+		Args:
 			reset_manifest (bool): Indicates whether to recreate the manifest service.
 
 		Returns:
@@ -313,7 +312,7 @@ class BatchProcessor( ):
 			lowercase file names. Duplicate uploaded filenames are recorded as warnings and later
 			paths preserve the established dictionary overwrite behavior.
 
-		Parameters:
+		Args:
 			file_paths (Iterable[str | Path]): Uploaded label file paths to map.
 
 		Returns:
@@ -355,7 +354,7 @@ class BatchProcessor( ):
 			The returned map is keyed by lowercase file name and is used to locate the application
 			record associated with each matched uploaded file.
 
-		Parameters:
+		Args:
 			records (List[BatchManifestRecord]): Manifest records parsed from the application manifest.
 
 		Returns:
@@ -383,7 +382,7 @@ class BatchProcessor( ):
 			``cfg.MAX_PARALLEL_WORKERS``. This prevents invalid or excessive executor sizes while
 			preserving parallel execution for prototype batch runs.
 
-		Parameters:
+		Args:
 			matched_count (int): Number of matched files to process.
 
 		Returns:
@@ -412,7 +411,7 @@ class BatchProcessor( ):
 			result is marked ``Needs Review`` with high severity so the reviewer can see that the
 			file was not verified normally and requires manual attention.
 
-		Parameters:
+		Args:
 			file_name (str): Label file name to place on the fallback report.
 			message (str): Reviewer-facing error message to include as evidence and result text.
 
@@ -457,7 +456,7 @@ class BatchProcessor( ):
 			batch output completeness because missing manifest rows appear in the report set rather
 			than only in validation metadata.
 
-		Parameters:
+		Args:
 			file_name (str): Manifest file name that was not found among uploaded artwork.
 
 		Returns:
@@ -487,7 +486,7 @@ class BatchProcessor( ):
 			the matching uploaded file, assign measured processing time to the report, recalculate
 			overall status, and return both verification and performance results.
 
-		Parameters:
+		Args:
 			record (BatchManifestRecord): Manifest row containing application data for the label.
 			file_path (str | Path): Uploaded label file path matched to the manifest row.
 
@@ -532,8 +531,7 @@ class BatchProcessor( ):
 			Convert each validation-level missing file into a report-level review item. This ensures
 			the batch report provides per-manifest-row visibility even when artwork was not uploaded.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -558,8 +556,7 @@ class BatchProcessor( ):
 			verified because they have no application data, but the reviewer should still see that the
 			files were ignored by the manifest-driven batch.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			None.
@@ -586,8 +583,7 @@ class BatchProcessor( ):
 			the manifest-record map. Missing lookup entries are retained as warnings rather than
 			causing the batch to fail.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			List[str]: Matched file names eligible for processing.
@@ -627,7 +623,7 @@ class BatchProcessor( ):
 			warnings, create review reports for missing artwork, record extra files as skipped, and
 			process matched files in a thread pool with isolated item failure handling.
 
-		Parameters:
+		Args:
 			records (List[BatchManifestRecord]): Manifest records containing application data.
 			file_paths (Iterable[str | Path]): Uploaded label file paths.
 			progress_callback (Optional[Callable[[int, int, str], None]]): Optional callback receiving
@@ -722,7 +718,7 @@ class BatchProcessor( ):
 			record processing to ``process_records``. This keeps invalid-manifest responses
 			structurally consistent for the UI and report writer.
 
-		Parameters:
+		Args:
 			manifest_path (str | Path): Path to the application-data manifest CSV.
 			file_paths (Iterable[str | Path]): Uploaded label file paths.
 			progress_callback (Optional[Callable[[int, int, str], None]]): Optional progress callback.
@@ -768,7 +764,7 @@ class BatchProcessor( ):
 			The method sorts the values, clamps percentile input to 0 through 100, and interpolates
 			between the nearest ranks.
 
-		Parameters:
+		Args:
 			values (List[float]): Numeric values to summarize.
 			percentile_value (float): Percentile to calculate from 0 through 100.
 
@@ -806,7 +802,7 @@ class BatchProcessor( ):
 			prototype acceptance minimum are marked ``Not Evaluated`` for batch-size acceptance rather
 			than failed, which allows small smoke tests without misrepresenting scale readiness.
 
-		Parameters:
+		Args:
 			performance_summary (BatchPerformanceSummary): Batch-level performance summary.
 
 		Returns:
@@ -900,7 +896,7 @@ class BatchProcessor( ):
 			Explain SLA and batch-size acceptance outcomes in a compact sentence suitable for
 			dashboards, exports, and acceptance reports.
 
-		Parameters:
+		Args:
 			processed_files (int): Number of files with timing results.
 			sla_acceptance (str): SLA acceptance status.
 			batch_size_acceptance (str): Batch-size acceptance status.
@@ -930,8 +926,7 @@ class BatchProcessor( ):
 			acceptance evidence, and return a structurally consistent ``BatchProcessingResult`` from
 			current state. This method is used after successful processing and guarded failure paths.
 
-		Parameters:
-			None.
+		
 
 		Returns:
 			BatchProcessingResult: Complete batch processing result assembled from current state. If

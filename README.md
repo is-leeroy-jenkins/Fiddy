@@ -83,7 +83,7 @@ Full documentation is available in the `docs/` directory and can be built with M
 | Guide                                        | Purpose                                             |
 |----------------------------------------------|-----------------------------------------------------|
 | [Installation](docs/INSTALLATION.md)         | Local Python, OCR, and dependency setup.            |
-| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support. |
+| [Poppler Setup](docs/PATH-POPPLER.md)        | Windows Poppler PATH configuration for PDF support. |
 | [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment instructions.        |
 
 ## 🧠 AI-Assisted Verification
@@ -811,28 +811,27 @@ Known limitations include:
 Fiddy uses a compact Python dependency stack focused on a Web UI, local OCR, image processing,
 fuzzy matching, structured models, and test automation.
 
-| Package                  | Version     | Purpose                                                                                                                     |
-|--------------------------|-------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `streamlit`              | `1.45.1`    | Provides the web application framework, upload controls, sidebar controls, review workflow, tables, metrics, and downloads. |
-| `pandas`                 | `2.2.3`     | Handles manifest CSV loading, validation tables, summary tables, detail tables, comparison tables, and CSV exports.         |
-| `numpy`                  | `2.2.6`     | Supports numeric operations used by image analysis, preprocessing, and data handling.                                       |
-| `pillow`                 | `11.2.1`    | Loads and manipulates image files before OCR, including mode conversion and orientation handling.                           |
-| `opencv-python-headless` | `4.11.0.86` | Supports image preprocessing and visual-quality analysis without requiring GUI libraries.                                   |
-| `pytesseract`            | `0.3.13`    | Provides the Python wrapper around the local Tesseract OCR engine.                                                          |
-| `rapidfuzz`              | `3.13.0`    | Performs fast fuzzy text matching for reviewer-tolerant comparisons such as brand and class/type.                           |
-| `pydantic`               | `2.11.5`    | Defines structured application, extraction, rule-result, report, and batch-processing models.                               |
-| `python-dotenv`          | `1.1.0`     | Loads environment-based configuration from `.env` files.                                                                    |
-| `pytest`                 | `8.3.5`     | Supports automated unit and regression testing.                                                                             |
-| `pdf2image`              | `1.17.0`    | Converts PDF label artwork into images for OCR processing.                                                                  |
+| Package                  | Version      | Purpose                                                                                                                     |
+|--------------------------|--------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `streamlit`              | `1.56.0 < 2` | Provides the web application framework, upload controls, sidebar controls, review workflow, tables, metrics, and downloads. |
+| `pandas`                 | `2.2.3`      | Handles manifest CSV loading, validation tables, summary tables, detail tables, comparison tables, and CSV exports.         |
+| `numpy`                  | `2.2.6`      | Supports numeric operations used by image analysis, preprocessing, and data handling.                                       |
+| `pillow`                 | `11.2.1`     | Loads and manipulates image files before OCR, including mode conversion and orientation handling.                           |
+| `opencv-python-headless` | `4.11.0.86`  | Supports image preprocessing and visual-quality analysis without requiring GUI libraries.                                   |
+| `pytesseract`            | `0.3.13`     | Provides the Python wrapper around the local Tesseract OCR engine.                                                          |
+| `rapidfuzz`              | `3.13.0`     | Performs fast fuzzy text matching for reviewer-tolerant comparisons such as brand and class/type.                           |
+| `pydantic`               | `2.11.5`     | Defines structured application, extraction, rule-result, report, and batch-processing models.                               |
+| `python-dotenv`          | `1.1.0`      | Loads environment-based configuration from `.env` files.                                                                    |
+| `pdf2image`              | `1.17.0`     | Converts PDF label artwork into images for OCR processing.                                                                  |
 
 ### System Dependencies
 
 Some Python packages require external system tools.
 
-| Dependency                                                     | Required For   | Notes                                                                        |
-|----------------------------------------------------------------|----------------|------------------------------------------------------------------------------|
-| [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
-| [Poppler](https://github.com/oschwartz10612/poppler-windows)   | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
+| Dependency                                                        | Required For   | Notes                                                                        |
+|-------------------------------------------------------------------|----------------|------------------------------------------------------------------------------|
+| [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki)    | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
+| [Poppler](https://github.com/oschwartz10612/poppler-windows)      | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
 
 
 
