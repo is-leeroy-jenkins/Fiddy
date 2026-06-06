@@ -2,6 +2,12 @@
 
 This page is generated from Fiddy source-code docstrings using MkDocs and mkdocstrings.
 
+## Component Map
+
+<p align="center">
+  <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
+</p>
+
 ## Application Entry Point
 
 ::: app

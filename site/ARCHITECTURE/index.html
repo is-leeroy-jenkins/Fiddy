@@ -69,6 +69,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#architecture" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -257,6 +262,26 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
         
@@ -274,6 +299,91 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#major-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Major Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#demonstration-assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Demonstration Assets
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -458,6 +568,82 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-diagram" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Diagram
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#major-components" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Major Components
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deployment-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deployment Boundary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#demonstration-assets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Demonstration Assets
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -474,9 +660,124 @@
 
 
 
-  <h1>Architecture</h1>
+<h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h1>
+<p>Fiddy is organized as a local-first verification pipeline. The application separates the reviewer
+interface, upload handling, manifest parsing, OCR, image-quality analysis, deterministic rule
+evaluation, batch processing, reporting, performance monitoring, accessibility validation, and
+Azure-compatible deployment boundary.</p>
+<h2 id="architecture-diagram">Architecture Diagram<a class="headerlink" href="#architecture-diagram" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
+</p>
 
+<h2 id="runtime-boundary">Runtime Boundary<a class="headerlink" href="#runtime-boundary" title="Permanent link">&para;</a></h2>
+<div class="codehilite"><pre><span></span><code>┌──────────────────────────────────────────────────────────────────────────────┐
+│                      AZURE-COMPATIBLE RUNTIME BOUNDARY                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Local OCR and deterministic rule execution                                   │
+│ No external machine-learning endpoint dependency                             │
+│ Standalone operation without direct COLA writeback                           │
+│ Temporary upload handling during the active review session                   │
+│ Reports generated only through reviewer-initiated downloads                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
 
+<h2 id="major-components">Major Components<a class="headerlink" href="#major-components" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>app.py</code></td>
+<td>Streamlit interface, workflow routing, uploads, reviewer controls, results display, and downloads.</td>
+</tr>
+<tr>
+<td><code>config.py</code></td>
+<td>Centralized settings for OCR, upload limits, reports, performance targets, accessibility, and deployment posture.</td>
+</tr>
+<tr>
+<td><code>booger.py</code></td>
+<td>Sanitized local exception logging.</td>
+</tr>
+<tr>
+<td><code>src/batch_manifest.py</code></td>
+<td>Manifest parsing, validation, and conversion into application records.</td>
+</tr>
+<tr>
+<td><code>src/batch_processor.py</code></td>
+<td>Batch orchestration, file matching, per-label isolation, and acceptance evidence.</td>
+</tr>
+<tr>
+<td><code>src/image_processor.py</code></td>
+<td>Image loading, orientation correction, preprocessing, downscaling, and conservative deskew.</td>
+</tr>
+<tr>
+<td><code>src/visual_quality.py</code></td>
+<td>Blur, contrast, glare, darkness, skew, size, and readability diagnostics.</td>
+</tr>
+<tr>
+<td><code>src/ocr_engine.py</code></td>
+<td>Local OCR extraction from image and PDF label files.</td>
+</tr>
+<tr>
+<td><code>src/label_field_extractor.py</code></td>
+<td>Field extraction from OCR text.</td>
+</tr>
+<tr>
+<td><code>src/normalizer.py</code></td>
+<td>Text, number, unit, ABV, proof, and warning-text normalization.</td>
+</tr>
+<tr>
+<td><code>src/label_rules.py</code></td>
+<td>Deterministic comparison rules and fuzzy matching.</td>
+</tr>
+<tr>
+<td><code>src/warning_validator.py</code></td>
+<td>Government-warning validation.</td>
+</tr>
+<tr>
+<td><code>src/label_verifier.py</code></td>
+<td>Single-label verification orchestration.</td>
+</tr>
+<tr>
+<td><code>src/performance_monitor.py</code></td>
+<td>Per-label timing, SLA tracking, and performance acceptance metrics.</td>
+</tr>
+<tr>
+<td><code>src/report_writer.py</code></td>
+<td>CSV, JSON, Markdown, summary, and detail report generation.</td>
+</tr>
+<tr>
+<td><code>src/acceptance_checker.py</code></td>
+<td>Stakeholder acceptance-status evaluation.</td>
+</tr>
+<tr>
+<td><code>src/accessibility_checklist.py</code></td>
+<td>Manual accessibility validation checklist.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="component-map">Component Map<a class="headerlink" href="#component-map" title="Permanent link">&para;</a></h2>
+<p align="center">
+  <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
+</p>
+
+<h2 id="deployment-boundary">Deployment Boundary<a class="headerlink" href="#deployment-boundary" title="Permanent link">&para;</a></h2>
+<p>Fiddy is designed to run as a standalone local-OCR workload. The Azure container includes Python,
+Streamlit, Tesseract OCR, and Poppler. The application does not require an external OCR service or
+external machine-learning endpoint.</p>
+<h2 id="demonstration-assets">Demonstration Assets<a class="headerlink" href="#demonstration-assets" title="Permanent link">&para;</a></h2>
+<p>Demonstration files are organized as:</p>
+<div class="codehilite"><pre><span></span><code>samples/
+├── labels/
+└── manifests/
+</code></pre></div>
+
+<p>Use <code>samples/labels</code> for label artwork and <code>samples/manifests</code> for CSV manifests.</p>
 
 
 

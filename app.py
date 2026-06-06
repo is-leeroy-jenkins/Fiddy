@@ -90,8 +90,6 @@ def initialize_session_state( ) -> None:
 		keyboard guidance state, and CAV form fields before widgets or display functions read those
 		keys. The function is idempotent and preserves existing state across Streamlit reruns.
 
-	
-
 	Returns:
 		None.
 	"""
@@ -169,10 +167,11 @@ def initialize_session_state( ) -> None:
 def clear_results( ) -> None:
 	"""Clear prior verification outputs while preserving current input widget values.
 
-	This function resets generated verification outputs, report objects, display DataFrames,
-	download text, completion state, and selected report index. It intentionally does not clear
-	uploaded file widgets, manifest state, reviewer mode, accessibility settings, or CAV form
-	values because those are input-side state rather than generated result state.
+	Purpose:
+		This function resets generated verification outputs, report objects, display DataFrames,
+		download text, completion state, and selected report index. It intentionally does not clear
+		uploaded file widgets, manifest state, reviewer mode, accessibility settings, or CAV form
+		values because those are input-side state rather than generated result state.
 
 	Returns:
 		None.
@@ -195,10 +194,11 @@ def clear_results( ) -> None:
 def get_cav_form_defaults( ) -> Dict[ str, Any ]:
 	"""Return default session-state values for the CAV application form.
 
-	The defaults provide stable initial values for manual CAV review and for clearing the form
-	when a manifest is unloaded. The government warning defaults to the configured standard
-	warning text so reviewers have an expected warning value available unless a manifest record
-	or manual edit overrides it.
+	Purpose:
+		The defaults provide stable initial values for manual CAV review and for clearing the form
+		when a manifest is unloaded. The government warning defaults to the configured standard
+		warning text so reviewers have an expected warning value available unless a manifest record
+		or manual edit overrides it.
 
 	Returns:
 		Dict[str, Any]: Default CAV form values keyed by Streamlit session-state key.
@@ -223,9 +223,10 @@ def get_cav_form_defaults( ) -> Dict[ str, Any ]:
 def initialize_cav_form_state( ) -> None:
 	"""Initialize CAV application data form keys before widgets are rendered.
 
-	This function adds missing CAV form keys to Streamlit session state while preserving any
-	existing values. It supports both manual review and manifest-loaded workflows by ensuring
-	the form can be read safely by processing readiness checks and application model creation.
+	Purpose:
+		This function adds missing CAV form keys to Streamlit session state while preserving any
+		existing values. It supports both manual review and manifest-loaded workflows by ensuring
+		the form can be read safely by processing readiness checks and application model creation.
 
 	Returns:
 		None.
@@ -239,8 +240,9 @@ def initialize_cav_form_state( ) -> None:
 def clear_cav_form_state( ) -> None:
 	"""Reset all CAV application form fields to their default values.
 
-	This function is used when the manifest CSV is unloaded or when manifest state is cleared.
-	It restores the CAV fields to the same baseline created during session initialization.
+	Purpose:
+		This function is used when the manifest CSV is unloaded or when manifest state is cleared.
+		It restores the CAV fields to the same baseline created during session initialization.
 
 	Returns:
 		None.
@@ -253,10 +255,11 @@ def clear_cav_form_state( ) -> None:
 def clear_manifest_state( ) -> None:
 	"""Clear manifest records, manifest navigation state, and loaded CAV values.
 
-	This function resets the manifest DataFrame, parsed manifest records, loaded flag,
-	manifest signature, manifest file name, current record pointer, and CAV form values. It is
-	called when the user removes an uploaded manifest so stale manifest data cannot remain in
-	the reviewer workflow.
+	Purpose:
+		This function resets the manifest DataFrame, parsed manifest records, loaded flag,
+		manifest signature, manifest file name, current record pointer, and CAV form values. It is
+		called when the user removes an uploaded manifest so stale manifest data cannot remain in
+		the reviewer workflow.
 
 	Returns:
 		None.
@@ -273,10 +276,11 @@ def clear_manifest_state( ) -> None:
 def parse_optional_float( value: object ) -> float | None:
 	"""Parse optional numeric input into a float value.
 
-	This helper accepts blank, text, percentage-style, or numeric values from Streamlit widgets
-	and manifest-derived form state. Empty values and invalid numeric text are treated as
-	unavailable rather than as errors because the surrounding workflow may still be able to
-	display readiness guidance or collect additional reviewer input.
+	Purpose:
+		This helper accepts blank, text, percentage-style, or numeric values from Streamlit widgets
+		and manifest-derived form state. Empty values and invalid numeric text are treated as
+		unavailable rather than as errors because the surrounding workflow may still be able to
+		display readiness guidance or collect additional reviewer input.
 
 	Args:
 		value (object): Text, numeric, or empty value to parse.
@@ -306,9 +310,10 @@ def parse_optional_float( value: object ) -> float | None:
 def get_manifest_upload_signature( uploaded_manifest: object ) -> str:
 	"""Create a stable signature for the uploaded manifest file.
 
-	The signature combines the uploaded file name and size. It is used to detect whether the
-	current uploaded manifest is the same file already parsed into session state, avoiding
-	unnecessary reprocessing on Streamlit reruns.
+	Purpose:
+		The signature combines the uploaded file name and size. It is used to detect whether the
+		current uploaded manifest is the same file already parsed into session state, avoiding
+		unnecessary reprocessing on Streamlit reruns.
 
 	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest object.
@@ -335,9 +340,10 @@ def get_manifest_upload_signature( uploaded_manifest: object ) -> str:
 def read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame:
 	"""Read an uploaded manifest CSV using common encoding fallbacks.
 
-	This function reads the uploaded manifest bytes and attempts CSV parsing using common
-	encodings in a stable order. The uploaded file pointer is reset when the upload object
-	supports ``seek`` so the same upload can be reused by other workflow steps.
+	Purpose:
+		This function reads the uploaded manifest bytes and attempts CSV parsing using common
+		encodings in a stable order. The uploaded file pointer is reset when the upload object
+		supports ``seek`` so the same upload can be reused by other workflow steps.
 
 	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest object.
@@ -381,9 +387,10 @@ def read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame:
 def get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[ Any ]:
 	"""Convert an uploaded manifest DataFrame into navigable manifest records.
 
-	This function normalizes manifest columns through ``BatchManifest`` and converts the
-	normalized rows into manifest record objects. It is used by the upload synchronization
-	workflow so CAV values can be navigated and applied to the form.
+	Purpose:
+		This function normalizes manifest columns through ``BatchManifest`` and converts the
+		normalized rows into manifest record objects. It is used by the upload synchronization
+		workflow so CAV values can be navigated and applied to the form.
 
 	Args:
 		df_manifest (pd.DataFrame): Uploaded manifest DataFrame.
@@ -410,9 +417,10 @@ def get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[ An
 def get_record_value( record: object, field_name: str, default: object = '' ) -> object:
 	"""Read a field value from a manifest record using attribute access.
 
-	This helper centralizes safe manifest-record field access. It returns the caller-supplied
-	default when the record is missing, the field name is missing, the attribute is unavailable,
-	or lookup fails.
+	Purpose:
+		This helper centralizes safe manifest-record field access. It returns the caller-supplied
+		default when the record is missing, the field name is missing, the attribute is unavailable,
+		or lookup fails.
 
 	Args:
 		record (object): Manifest record.
@@ -438,10 +446,11 @@ def get_record_value( record: object, field_name: str, default: object = '' ) ->
 def apply_manifest_record_to_form_state( record: object ) -> None:
 	"""Write one manifest record into the CAV form session-state fields.
 
-	This function maps canonical manifest-record attributes into the Streamlit session-state keys
-	used by the CAV form. Numeric ABV and proof values are converted to display strings when
-	available, while missing values are represented as blank text. The function mutates session
-	state only and returns no value.
+	Purpose:
+		This function maps canonical manifest-record attributes into the Streamlit session-state keys
+		used by the CAV form. Numeric ABV and proof values are converted to display strings when
+		available, while missing values are represented as blank text. The function mutates session
+		state only and returns no value.
 
 	Args:
 		record (object): Manifest record to display in the CAV form.
@@ -486,9 +495,10 @@ def apply_manifest_record_to_form_state( record: object ) -> None:
 def get_current_manifest_record( ) -> object | None:
 	"""Return the currently selected manifest record.
 
-	This function reads the manifest records and current record index from session state,
-	clamps the index to the valid record range, updates session state with the clamped index,
-	and returns the active manifest record.
+	Purpose:
+		This function reads the manifest records and current record index from session state,
+		clamps the index to the valid record range, updates session state with the clamped index,
+		and returns the active manifest record.
 
 	Returns:
 		object | None: Current manifest record, or ``None`` when no record is available.
@@ -515,8 +525,9 @@ def get_current_manifest_record( ) -> object | None:
 def load_current_manifest_record( ) -> None:
 	"""Load the current manifest record into the CAV form fields.
 
-	This function retrieves the currently selected manifest record and applies it to the CAV form
-	state when available. It is used by the manifest navigation reload control.
+	Purpose:
+		This function retrieves the currently selected manifest record and applies it to the CAV form
+		state when available. It is used by the manifest navigation reload control.
 
 	Returns:
 		None.
@@ -537,9 +548,10 @@ def load_current_manifest_record( ) -> None:
 def move_manifest_record( step: int ) -> None:
 	"""Move the active manifest record pointer and load the selected record.
 
-	This function increments or decrements the manifest record index by the supplied step,
-	clamps the result to the valid record range, stores the updated index in session state, and
-	applies the selected record to the CAV form.
+	Purpose:
+		This function increments or decrements the manifest record index by the supplied step,
+		clamps the result to the valid record range, stores the updated index in session state, and
+		applies the selected record to the CAV form.
 
 	Args:
 		step (int): Relative movement amount, typically ``-1`` or ``1``.
@@ -569,10 +581,11 @@ def move_manifest_record( step: int ) -> None:
 def sync_manifest_upload_state( uploaded_manifest: object ) -> None:
 	"""Synchronize manifest upload state with parsed records and CAV form values.
 
-	This function initializes CAV state, clears manifest state when the upload is removed,
-	avoids reprocessing when the uploaded file signature has not changed, parses a new manifest
-	upload into a DataFrame and manifest records, stores the manifest state, and loads the first
-	record into the CAV form when records are available.
+	Purpose:
+		This function initializes CAV state, clears manifest state when the upload is removed,
+		avoids reprocessing when the uploaded file signature has not changed, parses a new manifest
+		upload into a DataFrame and manifest records, stores the manifest state, and loads the first
+		record into the CAV form when records are available.
 
 	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest file.
@@ -620,9 +633,10 @@ def sync_manifest_upload_state( uploaded_manifest: object ) -> None:
 def display_manifest_record_navigation( key_prefix: str = 'cav_form' ) -> None:
 	"""Display controls for navigating parsed manifest records.
 
-	This function renders Previous, Next, and Reload buttons when manifest records are loaded.
-	The controls update the current manifest record index and reload the selected record into
-	the CAV form.
+	Purpose:
+		This function renders Previous, Next, and Reload buttons when manifest records are loaded.
+		The controls update the current manifest record index and reload the selected record into
+		the CAV form.
 
 	Args:
 		key_prefix (str): Unique Streamlit key prefix for navigation buttons.
@@ -677,10 +691,11 @@ def display_manifest_record_navigation( key_prefix: str = 'cav_form' ) -> None:
 def get_configured_image_path( value: object ) -> str:
 	"""Return a display-safe image path from a configured path value.
 
-	This function supports absolute and relative image paths from configuration. Relative paths
-	are checked against the current working directory, project root, current file directory, and
-	parent directory so the app can locate branding assets across typical Streamlit launch
-	contexts.
+	Purpose:
+		This function supports absolute and relative image paths from configuration. Relative paths
+		are checked against the current working directory, project root, current file directory, and
+		parent directory so the app can locate branding assets across typical Streamlit launch
+		contexts.
 
 	Args:
 		value (object): Configured image path value.
@@ -730,8 +745,6 @@ def get_accessibility_css( ) -> str:
 		large text, large touch targets, readable disabled states, and table readability. The CSS is
 		generated from session-state flags so Simple and Advanced workflows share the same
 		accessibility behavior.
-
-	
 
 	Returns:
 		str: CSS override block, or an empty string when CSS generation fails.
@@ -916,10 +929,11 @@ def get_accessibility_css( ) -> str:
 def configure_page( ) -> None:
 	"""Configure the Streamlit page and inject base application styling.
 
-	This function resolves the configured favicon path, sets Streamlit page metadata, injects
-	the primary Fiddy CSS theme, and applies accessibility-specific CSS overrides. The styling
-	controls layout width, sidebar appearance, upload controls, buttons, panels, status text,
-	and metric cards.
+	Purpose:
+		This function resolves the configured favicon path, sets Streamlit page metadata, injects
+		the primary Fiddy CSS theme, and applies accessibility-specific CSS overrides. The styling
+		controls layout width, sidebar appearance, upload controls, buttons, panels, status text,
+		and metric cards.
 
 	Returns:
 		None.
@@ -1097,8 +1111,6 @@ def display_sidebar_header( ) -> None:
 		updated immediately so the main workflow can hide technical controls and apply
 		accessibility CSS consistently.
 
-	
-
 	Returns:
 		None.
 	"""
@@ -1156,9 +1168,10 @@ def display_sidebar_header( ) -> None:
 def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
 	"""Create application data for Simple Mode manual artwork verification.
 
-	When a manifest is uploaded, this function returns an empty ``LabelApplication`` because
-	the manifest records supply expected values. When no manifest is present, it displays a
-	compact manual CAV form and builds a ``LabelApplication`` from session-state values.
+	Purpose:
+		When a manifest is uploaded, this function returns an empty ``LabelApplication`` because
+		the manifest records supply expected values. When no manifest is present, it displays a
+		compact manual CAV form and builds a ``LabelApplication`` from session-state values.
 
 	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest file.
@@ -1247,10 +1260,11 @@ def create_simple_label_application( uploaded_manifest: object ) -> LabelApplica
 def create_manual_label_application( ) -> LabelApplication:
 	"""Display the full CAV form and return entered or loaded application values.
 
-	This function renders the Advanced Mode CAV data panel, manifest record navigation, all
-	core application fields, import-related fields, government warning text, and reviewer notes.
-	It then parses ABV and proof values from session state and returns a populated
-	``LabelApplication``.
+	Purpose:
+		This function renders the Advanced Mode CAV data panel, manifest record navigation, all
+		core application fields, import-related fields, government warning text, and reviewer notes.
+		It then parses ABV and proof values from session state and returns a populated
+		``LabelApplication``.
 
 	Returns:
 		LabelApplication: Expected label application values entered manually or loaded from the
@@ -1384,9 +1398,10 @@ def create_manual_label_application( ) -> LabelApplication:
 def display_header( ) -> None:
 	"""Display the compact application header in the main workspace.
 
-	The header identifies the workspace, displays the configured application display name, and
-	briefly states the upload, verification, review, and export workflow. It intentionally does
-	not duplicate the sidebar logo.
+	Purpose:
+		The header identifies the workspace, displays the configured application display name, and
+		briefly states the upload, verification, review, and export workflow. It intentionally does
+		not duplicate the sidebar logo.
 
 	Returns:
 		None.
@@ -1408,8 +1423,9 @@ def display_header( ) -> None:
 def get_status_html( status: str ) -> str:
 	"""Return styled HTML for a verification status value.
 
-	This function maps known status values to CSS classes used by the application theme. Unknown
-	status text is returned unchanged so unrecognized values can still be displayed.
+	Purpose:
+		This function maps known status values to CSS classes used by the application theme. Unknown
+		status text is returned unchanged so unrecognized values can still be displayed.
 
 	Args:
 		status (str): Verification status.
@@ -1445,9 +1461,10 @@ def get_batch_metrics( batch_report: BatchVerificationReport,
 		batch_result: BatchProcessingResult ) -> Tuple[ int, int, int, int, int ]:
 	"""Calculate top-level batch metrics for dashboard display.
 
-	This function summarizes the active batch into file count, failure count, warning count,
-	review count, and SLA breach count. It delegates report counts to ``BatchVerificationReport``
-	and performance counts to ``BatchProcessingResult``.
+	Purpose:
+		This function summarizes the active batch into file count, failure count, warning count,
+		review count, and SLA breach count. It delegates report counts to ``BatchVerificationReport``
+		and performance counts to ``BatchProcessingResult``.
 
 	Args:
 		batch_report (BatchVerificationReport): Batch verification report.
@@ -1482,9 +1499,10 @@ def get_batch_metrics( batch_report: BatchVerificationReport,
 def get_supported_upload_type_values( ) -> List[ str ]:
 	"""Return Streamlit uploader type values for artwork and ZIP archives.
 
-	This function starts with configured supported upload types and ensures ZIP archives are
-	included because the UI accepts either individual image/PDF artwork files or a ZIP archive
-	containing supported artwork files.
+	Purpose:
+		This function starts with configured supported upload types and ensures ZIP archives are
+		included because the UI accepts either individual image/PDF artwork files or a ZIP archive
+		containing supported artwork files.
 
 	Returns:
 		List[str]: Supported uploader type values.
@@ -1562,9 +1580,10 @@ def is_supported_artwork_name( file_name: str ) -> bool:
 def is_safe_archive_member_name( member_name: str ) -> bool:
 	"""Determine whether a ZIP member path is safe to extract.
 
-	This function blocks empty names, directory entries, absolute paths, parent traversal, macOS
-	metadata directories, hidden dot-files, and entries without a basename. It is part of the
-	ZIP extraction guardrails used before writing uploaded archive contents to disk.
+	Purpose:
+		This function blocks empty names, directory entries, absolute paths, parent traversal, macOS
+		metadata directories, hidden dot-files, and entries without a basename. It is part of the
+		ZIP extraction guardrails used before writing uploaded archive contents to disk.
 
 	Args:
 		member_name (str): ZIP member path.
@@ -1608,9 +1627,10 @@ def is_safe_archive_member_name( member_name: str ) -> bool:
 def get_archive_member_file_names( uploaded_file: object ) -> List[ str ]:
 	"""Return supported artwork file names contained in an uploaded ZIP archive.
 
-	This function reads the ZIP upload, filters archive members through the safe-member check,
-	filters by supported artwork extension, and returns only the member basenames displayed to
-	the reviewer and used in manifest matching summaries.
+	Purpose:
+		This function reads the ZIP upload, filters archive members through the safe-member check,
+		filters by supported artwork extension, and returns only the member basenames displayed to
+		the reviewer and used in manifest matching summaries.
 
 	Args:
 		uploaded_file (object): Streamlit uploaded ZIP file.
@@ -1648,9 +1668,10 @@ def get_archive_member_file_names( uploaded_file: object ) -> List[ str ]:
 def save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[ Path ]:
 	"""Safely extract supported artwork files from a ZIP archive.
 
-	This function extracts only safe ZIP members with supported artwork extensions. Files are
-	written under the supplied temporary directory using the member basename, and resolved paths
-	are checked to prevent path traversal outside the temporary root.
+	Purpose:
+		This function extracts only safe ZIP members with supported artwork extensions. Files are
+		written under the supplied temporary directory using the member basename, and resolved paths
+		are checked to prevent path traversal outside the temporary root.
 
 	Args:
 		uploaded_file (object): Streamlit uploaded ZIP file.
@@ -1702,9 +1723,10 @@ def save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[ Path
 def save_uploaded_files( uploaded_files: List[ object ], temp_dir: str ) -> List[ Path ]:
 	"""Save uploaded artwork files and safely extract supported ZIP contents.
 
-	This function writes individual supported image/PDF uploads to a temporary directory and
-	expands ZIP uploads through ``save_zip_artwork_files``. All output paths are resolved and
-	checked against the temporary root to prevent writes outside the working directory.
+	Purpose:
+		This function writes individual supported image/PDF uploads to a temporary directory and
+		expands ZIP uploads through ``save_zip_artwork_files``. All output paths are resolved and
+		checked against the temporary root to prevent writes outside the working directory.
 
 	Args:
 		uploaded_files (List[object]): Streamlit uploaded file objects.
@@ -1778,9 +1800,10 @@ def save_manifest_file( uploaded_manifest: object, temp_dir: str ) -> Path:
 def create_uploaded_file_dataframe( uploaded_files: List[ object ] ) -> pd.DataFrame:
 	"""Create a display table for uploaded artwork and ZIP archive contents.
 
-	This function creates one row for each individual uploaded artwork file and one row for
-	each supported artwork member inside uploaded ZIP archives. The result is used by Advanced
-	Mode upload previews.
+	Purpose:
+		This function creates one row for each individual uploaded artwork file and one row for
+		each supported artwork member inside uploaded ZIP archives. The result is used by Advanced
+		Mode upload previews.
 
 	Args:
 		uploaded_files (List[object]): Uploaded label files.
@@ -1868,9 +1891,10 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 		max_workers: int, sla_seconds: float ) -> None:
 	"""Run manifest-driven batch verification for uploaded label artwork.
 
-	This function saves the manifest and artwork files to a temporary directory, runs the cached
-	batch processor, builds summary, detail, comparison, performance, JSON, and Markdown
-	outputs, stores those outputs in session state, and updates Streamlit progress indicators.
+	Purpose:
+		This function saves the manifest and artwork files to a temporary directory, runs the cached
+		batch processor, builds summary, detail, comparison, performance, JSON, and Markdown
+		outputs, stores those outputs in session state, and updates Streamlit progress indicators.
 
 	Args:
 		uploaded_manifest (object): Uploaded application manifest CSV.
@@ -1951,9 +1975,10 @@ def run_manual_fallback_verification( application: LabelApplication,
 		uploaded_files: List[ object ] ) -> None:
 	"""Run single-application fallback verification when no manifest is supplied.
 
-	This function saves uploaded artwork to a temporary directory, verifies every saved file
-	against one manually supplied ``LabelApplication``, builds display/export outputs, and
-	stores results in Streamlit session state.
+	Purpose:
+		This function saves uploaded artwork to a temporary directory, verifies every saved file
+		against one manually supplied ``LabelApplication``, builds display/export outputs, and
+		stores results in Streamlit session state.
 
 	Args:
 		application (LabelApplication): Manual expected application values.
@@ -2074,8 +2099,9 @@ def get_manifest_expected_file_names( ) -> List[ str ]:
 def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ str, object ]:
 	"""Compare manifest expected file names against uploaded artwork file names.
 
-	This function calculates expected, uploaded, matched, missing, and extra file names. It is
-	used by readiness checks and Advanced Mode diagnostic display.
+	Purpose:
+		This function calculates expected, uploaded, matched, missing, and extra file names. It is
+		used by readiness checks and Advanced Mode diagnostic display.
 
 	Args:
 		uploaded_files (List[object]): Uploaded label artwork files.
@@ -2124,9 +2150,10 @@ def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ s
 def has_minimum_cav_application_data( application: LabelApplication ) -> bool:
 	"""Determine whether manual CAV values are sufficient for artwork verification.
 
-	This readiness helper requires brand name, class/type, ABV, net contents, producer/bottler,
-	and government warning. It is used only for the manual CAV plus artwork workflow when no
-	manifest is uploaded.
+	Purpose:
+		This readiness helper requires brand name, class/type, ABV, net contents, producer/bottler,
+		and government warning. It is used only for the manual CAV plus artwork workflow when no
+		manifest is uploaded.
 
 	Args:
 		application (LabelApplication): CAV application data.
@@ -2191,10 +2218,11 @@ def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ o
 		application: LabelApplication ) -> Dict[ str, object ]:
 	"""Determine whether verification can run and explain readiness status.
 
-	This function evaluates the active upload and application-data state, identifies the
-	processing mode, checks manifest record availability, checks artwork presence, checks
-	manifest/artwork filename matching, and verifies required manual CAV fields for the manual
-	workflow.
+	Purpose:
+		This function evaluates the active upload and application-data state, identifies the
+		processing mode, checks manifest record availability, checks artwork presence, checks
+		manifest/artwork filename matching, and verifies required manual CAV fields for the manual
+		workflow.
 
 	Args:
 		uploaded_manifest (object): Uploaded manifest file.
@@ -2289,9 +2317,10 @@ def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ o
 def display_processing_readiness( readiness: Dict[ str, object ] ) -> None:
 	"""Display processing mode, readiness status, and matching details.
 
-	This function displays a compact readiness message in all modes and, when Advanced Mode is
-	active, displays manifest-file matching metrics and expandable lists of missing or extra
-	files.
+	Purpose:
+		This function displays a compact readiness message in all modes and, when Advanced Mode is
+		active, displays manifest-file matching metrics and expandable lists of missing or extra
+		files.
 
 	Args:
 		readiness (Dict[str, object]): Processing readiness information.
@@ -2398,9 +2427,10 @@ def display_keyboard_accessibility_notes( ) -> None:
 def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 	"""Display manifest and label artwork upload controls.
 
-	This function renders the first workflow panel and returns the uploaded manifest CSV plus
-	the uploaded artwork files. The artwork uploader accepts individual supported image/PDF
-	files and ZIP archives.
+	Purpose:
+		This function renders the first workflow panel and returns the uploaded manifest CSV plus
+		the uploaded artwork files. The artwork uploader accepts individual supported image/PDF
+		files and ZIP archives.
 
 	Returns:
 		Tuple[object, List[object]]: Uploaded manifest and uploaded label files.
@@ -2442,9 +2472,10 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 def display_upload_preview( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
 	"""Display manifest and uploaded-file previews in Advanced Mode.
 
-	This function displays a manifest preview and uploaded artwork summary only when Simple Mode
-	is disabled. Empty or unreadable manifests produce a warning, while file previews include
-	individual uploads and supported ZIP members.
+	Purpose:
+		This function displays a manifest preview and uploaded artwork summary only when Simple Mode
+		is disabled. Empty or unreadable manifests produce a warning, while file previews include
+		individual uploads and supported ZIP members.
 
 	Args:
 		uploaded_manifest (object): Uploaded manifest file.
@@ -2605,9 +2636,10 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 def display_batch_dashboard( ) -> None:
 	"""Display batch-level metrics and Advanced Mode diagnostics.
 
-	This function shows file, failure, warning, review, and SLA breach metrics after
-	verification completes. Advanced Mode also displays manifest validation and performance
-	summary records, plus expandable error, warning, and per-file performance detail.
+	Purpose:
+		This function shows file, failure, warning, review, and SLA breach metrics after
+		verification completes. Advanced Mode also displays manifest validation and performance
+		summary records, plus expandable error, warning, and per-file performance detail.
 
 	Returns:
 		None.
@@ -2749,9 +2781,10 @@ def get_tooltip_text( field_name: str, expected: object, observed: object, messa
 		evidence: str ) -> str:
 	"""Create a tooltip-ready explanation for one comparison row.
 
-	The tooltip combines field name, application value, extracted value, rule explanation, and
-	OCR evidence into one compact text string suitable for detail captions and exported
-	comparison records.
+	Purpose:
+			The tooltip combines field name, application value, extracted value, rule explanation, and
+			OCR evidence into one compact text string suitable for detail captions and exported
+			comparison records.
 
 	Args:
 		field_name (str): Reviewer-facing field name.
@@ -2796,9 +2829,11 @@ def get_result_explanation_record( report: LabelVerificationReport, result: obje
 	str, object ]:
 	"""Create one enriched side-by-side comparison record.
 
-	This function combines a rule result with structured extracted-label fields when available.
-	It produces a reviewer-facing row containing application value, extracted value, status,
-	severity, confidence, explanation, recommended action, and detailed tooltip text.
+
+	Purpose:
+			This function combines a rule result with structured extracted-label fields when available.
+			It produces a reviewer-facing row containing application value, extracted value, status,
+			severity, confidence, explanation, recommended action, and detailed tooltip text.
 
 	Args:
 		report (LabelVerificationReport): Verification report containing the rule result.
@@ -2860,9 +2895,10 @@ def get_result_explanation_record( report: LabelVerificationReport, result: obje
 def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
 	"""Create a side-by-side comparison table from one verification report.
 
-	This function converts each rule result into an enriched comparison record and drops the
-	file-name column for single-report display. Empty reports return an empty DataFrame with the
-	expected comparison columns.
+	Purpose:
+		This function converts each rule result into an enriched comparison record and drops the
+		file-name column for single-report display. Empty reports return an empty DataFrame with the
+		expected comparison columns.
 
 	Args:
 		report (LabelVerificationReport): Verification report to convert.
@@ -2922,9 +2958,10 @@ def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) 
 def get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame:
 	"""Return the reviewer-facing comparison DataFrame without internal columns.
 
-	This function removes internal tooltip/detail columns before display while preserving those
-	values in the underlying comparison DataFrame for Advanced Mode explanation cards and CSV
-	downloads.
+	Purpose:
+		This function removes internal tooltip/detail columns before display while preserving those
+		values in the underlying comparison DataFrame for Advanced Mode explanation cards and CSV
+		downloads.
 
 	Args:
 		df_comparison (pd.DataFrame): Source comparison DataFrame.
@@ -2958,9 +2995,10 @@ def get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFr
 def display_side_by_side_comparison_table( report: LabelVerificationReport ) -> None:
 	"""Display one report's side-by-side comparison table.
 
-	This function creates and displays the reviewer-facing comparison table for a selected
-	report. In Advanced Mode, it also displays mismatch explanation cards containing evidence,
-	reviewer action, and tooltip detail for flagged fields.
+	Purpose:
+		This function creates and displays the reviewer-facing comparison table for a selected
+		report. In Advanced Mode, it also displays mismatch explanation cards containing evidence,
+		reviewer action, and tooltip detail for flagged fields.
 
 	Args:
 		report (LabelVerificationReport): Verification report to display.
@@ -3076,8 +3114,9 @@ def display_side_by_side_comparison_table( report: LabelVerificationReport ) -> 
 def create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -> pd.DataFrame:
 	"""Create a batch-level side-by-side comparison DataFrame.
 
-	This function converts every rule result in every batch report into enriched comparison
-	rows. The file name is retained for batch-level display and export.
+	Purpose:
+		This function converts every rule result in every batch report into enriched comparison
+		rows. The file name is retained for batch-level display and export.
 
 	Args:
 		batch_report (BatchVerificationReport): Batch verification report to convert.
@@ -3162,9 +3201,10 @@ def get_image_diagnostic_status( report: LabelVerificationReport ) -> str:
 def get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> str:
 	"""Return a reviewer-facing recommendation based on OCR diagnostics.
 
-	This function inspects OCR text presence and image-quality notes to provide a practical
-	action recommendation for clearer artwork, manual review, improved lighting, sharper focus,
-	deskewing, or higher resolution.
+	Purpose:
+		This function inspects OCR text presence and image-quality notes to provide a practical
+		action recommendation for clearer artwork, manual review, improved lighting, sharper focus,
+		deskewing, or higher resolution.
 
 	Args:
 		report (LabelVerificationReport): Verification report to inspect.
@@ -3230,8 +3270,9 @@ def get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> st
 def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
 	"""Create a structured image and OCR diagnostics DataFrame.
 
-	This function converts one report's OCR status, OCR engine, OCR timing, and image-quality
-	notes into reviewer-facing diagnostic records.
+	Purpose:
+		This function converts one report's OCR status, OCR engine, OCR timing, and image-quality
+		notes into reviewer-facing diagnostic records.
 
 	Args:
 		report (LabelVerificationReport): Verification report to convert.
@@ -3309,9 +3350,10 @@ def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.
 def display_image_diagnostics_panel( report: LabelVerificationReport ) -> None:
 	"""Display OCR and image-quality diagnostics for one selected label report.
 
-	This function shows diagnostic status, OCR text presence, OCR seconds, diagnostic records,
-	and a reviewer-facing recommendation. It is displayed only through Advanced Mode report
-	detail.
+	Purpose:
+		This function shows diagnostic status, OCR text presence, OCR seconds, diagnostic records,
+		and a reviewer-facing recommendation. It is displayed only through Advanced Mode report
+		detail.
 
 	Args:
 		report (LabelVerificationReport): Verification report to display.
@@ -3399,9 +3441,10 @@ def display_image_diagnostics_panel( report: LabelVerificationReport ) -> None:
 def display_report_detail( report: LabelVerificationReport ) -> None:
 	"""Display one report's comparison and optional technical detail.
 
-	This function displays the selected label header, side-by-side comparison table, and, in
-	Advanced Mode, image diagnostics, rule-by-rule explanations, extracted OCR text, and the
-	reviewer disclaimer.
+	Purpose:
+		This function displays the selected label header, side-by-side comparison table, and, in
+		Advanced Mode, image diagnostics, rule-by-rule explanations, extracted OCR text, and the
+		reviewer disclaimer.
 
 	Args:
 		report (LabelVerificationReport): Verification report to display.
@@ -3467,9 +3510,10 @@ def display_report_detail( report: LabelVerificationReport ) -> None:
 def display_results_viewer( ) -> None:
 	"""Display verification results, selected-label review, and downloads.
 
-	This function displays the batch summary table, batch comparison table, optional rule detail
-	table, selected flagged label review, and download controls after verification completes.
-	Simple Mode hides technical rule-detail output.
+	Purpose:
+		This function displays the batch summary table, batch comparison table, optional rule detail
+		table, selected flagged label review, and download controls after verification completes.
+		Simple Mode hides technical rule-detail output.
 
 	Returns:
 		None.
@@ -3581,9 +3625,10 @@ def display_results_viewer( ) -> None:
 def display_downloads( ) -> None:
 	"""Display verification report download controls.
 
-	This function creates CSV text for summary, comparison, detail, and performance DataFrames,
-	then renders download buttons for those CSV files plus the generated JSON and Markdown
-	reports.
+	Purpose:
+		This function creates CSV text for summary, comparison, detail, and performance DataFrames,
+		then renders download buttons for those CSV files plus the generated JSON and Markdown
+		reports.
 
 	Returns:
 		None.
@@ -3659,9 +3704,10 @@ def display_downloads( ) -> None:
 def display_methodology_expander( ) -> None:
 	"""Display methodology and safeguard notes in Advanced Mode.
 
-	This function explains the local OCR approach, deterministic rules, fuzzy matching, strict
-	warning handling, image-quality risk scoring, SLA tracking, and reviewer responsibility. It
-	is intentionally hidden in Simple Mode.
+	Purpose:
+		This function explains the local OCR approach, deterministic rules, fuzzy matching, strict
+		warning handling, image-quality risk scoring, SLA tracking, and reviewer responsibility. It
+		is intentionally hidden in Simple Mode.
 
 	Returns:
 		None.
@@ -3740,9 +3786,10 @@ def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ 
 def main( ) -> None:
 	"""Run the Fiddy Streamlit application.
 
-	This function configures the page, initializes session state, renders sidebar controls,
-	displays the header and upload panel, synchronizes manifest upload state, and routes the
-	reviewer into Simple or Advanced workflow rendering based on the current review mode.
+	Purpose:
+		This function configures the page, initializes session state, renders sidebar controls,
+		displays the header and upload panel, synchronizes manifest upload state, and routes the
+		reviewer into Simple or Advanced workflow rendering based on the current review mode.
 
 	Returns:
 		None.

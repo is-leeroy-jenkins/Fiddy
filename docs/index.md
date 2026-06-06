@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/images/fiddy_fade_loop_gentle.gif" alt="Fiddy animated header" width="100%">
+</p>
+
 # Fiddy Documentation
 
 **Fiddy** is an AI-assisted alcohol label verification prototype designed to compare alcohol label
@@ -12,7 +16,7 @@ processing, performance monitoring, and reviewer-facing exports.
 | Guide | Purpose |
 |---|---|
 | [Installation](INSTALLATION.md) | Set up Python, dependencies, Tesseract OCR, Poppler, and the local runtime environment. |
-| [Poppler PATH Setup](PATH-POPPLER.md) | Add Poppler to the Windows PATH so PDF labels can be converted for OCR. |
+| [PATH Setup](PATH-POPPLER.md) | Add Poppler to the Windows PATH so PDF labels can be converted for OCR. |
 | [Azure Deployment](AZURE_DEPLOYMENT.md) | Build and deploy Fiddy as an Azure-compatible local-OCR container. |
 
 ## Prototype Capabilities
