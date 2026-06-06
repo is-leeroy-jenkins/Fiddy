@@ -46,13 +46,13 @@ Fiddy uses:
 
 You need these tools installed:
 
-| Tool | Required? | Why It Is Needed |
-| --- | --- | --- |
-| Git | Recommended | Downloads or updates the project from GitHub. |
-| Python 3.11 or newer | Required | Runs the Fiddy application. |
-| Tesseract OCR | Required | Reads text from uploaded label images. |
-| Poppler | Recommended | Required for PDF label artwork. |
-| VS Code, PyCharm, or another editor | Optional | Useful if you want to inspect or edit files. |
+| Tool                                | Required?   | Why It Is Needed                              |
+|-------------------------------------|-------------|-----------------------------------------------|
+| Git  ([download](https://www.python.org/downloads/))                               | Recommended | Downloads or updates the project from GitHub. |
+| Python 3.11 or newer ([download](https://github.com/UB-Mannheim/tesseract/wiki))              | Required    | Runs the Fiddy application.                   |
+| Tesseract OCR  ([download](https://github.com/UB-Mannheim/tesseract/wiki))                     | Required    | Reads text from uploaded label images.        |
+| Poppler    ([download](https://github.com/oschwartz10612/poppler-windows))                         | Recommended | Required for PDF label artwork.               |
+| VS Code, PyCharm, or another editor | Optional    | Useful if you want to inspect or edit files.  |
 
 If you only plan to upload image files such as PNG or JPG, Poppler is not strictly required. If you plan to upload PDFs, install Poppler.
 
