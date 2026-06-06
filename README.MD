@@ -672,7 +672,6 @@ Fiddy includes reviewer controls for usability and accessibility:
 * Confidence and severity indicators
 
 
-
 ## 🔐 Security and Data Handling
 
 Fiddy is a standalone prototype and is not an official US Treasury Compliance System.
