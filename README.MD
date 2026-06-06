@@ -76,8 +76,6 @@ workflows.
 
 ---
 
-If you want, I can also generate a **super‑compact version** or help you decide **where in the
-README this fits best**.
 ## 🧠 AI-Assisted Verification
 
 Fiddy is AI-assisted, not AI-autonomous. The application uses local OCR, image analysis, fuzzy
