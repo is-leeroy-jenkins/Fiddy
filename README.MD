@@ -492,7 +492,9 @@ Fiddy includes reviewer controls for usability and accessibility:
 
 
 
-## ⚙️ Installation ([Detailed](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md))
+## ⚙️ Installation
+- Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended. 
+- [Detailed Installation Instructions](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md) are provided in this repo.
 
 ### Prerequisites
 
