@@ -526,6 +526,7 @@ brew install poppler
 Windows:
 
 Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
+- Detailed instructions on how to set environment variables can be found [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/PATH-POPPLER.md). 
 
 ## 🛠️ Configuration
 
