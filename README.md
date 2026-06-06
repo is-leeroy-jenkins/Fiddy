@@ -6,6 +6,7 @@
 [Overview](#-overview) •
 [Installation](#-installation) •
 [Capabilities](#-capabilities) •
+[Documentation](#documentation) •
 [Workflow](#-workflow) •
 [Architecture](#%EF%B8%8F-architecture) •
 [Components](#%EF%B8%8F-component-uml) •
