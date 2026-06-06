@@ -790,10 +790,10 @@ fuzzy matching, structured models, and test automation.
 
 Some Python packages require external system tools.
 
-| Dependency    | Required For   | Notes                                                                        |
-|---------------|----------------|------------------------------------------------------------------------------|
-| Tesseract OCR | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
-| Poppler       | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
+| Dependency                                                     | Required For   | Notes                                                                        |
+|----------------------------------------------------------------|----------------|------------------------------------------------------------------------------|
+| [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
+| [Poppler](https://github.com/oschwartz10612/poppler-windows)   | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
 
 
 
