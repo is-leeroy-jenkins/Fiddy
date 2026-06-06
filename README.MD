@@ -71,7 +71,7 @@ workflows.
 
 ## 🧠 AI-Assisted Verification
 
-Fiddy is AI-assisted, bt not AI-autonomous. The application uses local OCR, image analysis, fuzzy
+Fiddy is AI-assisted, but not AI-autonomous. The application uses local OCR, image analysis, fuzzy
 matching, confidence scoring, and deterministic rules to help reviewers evaluate alcohol
 label artwork faster and more consistently.
 
@@ -372,6 +372,7 @@ file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents
 old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled Spirits,45,90,750 mL,Old Tom Distillery LLC,false,,,COLA-001,Demo record
 ```
 
+### Schema
 | Column                | Description                                                                   |
 |-----------------------|-------------------------------------------------------------------------------|
 | `file_name`           | Expected uploaded label filename.                                             |
@@ -442,16 +443,16 @@ The side-by-side comparison is the primary reviewer surface.
 
 ### Prerequisites
 
-* Python 3.11 or newer
-* Tesseract OCR
-* Poppler for PDF support
-* Git
+* Python 3.12 or newer [download]()
+* Tesseract OCR [download](https://github.com/UB-Mannheim/tesseract/wiki)
+* Poppler for PDF support [download](https://github.com/oschwartz10612/poppler-windows)
+* Git [download](https://git-scm.com/install/windows)
 * Python virtual environment support
 
 ### Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/is-leeroy-jenkins/Fiddy.git
 cd fiddy
 ```
 
