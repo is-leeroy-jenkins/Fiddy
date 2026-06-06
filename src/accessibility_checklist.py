@@ -87,10 +87,11 @@ ACCESSIBILITY_STATUS_NOT_EVALUATED: str = 'Not Evaluated'
 class AccessibilityChecklistItem( BaseModel ):
 	"""Represent one accessibility validation checklist item.
 
-	The ``AccessibilityChecklistItem`` model stores one browser-validation item used to confirm
-	that Fiddy can be operated with keyboard and visual accessibility support. Each item includes
-	a stable identifier, category, plain-language test name, procedure, expected result, current
-	status, tester notes, and evaluation timestamp.
+	Purpose:
+		The ``AccessibilityChecklistItem`` model stores one browser-validation item used to confirm
+		that Fiddy can be operated with keyboard and visual accessibility support. Each item includes
+		a stable identifier, category, plain-language test name, procedure, expected result, current
+		status, tester notes, and evaluation timestamp.
 
 	Attributes:
 		item_id (str): Stable checklist item identifier.
@@ -196,8 +197,6 @@ class AccessibilityChecklistItem( BaseModel ):
 			Return a dictionary suitable for Streamlit display, CSV export, JSON export, Markdown
 			reporting, or test-result archiving.
 
-		
-
 		Returns:
 			Dict[str, object]: Flat checklist item record.
 		"""
@@ -232,10 +231,11 @@ class AccessibilityChecklistItem( BaseModel ):
 class AccessibilityChecklistResult( BaseModel ):
 	"""Represent the complete Fiddy accessibility checklist outcome.
 
-	The ``AccessibilityChecklistResult`` model stores all checklist items and calculated
-	accessibility status values. It reports whether high-contrast mode is available, whether
-	large-text mode is available, whether keyboard navigation checks are required, which items
-	passed, which items failed, which items remain untested, and the overall status.
+	Purpose:
+		The ``AccessibilityChecklistResult`` model stores all checklist items and calculated
+		accessibility status values. It reports whether high-contrast mode is available, whether
+		large-text mode is available, whether keyboard navigation checks are required, which items
+		passed, which items failed, which items remain untested, and the overall status.
 
 	Attributes:
 		high_contrast_available (bool): Indicates whether high-contrast mode is configured.
@@ -270,8 +270,6 @@ class AccessibilityChecklistResult( BaseModel ):
 			The overall status is ``Met`` when every applicable item passes, ``Not Met`` when one or
 			more items fail, ``Partially Met`` when some items pass but others remain untested, and
 			``Not Evaluated`` when no applicable item has been tested.
-
-		
 
 		Returns:
 			None.
@@ -336,8 +334,6 @@ class AccessibilityChecklistResult( BaseModel ):
 		Purpose:
 			Count checklist items by status for dashboards, summaries, and exports.
 
-		
-
 		Returns:
 			Dict[str, int]: Counts keyed by checklist status value.
 		"""
@@ -372,8 +368,6 @@ class AccessibilityChecklistResult( BaseModel ):
 		Purpose:
 			Return one dictionary per checklist item for display and export.
 
-		
-
 		Returns:
 			List[Dict[str, object]]: Flat checklist records.
 		"""
@@ -397,8 +391,6 @@ class AccessibilityChecklistResult( BaseModel ):
 			Create a tabular representation of checklist items for Streamlit display, CSV export,
 			or acceptance evidence.
 
-		
-
 		Returns:
 			pd.DataFrame: Accessibility checklist DataFrame.
 		"""
@@ -418,8 +410,6 @@ class AccessibilityChecklistResult( BaseModel ):
 		Purpose:
 			Return high-level accessibility status, configuration flags, item counts, and message
 			values for dashboards and acceptance reports.
-
-		
 
 		Returns:
 			Dict[str, object]: Flat accessibility checklist summary record.
@@ -465,10 +455,11 @@ class AccessibilityChecklistResult( BaseModel ):
 class AccessibilityChecklist( ):
 	"""Build and evaluate Fiddy's manual accessibility checklist.
 
-	The ``AccessibilityChecklist`` class creates the canonical checklist used to validate the
-	Fiddy prototype in a browser. The checks are intentionally manual because Streamlit renders
-	interactive controls in the browser, and focus order, keyboard activation, and visible focus
-	must be observed in the actual UI.
+	Purpose:
+		The ``AccessibilityChecklist`` class creates the canonical checklist used to validate the
+		Fiddy prototype in a browser. The checks are intentionally manual because Streamlit renders
+		interactive controls in the browser, and focus order, keyboard activation, and visible focus
+		must be observed in the actual UI.
 
 	Attributes:
 		_items (List[AccessibilityChecklistItem]): Canonical checklist items.
@@ -483,8 +474,6 @@ class AccessibilityChecklist( ):
 			Build the default checklist items used for high-contrast, large-text, keyboard
 			navigation, workflow, result-review, and download validation.
 
-		
-
 		Returns:
 			None.
 		"""
@@ -497,8 +486,6 @@ class AccessibilityChecklist( ):
 		Purpose:
 			Expose the current checklist item list to callers that need to display, update, or
 			export manual validation records.
-
-		
 
 		Returns:
 			List[AccessibilityChecklistItem]: Checklist items.
@@ -541,7 +528,7 @@ class AccessibilityChecklist( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_item( self, item_id: str, category: str, name: str, procedure: str, expected_result: str ) -> AccessibilityChecklistItem'
+			error.method = 'create_item( self, *args ) -> AccessibilityChecklistItem'
 			Logger( ).write( error )
 			return AccessibilityChecklistItem(
 				item_id=item_id or '',
@@ -558,8 +545,6 @@ class AccessibilityChecklist( ):
 			Return the standard set of manual browser checks needed to support the stakeholder
 			requirement for high-contrast mode, large text, and keyboard navigation. The checklist
 			also verifies that reviewers are not forced to rely on mouse-only hover behavior.
-
-		
 
 		Returns:
 			List[AccessibilityChecklistItem]: Canonical checklist items.
@@ -761,8 +746,6 @@ class AccessibilityChecklist( ):
 			configuration flags. The result recalculates passed, failed, and untested items before
 			returning.
 
-		
-
 		Returns:
 			AccessibilityChecklistResult: Current accessibility checklist result.
 		"""
@@ -798,8 +781,6 @@ class AccessibilityChecklist( ):
 		Purpose:
 			Return checklist items as tabular records before or after manual validation. This is
 			useful for display, export, and acceptance documentation.
-
-		
 
 		Returns:
 			pd.DataFrame: Checklist item DataFrame.

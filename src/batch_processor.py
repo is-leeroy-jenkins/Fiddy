@@ -71,11 +71,12 @@ from src.performance_monitor import BatchPerformanceSummary, LabelPerformanceRes
 class BatchProcessingResult( BaseModel ):
 	"""Represent the complete result of a manifest-driven batch verification run.
 
-	The ``BatchProcessingResult`` model is the return contract for batch processing operations.
-	It combines the batch verification report, manifest/file validation result, performance
-	summary, per-file timing results, processed file names, skipped file names, errors, warnings,
-	and acceptance-oriented evidence into one object that can be displayed by the Streamlit
-	application or passed to report-writing utilities.
+	Purpose:
+		The ``BatchProcessingResult`` model is the return contract for batch processing operations.
+		It combines the batch verification report, manifest/file validation result, performance
+		summary, per-file timing results, processed file names, skipped file names, errors, warnings,
+		and acceptance-oriented evidence into one object that can be displayed by the Streamlit
+		application or passed to report-writing utilities.
 
 	Attributes:
 		batch_report (BatchVerificationReport): Aggregated verification report containing one
@@ -112,8 +113,6 @@ class BatchProcessingResult( BaseModel ):
 			The record reports processed and skipped file counts, manifest validity, manifest/upload
 			matching counts, performance metrics, SLA breach counts, acceptance status, and aggregate
 			error/warning counts.
-
-		
 
 		Returns:
 			Dict[str, object]: Flat batch processing summary record. If rendering fails, the
@@ -183,12 +182,13 @@ class BatchProcessingResult( BaseModel ):
 class BatchProcessor( ):
 	"""Process manifest-driven batches of uploaded alcohol label files.
 
-	The ``BatchProcessor`` class coordinates the batch verification workflow after reviewers
-	provide application data and uploaded label files. It creates lookup maps for uploaded files
-	and manifest records, validates the manifest/file relationship, processes matched items,
-	records skipped files, creates reviewable reports for missing manifest files, collects
-	per-label timing data, and returns a complete ``BatchProcessingResult`` with acceptance
-	evidence.
+	Purpose:
+		The ``BatchProcessor`` class coordinates the batch verification workflow after reviewers
+		provide application data and uploaded label files. It creates lookup maps for uploaded files
+		and manifest records, validates the manifest/file relationship, processes matched items,
+		records skipped files, creates reviewable reports for missing manifest files, collects
+		per-label timing data, and returns a complete ``BatchProcessingResult`` with acceptance
+		evidence.
 
 	Attributes:
 		_manifest (BatchManifest): Manifest service used for loading, mapping, and validation.
@@ -531,8 +531,6 @@ class BatchProcessor( ):
 			Convert each validation-level missing file into a report-level review item. This ensures
 			the batch report provides per-manifest-row visibility even when artwork was not uploaded.
 
-		
-
 		Returns:
 			None.
 		"""
@@ -555,8 +553,6 @@ class BatchProcessor( ):
 			Carry extra uploaded files into skipped-file and warning state. Extra files cannot be
 			verified because they have no application data, but the reviewer should still see that the
 			files were ignored by the manifest-driven batch.
-
-		
 
 		Returns:
 			None.
@@ -582,8 +578,6 @@ class BatchProcessor( ):
 			Filter validation-matched names to entries that exist in both the uploaded-file map and
 			the manifest-record map. Missing lookup entries are retained as warnings rather than
 			causing the batch to fail.
-
-		
 
 		Returns:
 			List[str]: Matched file names eligible for processing.
@@ -701,15 +695,14 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'process_records( records: List[BatchManifestRecord], file_paths: Iterable[str | Path], progress_callback: Optional[Callable[[int, int, str], None]] = None ) -> BatchProcessingResult'
+			error.method = 'process_records( self, *args ) -> BatchProcessingResult'
 			Logger( ).write( error )
 			self._errors.append(
 				'Batch processing failed before completion. See sanitized diagnostics.' )
 			return self.create_result( )
 	
 	def process_manifest_csv( self, manifest_path: str | Path, file_paths: Iterable[ str | Path ],
-			progress_callback: Optional[
-				Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
+			progress_callback: Optional[ Callable[ [ int, int, str ], None ] ] = None ) -> BatchProcessingResult:
 		"""Load a manifest CSV and process its matching uploaded label files.
 
 		Purpose:
@@ -736,13 +729,9 @@ class BatchProcessor( ):
 				self._errors.extend( self._manifest.errors )
 				self._warnings.extend( self._manifest.warnings )
 				self._file_paths = [ Path( file_path ) for file_path in file_paths ]
-				self._validation_result = BatchManifestValidationResult(
-					is_valid=False,
-					total_manifest_rows=0,
-					total_uploaded_files=len( self._file_paths ),
-					errors=self._errors,
-					warnings=self._warnings
-				)
+				self._validation_result = BatchManifestValidationResult( is_valid=False,
+					total_manifest_rows=0, total_uploaded_files=len( self._file_paths ),
+					errors=self._errors, warnings=self._warnings )
 				return self.create_result( )
 			
 			return self.process_records( records, file_paths, progress_callback )
@@ -914,7 +903,7 @@ class BatchProcessor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_acceptance_message( processed_files: int, sla_acceptance: str, batch_size_acceptance: str, overall_acceptance: str ) -> str'
+			error.method = 'create_acceptance_message( self, *args ) -> str'
 			Logger( ).write( error )
 			return 'Acceptance message could not be generated.'
 	
@@ -925,8 +914,6 @@ class BatchProcessor( ):
 			Summarize per-label performance results, ensure a validation result exists, generate
 			acceptance evidence, and return a structurally consistent ``BatchProcessingResult`` from
 			current state. This method is used after successful processing and guarded failure paths.
-
-		
 
 		Returns:
 			BatchProcessingResult: Complete batch processing result assembled from current state. If

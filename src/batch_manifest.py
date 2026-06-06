@@ -75,15 +75,16 @@ from src.models import LabelApplication
 class BatchManifestRecord( BaseModel ):
 	"""Represent one application-data row from a batch manifest file.
 
-	The ``BatchManifestRecord`` model stores the expected application values for one uploaded
-	label file. Each record is usually created from one row of a normalized manifest DataFrame.
-	The field names are canonical internal names used throughout the batch verification
-	workflow, regardless of the original column headers supplied by the reviewer.
-
-	The record can be converted directly into a ``LabelApplication`` model, which is the input
-	contract expected by the label verifier. This separation keeps manifest parsing concerns
-	isolated from verification concerns while preserving a clear handoff between batch data
-	loading and label-rule execution.
+	Purpose:
+		The ``BatchManifestRecord`` model stores the expected application values for one uploaded
+		label file. Each record is usually created from one row of a normalized manifest DataFrame.
+		The field names are canonical internal names used throughout the batch verification
+		workflow, regardless of the original column headers supplied by the reviewer.
+	
+		The record can be converted directly into a ``LabelApplication`` model, which is the input
+		contract expected by the label verifier. This separation keeps manifest parsing concerns
+		isolated from verification concerns while preserving a clear handoff between batch data
+		loading and label-rule execution.
 
 	Attributes:
 		file_name (str): Expected uploaded label file name associated with the manifest row.
@@ -118,14 +119,15 @@ class BatchManifestRecord( BaseModel ):
 	def to_label_application( self ) -> LabelApplication:
 		"""Convert the manifest row into a ``LabelApplication`` verifier input.
 
-		This method maps the canonical manifest-record fields into the application model used
-		by the verification engine. The conversion is intentionally direct: text fields,
-		numeric fields, import indicators, optional COLA references, and notes are passed to
-		``LabelApplication`` without additional normalization or rule interpretation.
-
-		The government-warning field is not populated here because the original manifest
-		contract for this file does not include that field. The target ``LabelApplication``
-		model is expected to apply its own default for omitted values.
+		Purpose:
+			This method maps the canonical manifest-record fields into the application model used
+			by the verification engine. The conversion is intentionally direct: text fields,
+			numeric fields, import indicators, optional COLA references, and notes are passed to
+			``LabelApplication`` without additional normalization or rule interpretation.
+	
+			The government-warning field is not populated here because the original manifest
+			contract for this file does not include that field. The target ``LabelApplication``
+			model is expected to apply its own default for omitted values.
 
 		Returns:
 			LabelApplication: Expected application values for one label file. If conversion
@@ -158,14 +160,15 @@ class BatchManifestRecord( BaseModel ):
 class BatchManifestValidationResult( BaseModel ):
 	"""Represent validation results for a manifest and uploaded label-file set.
 
-	The ``BatchManifestValidationResult`` model captures the outcome of comparing parsed
-	manifest rows to the label files uploaded for batch processing. It records row and file
-	counts, matched file names, missing files, extra uploaded files, duplicate manifest file
-	names, blocking validation errors, and non-blocking warnings.
-
-	The ``is_valid`` flag is intended to represent whether blocking validation errors were
-	found. Extra uploaded files are treated as warnings in the current workflow, while missing
-	manifest files and duplicate manifest file names are treated as errors.
+	Purpose:
+		The ``BatchManifestValidationResult`` model captures the outcome of comparing parsed
+		manifest rows to the label files uploaded for batch processing. It records row and file
+		counts, matched file names, missing files, extra uploaded files, duplicate manifest file
+		names, blocking validation errors, and non-blocking warnings.
+	
+		The ``is_valid`` flag is intended to represent whether blocking validation errors were
+		found. Extra uploaded files are treated as warnings in the current workflow, while missing
+		manifest files and duplicate manifest file names are treated as errors.
 
 	Attributes:
 		is_valid (bool): Indicates whether the manifest/file set passed blocking validation.
@@ -191,9 +194,10 @@ class BatchManifestValidationResult( BaseModel ):
 	def to_record( self ) -> Dict[ str, Any ]:
 		"""Convert validation results into a flat display-ready dictionary.
 
-		This method reduces list-valued validation details into counts that are convenient for
-		Streamlit metrics, summary tables, CSV exports, and report writers. Detailed lists are
-		retained on the model itself; this record intentionally presents a compact overview.
+		Purpose:
+			This method reduces list-valued validation details into counts that are convenient for
+			Streamlit metrics, summary tables, CSV exports, and report writers. Detailed lists are
+			retained on the model itself; this record intentionally presents a compact overview.
 
 		Returns:
 			Dict[str, Any]: Flat validation summary containing validity, row counts, file counts,
@@ -233,23 +237,24 @@ class BatchManifestValidationResult( BaseModel ):
 class BatchManifest( ):
 	"""Load, normalize, validate, and convert batch application-data manifests.
 
-	The ``BatchManifest`` class is the manifest-processing service for Fiddy batch workflows.
-	It reads CSV files, normalizes user-facing column headers into canonical internal field
-	names, validates that required columns are present, converts manifest rows into typed
-	``BatchManifestRecord`` objects, identifies duplicate manifest file names, and validates
-	manifest rows against the uploaded label files selected by the reviewer.
+	Purpose:
+		The ``BatchManifest`` class is the manifest-processing service for Fiddy batch workflows.
+		It reads CSV files, normalizes user-facing column headers into canonical internal field
+		names, validates that required columns are present, converts manifest rows into typed
+		``BatchManifestRecord`` objects, identifies duplicate manifest file names, and validates
+		manifest rows against the uploaded label files selected by the reviewer.
 
-	The class keeps errors and warnings as instance state so callers can inspect manifest
-	processing issues after loading or validation. Errors represent blocking issues such as an
-	unreadable manifest, missing required columns, duplicate file names, or manifest rows that
-	cannot be matched to uploaded labels. Warnings represent non-blocking issues, such as
-	uploaded label files that do not have matching manifest rows.
-
-	Column normalization supports common reviewer-friendly aliases such as ``file``,
-	``file name``, ``label file``, ``brand``, ``class/type``, ``abv``, ``producer/bottler``,
-	``country of origin``, and ``application reference``. This allows CSV files exported from
-	different tools or manually prepared by reviewers to be accepted without requiring exact
-	internal column names.
+		The class keeps errors and warnings as instance state so callers can inspect manifest
+		processing issues after loading or validation. Errors represent blocking issues such as an
+		unreadable manifest, missing required columns, duplicate file names, or manifest rows that
+		cannot be matched to uploaded labels. Warnings represent non-blocking issues, such as
+		uploaded label files that do not have matching manifest rows.
+	
+		Column normalization supports common reviewer-friendly aliases such as ``file``,
+		``file name``, ``label file``, ``brand``, ``class/type``, ``abv``, ``producer/bottler``,
+		``country of origin``, and ``application reference``. This allows CSV files exported from
+		different tools or manually prepared by reviewers to be accepted without requiring exact
+		internal column names.
 
 	Attributes:
 		_df_manifest (pd.DataFrame): Most recently loaded and normalized manifest DataFrame.
@@ -272,13 +277,14 @@ class BatchManifest( ):
 	def __init__( self ) -> None:
 		"""Initialize manifest state, required columns, optional columns, and aliases.
 
-		The constructor prepares empty record, error, and warning collections. It also defines
-		the canonical required and optional manifest columns used by the batch verifier and the
-		alias map used to normalize reviewer-supplied CSV headers.
-
-		The required-column list represents the minimum application data needed to run batch
-		verification in the current prototype. Optional fields are accepted when present and are
-		passed through to ``BatchManifestRecord`` objects.
+		Purpose:
+			The constructor prepares empty record, error, and warning collections. It also defines
+			the canonical required and optional manifest columns used by the batch verifier and the
+			alias map used to normalize reviewer-supplied CSV headers.
+	
+			The required-column list represents the minimum application data needed to run batch
+			verification in the current prototype. Optional fields are accepted when present and are
+			passed through to ``BatchManifestRecord`` objects.
 
 		Returns:
 			None.
@@ -353,10 +359,11 @@ class BatchManifest( ):
 	def required_columns( self ) -> List[ str ]:
 		"""Return the canonical manifest columns required for batch verification.
 
-		The returned list defines the minimum normalized columns that must be present after
-		column-name normalization. These fields are required because the batch verifier needs a
-		file name for matching, core product identity fields, alcohol content, net contents,
-		and producer/bottler data to construct meaningful application records.
+		Purpose:
+			The returned list defines the minimum normalized columns that must be present after
+			column-name normalization. These fields are required because the batch verifier needs a
+			file name for matching, core product identity fields, alcohol content, net contents,
+			and producer/bottler data to construct meaningful application records.
 
 		Returns:
 			List[str]: Required canonical manifest column names.
@@ -380,12 +387,13 @@ class BatchManifest( ):
 	def normalize_column_name( self, column_name: str ) -> str:
 		"""Normalize one manifest column header to a canonical internal column name.
 
-		This method standardizes a source column header by trimming whitespace, lowercasing the
-		text, replacing hyphens and underscores with spaces, and collapsing repeated spaces. The
-		standardized header is then resolved through the alias map. Recognized aliases are mapped
-		to canonical names such as ``file_name``, ``brand_name``, ``class_type``, and
-		``alcohol_content``. Unrecognized headers are still normalized into snake-style names so
-		they can remain available to downstream code without breaking DataFrame handling.
+		Purpose:
+			This method standardizes a source column header by trimming whitespace, lowercasing the
+			text, replacing hyphens and underscores with spaces, and collapsing repeated spaces. The
+			standardized header is then resolved through the alias map. Recognized aliases are mapped
+			to canonical names such as ``file_name``, ``brand_name``, ``class_type``, and
+			``alcohol_content``. Unrecognized headers are still normalized into snake-style names so
+			they can remain available to downstream code without breaking DataFrame handling.
 
 		Args:
 			column_name (str): Source manifest column header from a CSV file or DataFrame.
@@ -416,9 +424,10 @@ class BatchManifest( ):
 	def normalize_columns( self, df_manifest: pd.DataFrame ) -> pd.DataFrame:
 		"""Normalize all manifest DataFrame columns to canonical names.
 
-		This method applies ``normalize_column_name`` to every column in the supplied manifest
-		DataFrame and returns a renamed DataFrame. Empty or missing manifests are converted to an
-		empty DataFrame so downstream validation can produce clear required-column messages.
+		Purpose:
+			This method applies ``normalize_column_name`` to every column in the supplied manifest
+			DataFrame and returns a renamed DataFrame. Empty or missing manifests are converted to an
+			empty DataFrame so downstream validation can produce clear required-column messages.
 
 		Args:
 			df_manifest: Source manifest DataFrame read from CSV or supplied by a caller.
@@ -449,15 +458,16 @@ class BatchManifest( ):
 	def read_csv( self, file_path: str | Path ) -> pd.DataFrame:
 		"""Read and normalize a manifest CSV file using encoding fallbacks.
 
-		The method validates the supplied file path, confirms that the path exists, reads the
-		file as bytes, and then attempts to parse it using common encodings in a stable order:
-		``utf-8-sig``, ``utf-8``, ``cp1252``, and ``latin1``. If all strict decoding attempts
-		fail, it performs a final Latin-1 read with replacement behavior so reviewer-provided
-		CSV files with problematic characters can still be handled when possible.
-
-		After a successful read, the resulting DataFrame is normalized through
-		``normalize_columns`` before being returned. File-not-found and read failures are
-		recorded in the manifest error list so the UI can display actionable messages.
+		Purpose:
+			The method validates the supplied file path, confirms that the path exists, reads the
+			file as bytes, and then attempts to parse it using common encodings in a stable order:
+			``utf-8-sig``, ``utf-8``, ``cp1252``, and ``latin1``. If all strict decoding attempts
+			fail, it performs a final Latin-1 read with replacement behavior so reviewer-provided
+			CSV files with problematic characters can still be handled when possible.
+	
+			After a successful read, the resulting DataFrame is normalized through
+			``normalize_columns`` before being returned. File-not-found and read failures are
+			recorded in the manifest error list so the UI can display actionable messages.
 
 		Args:
 			file_path (str | Path): Path to the manifest CSV file.
@@ -502,10 +512,11 @@ class BatchManifest( ):
 	def parse_bool( self, value: object ) -> bool:
 		"""Parse a manifest value into a Boolean import indicator.
 
-		This method converts common truthy manifest values into ``True``. Empty values,
-		missing values, pandas null values, and unrecognized values are treated as ``False``.
-		The accepted truthy values are ``1``, ``true``, ``yes``, ``y``, ``imported``, and ``x``
-		after string conversion, trimming, and lowercasing.
+		Purpose:
+			This method converts common truthy manifest values into ``True``. Empty values,
+			missing values, pandas null values, and unrecognized values are treated as ``False``.
+			The accepted truthy values are ``1``, ``true``, ``yes``, ``y``, ``imported``, and ``x``
+			after string conversion, trimming, and lowercasing.
 
 		Args:
 			value (object): Source manifest value from the ``imported`` column or equivalent.
@@ -538,10 +549,11 @@ class BatchManifest( ):
 	def parse_float( self, value: object ) -> Optional[ float ]:
 		"""Parse a manifest value into an optional floating-point number.
 
-		This method is used for numeric manifest fields such as ABV and proof. It accepts
-		native numeric values and string values. Percent signs and comma separators are removed
-		before conversion so values such as ``45%`` or ``1,000`` can be parsed when appropriate.
-		Empty, missing, pandas null, and invalid numeric values are treated as unavailable.
+		Purpose:
+			This method is used for numeric manifest fields such as ABV and proof. It accepts
+			native numeric values and string values. Percent signs and comma separators are removed
+			before conversion so values such as ``45%`` or ``1,000`` can be parsed when appropriate.
+			Empty, missing, pandas null, and invalid numeric values are treated as unavailable.
 
 		Args:
 			value (object): Source manifest value to parse as a float.
@@ -571,10 +583,11 @@ class BatchManifest( ):
 	def get_text_value( self, row: pd.Series, column_name: str ) -> str:
 		"""Safely read and trim a text value from a manifest row.
 
-		The method checks whether the requested column exists in the row, reads the value when
-		available, treats missing and pandas null values as empty strings, and returns the
-		trimmed string representation. It is used by row conversion to avoid repeated null and
-		column-existence checks for each text field.
+		Purpose:
+			The method checks whether the requested column exists in the row, reads the value when
+			available, treats missing and pandas null values as empty strings, and returns the
+			trimmed string representation. It is used by row conversion to avoid repeated null and
+			column-existence checks for each text field.
 
 		Args:
 			row (pd.Series): Manifest row being converted to a record.
@@ -606,10 +619,11 @@ class BatchManifest( ):
 	def validate_required_columns( self, df_manifest: pd.DataFrame ) -> List[ str ]:
 		"""Validate that a normalized manifest contains all required columns.
 
-		This method checks the supplied DataFrame after column normalization and returns a list
-		of validation errors. It does not mutate the instance error list directly; callers decide
-		when to append the returned messages to ``self._errors``. Empty or unreadable manifests
-		produce a single clear error message.
+		Purpose:
+			This method checks the supplied DataFrame after column normalization and returns a list
+			of validation errors. It does not mutate the instance error list directly; callers decide
+			when to append the returned messages to ``self._errors``. Empty or unreadable manifests
+			produce a single clear error message.
 
 		Args:
 			df_manifest (pd.DataFrame): Normalized manifest DataFrame to validate.
@@ -642,10 +656,11 @@ class BatchManifest( ):
 	def get_duplicate_file_names( self, records: List[ BatchManifestRecord ] ) -> List[ str ]:
 		"""Identify duplicate manifest file names using case-insensitive comparison.
 
-		Duplicate detection is based on trimmed lowercase file names so values that differ only
-		by case are treated as duplicates. The returned values preserve the duplicate record's
-		stored file name rather than the lowercase comparison key so reviewer-facing messages
-		remain recognizable.
+		Purpose:
+			Duplicate detection is based on trimmed lowercase file names so values that differ only
+			by case are treated as duplicates. The returned values preserve the duplicate record's
+			stored file name rather than the lowercase comparison key so reviewer-facing messages
+			remain recognizable.
 
 		Args:
 			records (List[BatchManifestRecord]): Manifest records to inspect.
@@ -679,12 +694,13 @@ class BatchManifest( ):
 	def dataframe_to_records( self, df_manifest: pd.DataFrame ) -> List[ BatchManifestRecord ]:
 		"""Convert a normalized manifest DataFrame into typed manifest records.
 
-		This method iterates through the normalized DataFrame and constructs one
-		``BatchManifestRecord`` for each row. Text fields are read through ``get_text_value``;
-		ABV and proof are parsed through ``parse_float``; the import indicator is parsed through
-		``parse_bool``; and missing beverage type values default to distilled spirits. The method
-		accumulates successfully constructed records and returns the partial list if a later row
-		conversion fails.
+		Purpose:
+			This method iterates through the normalized DataFrame and constructs one
+			``BatchManifestRecord`` for each row. Text fields are read through ``get_text_value``;
+			ABV and proof are parsed through ``parse_float``; the import indicator is parsed through
+			``parse_bool``; and missing beverage type values default to distilled spirits. The method
+			accumulates successfully constructed records and returns the partial list if a later row
+			conversion fails.
 
 		Args:
 			df_manifest (pd.DataFrame): Normalized manifest DataFrame with canonical column names.
@@ -733,10 +749,11 @@ class BatchManifest( ):
 	def load_csv( self, file_path: str | Path ) -> List[ BatchManifestRecord ]:
 		"""Load a CSV manifest file and convert it to manifest records.
 
-		This method resets the current error and warning lists, reads the CSV file with encoding
-		fallbacks, validates required columns, converts rows to typed records, detects duplicate
-		file names, records duplicate-name errors, and returns the parsed records. It is the main
-		entry point for turning a reviewer-uploaded manifest CSV into batch verification inputs.
+		Purpose:
+			This method resets the current error and warning lists, reads the CSV file with encoding
+			fallbacks, validates required columns, converts rows to typed records, detects duplicate
+			file names, records duplicate-name errors, and returns the parsed records. It is the main
+			entry point for turning a reviewer-uploaded manifest CSV into batch verification inputs.
 
 		Args:
 			file_path (str | Path): Path to the manifest CSV file.
@@ -778,10 +795,11 @@ class BatchManifest( ):
 	def get_record_map( self, records: List[ BatchManifestRecord ] ) -> Dict[ str, BatchManifestRecord ]:
 		"""Create a case-insensitive lookup map from file name to manifest record.
 
-		This method builds a dictionary keyed by trimmed lowercase manifest file names. It is
-		used by batch processing code to quickly find the application-data record associated
-		with an uploaded label file. Records without file names are skipped because they cannot
-		be matched to uploads.
+		Purpose:
+			This method builds a dictionary keyed by trimmed lowercase manifest file names. It is
+			used by batch processing code to quickly find the application-data record associated
+			with an uploaded label file. Records without file names are skipped because they cannot
+			be matched to uploads.
 
 		Args:
 			records (List[BatchManifestRecord]): Manifest records to include in the lookup map.
@@ -811,15 +829,16 @@ class BatchManifest( ):
 			file_paths: Iterable[ str | Path ] ) -> BatchManifestValidationResult:
 		"""Validate parsed manifest records against uploaded label files.
 
-		This method compares manifest file names to uploaded file names using case-insensitive
-		matching. It returns matched manifest names, manifest rows with no corresponding upload,
-		uploaded files with no corresponding manifest row, duplicate manifest file names, and the
-		combined error and warning collections.
-
-		Missing uploaded files for manifest rows are treated as errors because those rows cannot
-		be processed. Extra uploaded files are treated as warnings because the batch may still
-		process matched records. Duplicate manifest file names are treated as errors because they
-		make file-to-record assignment ambiguous.
+		Purpose:
+			This method compares manifest file names to uploaded file names using case-insensitive
+			matching. It returns matched manifest names, manifest rows with no corresponding upload,
+			uploaded files with no corresponding manifest row, duplicate manifest file names, and the
+			combined error and warning collections.
+	
+			Missing uploaded files for manifest rows are treated as errors because those rows cannot
+			be processed. Extra uploaded files are treated as warnings because the batch may still
+			process matched records. Duplicate manifest file names are treated as errors because they
+			make file-to-record assignment ambiguous.
 
 		Args:
 			records (List[BatchManifestRecord]): Manifest records parsed from the normalized CSV.
@@ -924,10 +943,11 @@ class BatchManifest( ):
 	def create_sample_manifest_dataframe( self ) -> pd.DataFrame:
 		"""Create a sample manifest DataFrame for templates, tests, and demonstrations.
 
-		The sample manifest includes two representative label-application records: one distilled
-		spirits example and one wine example. The structure demonstrates the canonical columns
-		expected by the batch manifest loader, including optional proof, import, COLA reference,
-		and notes fields.
+		Purpose:
+			The sample manifest includes two representative label-application records: one distilled
+			spirits example and one wine example. The structure demonstrates the canonical columns
+			expected by the batch manifest loader, including optional proof, import, COLA reference,
+			and notes fields.
 
 		Returns:
 			pd.DataFrame: Sample application manifest with canonical column names. If sample
@@ -981,9 +1001,10 @@ class BatchManifest( ):
 	def errors( self ) -> List[ str ]:
 		"""Return manifest processing errors collected by this instance.
 
-		The returned list contains blocking issues recorded during CSV reading, required-column
-		validation, row conversion, duplicate detection, loading, and manifest/file matching.
-		Callers can use these messages to populate reviewer-facing error panels or diagnostics.
+		Purpose:
+			The returned list contains blocking issues recorded during CSV reading, required-column
+			validation, row conversion, duplicate detection, loading, and manifest/file matching.
+			Callers can use these messages to populate reviewer-facing error panels or diagnostics.
 
 		Returns:
 			List[str]: Manifest processing errors currently stored on the instance.
@@ -994,9 +1015,10 @@ class BatchManifest( ):
 	def warnings( self ) -> List[ str ]:
 		"""Return manifest processing warnings collected by this instance.
 
-		The returned list contains non-blocking issues recorded during manifest processing or
-		manifest/file matching. In the current workflow, extra uploaded files without manifest
-		rows are warnings because matched manifest rows may still be processable.
+		Purpose:
+			The returned list contains non-blocking issues recorded during manifest processing or
+			manifest/file matching. In the current workflow, extra uploaded files without manifest
+			rows are warnings because matched manifest rows may still be processable.
 
 		Returns:
 			List[str]: Manifest processing warnings currently stored on the instance.
