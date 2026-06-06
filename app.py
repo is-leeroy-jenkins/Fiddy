@@ -36,7 +36,12 @@
 
     </copyright>
     <summary>
-        app.py
+        Provides the Streamlit user interface and workflow controller for Fiddy.
+
+        This module initializes reviewer session state, configures the page, manages manifest
+        and artwork uploads, synchronizes CAV form values, runs manifest-driven and manual
+        verification workflows, displays readiness checks, dashboards, side-by-side comparison
+        tables, OCR diagnostics, result details, and report downloads.
     </summary>
     ******************************************************************************************
 '''
@@ -54,6 +59,7 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
 import config as cfg
+from booger import Error, Logger
 from src.batch_manifest import BatchManifest, BatchManifestRecord
 from src.batch_processor import BatchProcessingResult, BatchProcessor
 from src.constants import (
@@ -76,20 +82,19 @@ from src.report_writer import ReportWriter
 # ==========================================================================================
 
 def initialize_session_state( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Initialize all Streamlit session-state keys before they are read by the application.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Initialize all Streamlit session-state keys used by the application.
+
+	This function prepares the batch result, report objects, DataFrame placeholders, manifest
+	state, generated report text, verification flags, selected report index, reviewer display
+	mode, accessibility options, and CAV form fields before any widgets or display functions
+	read those keys.
+
+	The function is intentionally idempotent. Existing session-state values are preserved so
+	Streamlit reruns do not discard uploaded manifest state, CAV form edits, verification
+	results, selected report navigation, or accessibility choices.
+
+	Returns:
+		None.
 	"""
 	if 'batch_result' not in st.session_state:
 		st.session_state[ 'batch_result' ] = BatchProcessingResult( )
@@ -151,20 +156,15 @@ def initialize_session_state( ) -> None:
 	initialize_cav_form_state( )
 
 def clear_results( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Clear prior verification outputs while preserving current widget values.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Clear prior verification outputs while preserving current input widget values.
+
+	This function resets generated verification outputs, report objects, display DataFrames,
+	download text, completion state, and selected report index. It intentionally does not clear
+	uploaded file widgets, manifest state, reviewer mode, accessibility settings, or CAV form
+	values because those are input-side state rather than generated result state.
+
+	Returns:
+		None.
 	"""
 	st.session_state[ 'batch_result' ] = BatchProcessingResult( )
 	st.session_state[ 'batch_report' ] = BatchVerificationReport( )
@@ -182,20 +182,15 @@ def clear_results( ) -> None:
 # ==========================================================================================
 
 def get_cav_form_defaults( ) -> Dict[ str, Any ]:
-	"""
-	
-		Purpose:
-		--------
-		Return default session-state values for the CAV application data form.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		Dict[str, Any]: Default CAV form values.
-		
+	"""Return default session-state values for the CAV application form.
+
+	The defaults provide stable initial values for manual CAV review and for clearing the form
+	when a manifest is unloaded. The government warning defaults to the configured standard
+	warning text so reviewers have an expected warning value available unless a manifest record
+	or manual edit overrides it.
+
+	Returns:
+		Dict[str, Any]: Default CAV form values keyed by Streamlit session-state key.
 	"""
 	return {
 			'cav_file_name': '',
@@ -215,18 +210,14 @@ def get_cav_form_defaults( ) -> Dict[ str, Any ]:
 	}
 
 def initialize_cav_form_state( ) -> None:
-	"""
-	Purpose:
-	--------
-	Initialize CAV application data form keys before widgets are rendered.
+	"""Initialize CAV application data form keys before widgets are rendered.
 
-	Parameters:
-	-----------
-	None
+	This function adds missing CAV form keys to Streamlit session state while preserving any
+	existing values. It supports both manual review and manifest-loaded workflows by ensuring
+	the form can be read safely by processing readiness checks and application model creation.
 
 	Returns:
-	--------
-	None
+		None.
 	"""
 	defaults = get_cav_form_defaults( )
 	
@@ -235,20 +226,13 @@ def initialize_cav_form_state( ) -> None:
 			st.session_state[ key ] = value
 
 def clear_cav_form_state( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Clear CAV application form fields when the manifest CSV is unloaded.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Reset all CAV application form fields to their default values.
+
+	This function is used when the manifest CSV is unloaded or when manifest state is cleared.
+	It restores the CAV fields to the same baseline created during session initialization.
+
+	Returns:
+		None.
 	"""
 	defaults = get_cav_form_defaults( )
 	
@@ -256,20 +240,15 @@ def clear_cav_form_state( ) -> None:
 		st.session_state[ key ] = value
 
 def clear_manifest_state( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Clear manifest records, navigation state, and loaded CAV form values.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Clear manifest records, manifest navigation state, and loaded CAV values.
+
+	This function resets the manifest DataFrame, parsed manifest records, loaded flag,
+	manifest signature, manifest file name, current record pointer, and CAV form values. It is
+	called when the user removes an uploaded manifest so stale manifest data cannot remain in
+	the reviewer workflow.
+
+	Returns:
+		None.
 	"""
 	st.session_state[ 'manifest_dataframe' ] = pd.DataFrame( )
 	st.session_state[ 'manifest_records' ] = [ ]
@@ -281,20 +260,19 @@ def clear_manifest_state( ) -> None:
 	clear_cav_form_state( )
 
 def parse_optional_float( value: object ) -> float | None:
-	"""
-	
-		Purpose:
-		--------
-		Parse optional numeric text into a float value.
-	
-		Parameters:
-		-----------
+	"""Parse optional numeric input into a float value.
+
+	This helper accepts blank, text, percentage-style, or numeric values from Streamlit widgets
+	and manifest-derived form state. Empty values and invalid numeric text are treated as
+	unavailable rather than as errors because the surrounding workflow may still be able to
+	display readiness guidance or collect additional reviewer input.
+
+	Args:
 		value (object): Text, numeric, or empty value to parse.
-	
-		Returns:
-		--------
-		float | None: Parsed float value, or None when empty or invalid.
-	
+
+	Returns:
+		float | None: Parsed float value, or ``None`` when the value is empty, missing, invalid,
+		or cannot be parsed.
 	"""
 	try:
 		if value is None:
@@ -306,24 +284,27 @@ def parse_optional_float( value: object ) -> float | None:
 			return None
 		
 		return float( text )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'parse_optional_float( value: object ) -> float | None'
+		Logger( ).write( error )
 		return None
 
 def get_manifest_upload_signature( uploaded_manifest: object ) -> str:
-	"""
-		
-		Purpose:
-		--------
-		Create a stable signature for the uploaded manifest file.
-	
-		Parameters:
-		-----------
-		uploaded_manifest (object): Uploaded manifest file.
-	
-		Returns:
-		--------
-		str: Manifest upload signature.
-	
+	"""Create a stable signature for the uploaded manifest file.
+
+	The signature combines the uploaded file name and size. It is used to detect whether the
+	current uploaded manifest is the same file already parsed into session state, avoiding
+	unnecessary reprocessing on Streamlit reruns.
+
+	Args:
+		uploaded_manifest (object): Streamlit uploaded manifest object.
+
+	Returns:
+		str: Manifest upload signature in ``name:size`` form, or an empty string when the
+		signature cannot be created.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
@@ -332,24 +313,27 @@ def get_manifest_upload_signature( uploaded_manifest: object ) -> str:
 		file_size = getattr( uploaded_manifest, 'size', 0 )
 		
 		return f'{file_name}:{file_size}'
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_manifest_upload_signature( uploaded_manifest: object ) -> str'
+		Logger( ).write( error )
 		return ''
 
 def read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame:
-	"""
-	
-		Purpose:
-		--------
-		Read an uploaded manifest CSV using common encoding fallbacks.
-	
-		Parameters:
-		-----------
+	"""Read an uploaded manifest CSV using common encoding fallbacks.
+
+	This function reads the uploaded manifest bytes and attempts CSV parsing using common
+	encodings in a stable order. The uploaded file pointer is reset when the upload object
+	supports ``seek`` so the same upload can be reused by other workflow steps.
+
+	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest object.
-	
-		Returns:
-		--------
-		pd.DataFrame: Parsed manifest DataFrame.
-		
+
+	Returns:
+		pd.DataFrame: Parsed manifest DataFrame. If parsing fails, an empty DataFrame is
+		returned.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
@@ -375,24 +359,27 @@ def read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame:
 			uploaded_manifest.seek( 0 )
 		
 		return df_manifest
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'read_manifest_upload_dataframe( uploaded_manifest: object ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame( )
 
 def get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[ Any ]:
-	"""
-		
-		Purpose:
-		--------
-		Convert an uploaded manifest DataFrame into navigable manifest records.
-	
-		Parameters:
-		-----------
+	"""Convert an uploaded manifest DataFrame into navigable manifest records.
+
+	This function normalizes manifest columns through ``BatchManifest`` and converts the
+	normalized rows into manifest record objects. It is used by the upload synchronization
+	workflow so CAV values can be navigated and applied to the form.
+
+	Args:
 		df_manifest (pd.DataFrame): Uploaded manifest DataFrame.
-	
-		Returns:
-		--------
-		List[Any]: Parsed manifest records.
-	
+
+	Returns:
+		List[Any]: Parsed manifest records, or an empty list when the DataFrame is empty or
+		conversion fails.
 	"""
 	try:
 		if df_manifest is None or df_manifest.empty:
@@ -401,50 +388,55 @@ def get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[ An
 		manifest = BatchManifest( )
 		df_normalized = manifest.normalize_columns( df_manifest )
 		return manifest.dataframe_to_records( df_normalized )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_manifest_records_from_dataframe( df_manifest: pd.DataFrame ) -> List[Any]'
+		Logger( ).write( error )
 		return [ ]
 
 def get_record_value( record: object, field_name: str, default: object = '' ) -> object:
-	"""
-		
-		Purpose:
-		--------
-		Read a field value from a manifest record using attribute access.
-	
-		Parameters:
-		-----------
+	"""Read a field value from a manifest record using attribute access.
+
+	This helper centralizes safe manifest-record field access. It returns the caller-supplied
+	default when the record is missing, the field name is missing, the attribute is unavailable,
+	or lookup fails.
+
+	Args:
 		record (object): Manifest record.
 		field_name (str): Field name to read.
-		default (object): Default value returned when unavailable.
-	
-		Returns:
-		--------
+		default (object): Default value returned when the field is unavailable.
+
+	Returns:
 		object: Field value or default value.
-	
 	"""
 	try:
 		cfg.throw_if( 'record', record )
 		cfg.throw_if( 'field_name', field_name )
 		
 		return getattr( record, field_name, default )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_record_value( record: object, field_name: str, default: object ) -> object'
+		Logger( ).write( error )
 		return default
 
 def apply_manifest_record_to_form_state( record: object ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Write one manifest record into CAV application form session-state fields.
-	
-		Parameters:
-		-----------
+	"""Write one manifest record into the CAV form session-state fields.
+
+	This function maps canonical manifest-record attributes into the Streamlit session-state keys
+	used by the CAV form. Numeric ABV and proof values are converted to display strings when
+	available, while missing values are represented as blank text. The function mutates session
+	state only and returns no value.
+
+	Args:
 		record (object): Manifest record to display in the CAV form.
-	
-		Returns:
-		--------
-		None
-	
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'record', record )
@@ -472,24 +464,23 @@ def apply_manifest_record_to_form_state( record: object ) -> None:
 			get_record_value( record, 'government_warning', GOVERNMENT_WARNING_TEXT ) )
 		st.session_state[ 'cav_cola_id' ] = str( get_record_value( record, 'cola_id', '' ) )
 		st.session_state[ 'cav_notes' ] = str( get_record_value( record, 'notes', '' ) )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'apply_manifest_record_to_form_state( record: object ) -> None'
+		Logger( ).write( error )
 		return None
 
 def get_current_manifest_record( ) -> object | None:
-	"""
-		
-		Purpose:
-		--------
-		Return the currently selected manifest record.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		object | None: Current manifest record, or None when unavailable.
-		
+	"""Return the currently selected manifest record.
+
+	This function reads the manifest records and current record index from session state,
+	clamps the index to the valid record range, updates session state with the clamped index,
+	and returns the active manifest record.
+
+	Returns:
+		object | None: Current manifest record, or ``None`` when no record is available.
 	"""
 	try:
 		records = st.session_state.get( 'manifest_records', [ ] )
@@ -502,48 +493,48 @@ def get_current_manifest_record( ) -> object | None:
 		st.session_state[ 'current_manifest_record_index' ] = index
 		
 		return records[ index ]
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_current_manifest_record( ) -> object | None'
+		Logger( ).write( error )
 		return None
 
 def load_current_manifest_record( ) -> None:
-	"""
-			Purpose:
-		--------
-		Load the current manifest record into CAV application form fields.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
+	"""Load the current manifest record into the CAV form fields.
 
-	
+	This function retrieves the currently selected manifest record and applies it to the CAV form
+	state when available. It is used by the manifest navigation reload control.
+
+	Returns:
+		None.
 	"""
 	try:
 		record = get_current_manifest_record( )
 		
 		if record:
 			apply_manifest_record_to_form_state( record )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'load_current_manifest_record( ) -> None'
+		Logger( ).write( error )
 		return None
 
 def move_manifest_record( step: int ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Move the active manifest record pointer and load the selected record into the form.
-	
-		Parameters:
-		-----------
-		step (int): Relative movement amount.
-	
-		Returns:
-		--------
-		None
-	
+	"""Move the active manifest record pointer and load the selected record.
+
+	This function increments or decrements the manifest record index by the supplied step,
+	clamps the result to the valid record range, stores the updated index in session state, and
+	applies the selected record to the CAV form.
+
+	Args:
+		step (int): Relative movement amount, typically ``-1`` or ``1``.
+
+	Returns:
+		None.
 	"""
 	try:
 		records = st.session_state.get( 'manifest_records', [ ] )
@@ -556,25 +547,27 @@ def move_manifest_record( step: int ) -> None:
 		st.session_state[ 'current_manifest_record_index' ] = index
 		
 		apply_manifest_record_to_form_state( records[ index ] )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'move_manifest_record( step: int ) -> None'
+		Logger( ).write( error )
 		return None
 
 def sync_manifest_upload_state( uploaded_manifest: object ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Synchronize manifest upload state, load records when a CSV is present, and clear CAV
-		form fields when the CSV is unloaded.
-	
-		Parameters:
-		-----------
-		uploaded_manifest (object): Uploaded manifest file.
-	
-		Returns:
-		--------
-		None
-	
+	"""Synchronize manifest upload state with parsed records and CAV form values.
+
+	This function initializes CAV state, clears manifest state when the upload is removed,
+	avoids reprocessing when the uploaded file signature has not changed, parses a new manifest
+	upload into a DataFrame and manifest records, stores the manifest state, and loads the first
+	record into the CAV form when records are available.
+
+	Args:
+		uploaded_manifest (object): Streamlit uploaded manifest file.
+
+	Returns:
+		None.
 	"""
 	try:
 		initialize_cav_form_state( )
@@ -605,24 +598,26 @@ def sync_manifest_upload_state( uploaded_manifest: object ) -> None:
 			apply_manifest_record_to_form_state( records[ 0 ] )
 		else:
 			clear_cav_form_state( )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'sync_manifest_upload_state( uploaded_manifest: object ) -> None'
+		Logger( ).write( error )
 		clear_manifest_state( )
 
 def display_manifest_record_navigation( key_prefix: str = 'cav_form' ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Display manifest record navigation controls for iterating through CSV records.
-	
-		Parameters:
-		-----------
-		key_prefix (str): Unique key prefix for Streamlit navigation buttons.
-	
-		Returns:
-		--------
-		None
-	
+	"""Display controls for navigating parsed manifest records.
+
+	This function renders Previous, Next, and Reload buttons when manifest records are loaded.
+	The controls update the current manifest record index and reload the selected record into
+	the CAV form.
+
+	Args:
+		key_prefix (str): Unique Streamlit key prefix for navigation buttons.
+
+	Returns:
+		None.
 	"""
 	records = st.session_state.get( 'manifest_records', [ ] )
 	
@@ -663,26 +658,24 @@ def display_manifest_record_navigation( key_prefix: str = 'cav_form' ) -> None:
 			use_container_width=True,
 			on_click=load_current_manifest_record
 		)
-		
+
 # ==========================================================================================
 # Page Configuration
 # ==========================================================================================
 
 def get_configured_image_path( value: object ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Return a display-safe image path from a configured absolute or relative path value.
-	
-		Parameters:
-		-----------
+	"""Return a display-safe image path from a configured path value.
+
+	This function supports absolute and relative image paths from configuration. Relative paths
+	are checked against the current working directory, project root, current file directory, and
+	parent directory so the app can locate branding assets across typical Streamlit launch
+	contexts.
+
+	Args:
 		value (object): Configured image path value.
-	
-		Returns:
-		--------
-		str: Existing image path, or an empty string when unavailable.
-		
+
+	Returns:
+		str: Existing image path, or an empty string when no display-safe path is available.
 	"""
 	try:
 		if value is None:
@@ -710,24 +703,23 @@ def get_configured_image_path( value: object ) -> str:
 				return str( candidate_path.resolve( ) )
 		
 		return ''
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_configured_image_path( value: object ) -> str'
+		Logger( ).write( error )
 		return ''
 
 def get_accessibility_css( ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Return accessibility CSS overrides based on current sidebar settings.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		str: CSS override block.
-		
+	"""Return accessibility CSS overrides based on current sidebar settings.
+
+	This function reads large-text and high-contrast options from Streamlit session state and
+	returns a style block containing the applicable CSS overrides. Empty CSS sections are
+	included safely when options are disabled.
+
+	Returns:
+		str: CSS override block, or an empty string if CSS generation fails.
 	"""
 	try:
 		large_text = bool( st.session_state.get( 'large_text_mode', False ) )
@@ -834,25 +826,24 @@ def get_accessibility_css( ) -> str:
 			{high_contrast_css}
 		</style>
 		"""
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_accessibility_css( ) -> str'
+		Logger( ).write( error )
 		return ''
-	
+
 def configure_page( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Configure the Streamlit page title, favicon, layout, base styling, and accessibility
-		overrides.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Configure the Streamlit page and inject base application styling.
+
+	This function resolves the configured favicon path, sets Streamlit page metadata, injects
+	the primary Fiddy CSS theme, and applies accessibility-specific CSS overrides. The styling
+	controls layout width, sidebar appearance, upload controls, buttons, panels, status text,
+	and metric cards.
+
+	Returns:
+		None.
 	"""
 	favicon_path = get_configured_image_path( getattr( cfg, 'FAVICON', '' ) )
 	page_icon = favicon_path if favicon_path else getattr( cfg, 'APP_ICON', '🥃' )
@@ -1019,21 +1010,14 @@ def configure_page( ) -> None:
 # ==========================================================================================
 
 def display_sidebar_header( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display the configured application logo and collapsible reviewer workflow controls in the
-		sidebar.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Display the application logo and reviewer controls in the sidebar.
+
+	This function resolves and displays the configured Fiddy logo, then renders a collapsible
+	control group for Simple versus Advanced review mode and accessibility toggles. The selected
+	review mode updates session state so the main workflow can hide or show technical details.
+
+	Returns:
+		None.
 	"""
 	logo_path = get_configured_image_path( getattr( cfg, 'LOGO', '' ) )
 	
@@ -1082,21 +1066,18 @@ def display_sidebar_header( ) -> None:
 		st.caption( mode_text )
 
 def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
-	"""
-	
-		Purpose:
-		--------
-		Display a compact manual CAV form only when no manifest is uploaded and return application
-			values for manual artwork verification.
-	
-		Parameters:
-		-----------
-		uploaded_manifest (object): Uploaded manifest file.
-	
-		Returns:
-		--------
-		LabelApplication: Expected label application values for manual review.
-		
+	"""Create application data for Simple Mode manual artwork verification.
+
+	When a manifest is uploaded, this function returns an empty ``LabelApplication`` because
+	the manifest records supply expected values. When no manifest is present, it displays a
+	compact manual CAV form and builds a ``LabelApplication`` from session-state values.
+
+	Args:
+		uploaded_manifest (object): Streamlit uploaded manifest file.
+
+	Returns:
+		LabelApplication: Expected label application values for manual review, or an empty
+		application object when manifest mode is active.
 	"""
 	initialize_cav_form_state( )
 	
@@ -1176,20 +1157,16 @@ def create_simple_label_application( uploaded_manifest: object ) -> LabelApplica
 	)
 
 def create_manual_label_application( ) -> LabelApplication:
-	"""
-	
-		Purpose:
-		--------
-		Display the full reviewer-facing CAV application data form and return application values.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		LabelApplication: Expected label application values entered or loaded by the user.
-		
+	"""Display the full CAV form and return entered or loaded application values.
+
+	This function renders the Advanced Mode CAV data panel, manifest record navigation, all
+	core application fields, import-related fields, government warning text, and reviewer notes.
+	It then parses ABV and proof values from session state and returns a populated
+	``LabelApplication``.
+
+	Returns:
+		LabelApplication: Expected label application values entered manually or loaded from the
+		current manifest record.
 	"""
 	initialize_cav_form_state( )
 	
@@ -1317,20 +1294,14 @@ def create_manual_label_application( ) -> LabelApplication:
 # ==========================================================================================
 
 def display_header( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display a compact task-focused application header without duplicating the sidebar logo.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Display the compact application header in the main workspace.
+
+	The header identifies the workspace, displays the configured application display name, and
+	briefly states the upload, verification, review, and export workflow. It intentionally does
+	not duplicate the sidebar logo.
+
+	Returns:
+		None.
 	"""
 	st.markdown(
 		f"""
@@ -1347,20 +1318,16 @@ def display_header( ) -> None:
 	)
 
 def get_status_html( status: str ) -> str:
-	"""
-		
-		Purpose:
-		--------
-		Return styled HTML for a verification status value.
-	
-		Parameters:
-		-----------
+	"""Return styled HTML for a verification status value.
+
+	This function maps known status values to CSS classes used by the application theme. Unknown
+	status text is returned unchanged so unrecognized values can still be displayed.
+
+	Args:
 		status (str): Verification status.
-	
-		Returns:
-		--------
-		str: HTML status markup.
-		
+
+	Returns:
+		str: HTML status markup, or ``STATUS_REVIEW`` when formatting fails.
 	"""
 	try:
 		cfg.throw_if( 'status', status )
@@ -1378,24 +1345,28 @@ def get_status_html( status: str ) -> str:
 			return f'<span class="status-review">{status}</span>'
 		
 		return status
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_status_html( status: str ) -> str'
+		Logger( ).write( error )
 		return STATUS_REVIEW
 
 def get_batch_metrics( batch_report: BatchVerificationReport,
 		batch_result: BatchProcessingResult ) -> Tuple[ int, int, int, int, int ]:
-	"""
-	Purpose:
-	--------
-	Calculate top-level batch metrics for display.
+	"""Calculate top-level batch metrics for dashboard display.
 
-	Parameters:
-	-----------
-	batch_report (BatchVerificationReport): Batch verification report.
-	batch_result (BatchProcessingResult): Batch processing result.
+	This function summarizes the active batch into file count, failure count, warning count,
+	review count, and SLA breach count. It delegates report counts to ``BatchVerificationReport``
+	and performance counts to ``BatchProcessingResult``.
+
+	Args:
+		batch_report (BatchVerificationReport): Batch verification report.
+		batch_result (BatchProcessingResult): Batch processing result.
 
 	Returns:
-	--------
-	Tuple[int, int, int, int, int]: Files, failures, warnings, reviews, and SLA breaches.
+		Tuple[int, int, int, int, int]: Files, failures, warnings, reviews, and SLA breaches.
 	"""
 	try:
 		cfg.throw_if( 'batch_report', batch_report )
@@ -1408,7 +1379,12 @@ def get_batch_metrics( batch_report: BatchVerificationReport,
 				batch_report.total_reviews( ),
 				batch_result.performance_summary.sla_breach_count
 		)
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_batch_metrics( batch_report: BatchVerificationReport, batch_result: BatchProcessingResult ) -> Tuple[int, int, int, int, int]'
+		Logger( ).write( error )
 		return 0, 0, 0, 0, 0
 
 # ==========================================================================================
@@ -1416,20 +1392,14 @@ def get_batch_metrics( batch_report: BatchVerificationReport,
 # ==========================================================================================
 
 def get_supported_upload_type_values( ) -> List[ str ]:
-	"""
-	
-		Purpose:
-		--------
-		Return Streamlit file-uploader type values including supported artwork and ZIP archives.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
+	"""Return Streamlit uploader type values for artwork and ZIP archives.
+
+	This function starts with configured supported upload types and ensures ZIP archives are
+	included because the UI accepts either individual image/PDF artwork files or a ZIP archive
+	containing supported artwork files.
+
+	Returns:
 		List[str]: Supported uploader type values.
-		
 	"""
 	try:
 		values = list( SUPPORTED_UPLOAD_TYPES )
@@ -1438,7 +1408,12 @@ def get_supported_upload_type_values( ) -> List[ str ]:
 			values.append( 'zip' )
 		
 		return values
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_supported_upload_type_values( ) -> List[str]'
+		Logger( ).write( error )
 		return [
 				'png',
 				'jpg',
@@ -1452,68 +1427,62 @@ def get_supported_upload_type_values( ) -> List[ str ]:
 		]
 
 def is_zip_upload( uploaded_file: object ) -> bool:
-	"""
-	
-		Purpose:
-		--------
-		Determine whether an uploaded file is a ZIP archive.
-	
-		Parameters:
-		-----------
+	"""Determine whether an uploaded file is a ZIP archive.
+
+	Args:
 		uploaded_file (object): Streamlit uploaded file object.
-	
-		Returns:
-		--------
-		bool: True when the uploaded file appears to be a ZIP archive.
-		
+
+	Returns:
+		bool: ``True`` when the uploaded file name has a ``.zip`` extension; otherwise,
+		``False``.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_file', uploaded_file )
 		
 		file_name = str( getattr( uploaded_file, 'name', '' ) ).lower( )
 		return Path( file_name ).suffix.lower( ) == '.zip'
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_zip_upload( uploaded_file: object ) -> bool'
+		Logger( ).write( error )
 		return False
 
 def is_supported_artwork_name( file_name: str ) -> bool:
-	"""
-	
-		Purpose:
-		--------
-		Determine whether a file name has a supported image or PDF extension.
-	
-		Parameters:
-		-----------
+	"""Determine whether a file name has a supported image or PDF extension.
+
+	Args:
 		file_name (str): File name to inspect.
-	
-		Returns:
-		--------
-		bool: True when the file extension is supported for OCR.
-		
+
+	Returns:
+		bool: ``True`` when the file extension is supported for OCR; otherwise, ``False``.
 	"""
 	try:
 		cfg.throw_if( 'file_name', file_name )
 		
 		file_type = Path( file_name ).suffix.lower( ).replace( '.', '' )
 		return file_type in list( SUPPORTED_UPLOAD_TYPES )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_supported_artwork_name( file_name: str ) -> bool'
+		Logger( ).write( error )
 		return False
 
 def is_safe_archive_member_name( member_name: str ) -> bool:
-	"""
-	
-		Purpose:
-		--------
-		Determine whether a ZIP member name is safe to extract.
-	
-		Parameters:
-		-----------
+	"""Determine whether a ZIP member path is safe to extract.
+
+	This function blocks empty names, directory entries, absolute paths, parent traversal, macOS
+	metadata directories, hidden dot-files, and entries without a basename. It is part of the
+	ZIP extraction guardrails used before writing uploaded archive contents to disk.
+
+	Args:
 		member_name (str): ZIP member path.
-	
-		Returns:
-		--------
-		bool: True when the member path is safe and not a directory/system artifact.
-		
+
+	Returns:
+		bool: ``True`` when the member path is safe and extractable; otherwise, ``False``.
 	"""
 	try:
 		cfg.throw_if( 'member_name', member_name )
@@ -1540,24 +1509,26 @@ def is_safe_archive_member_name( member_name: str ) -> bool:
 			return False
 		
 		return bool( Path( member_name ).name )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_safe_archive_member_name( member_name: str ) -> bool'
+		Logger( ).write( error )
 		return False
 
 def get_archive_member_file_names( uploaded_file: object ) -> List[ str ]:
-	"""
-		
-		Purpose:
-		--------
-		Return supported label artwork file names contained in an uploaded ZIP archive.
-	
-		Parameters:
-		-----------
+	"""Return supported artwork file names contained in an uploaded ZIP archive.
+
+	This function reads the ZIP upload, filters archive members through the safe-member check,
+	filters by supported artwork extension, and returns only the member basenames displayed to
+	the reviewer and used in manifest matching summaries.
+
+	Args:
 		uploaded_file (object): Streamlit uploaded ZIP file.
-	
-		Returns:
-		--------
-		List[str]: Supported ZIP member basenames.
-	
+
+	Returns:
+		List[str]: Supported ZIP member basenames, or an empty list when inspection fails.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_file', uploaded_file )
@@ -1578,25 +1549,28 @@ def get_archive_member_file_names( uploaded_file: object ) -> List[ str ]:
 					file_names.append( member_file_name )
 		
 		return file_names
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_archive_member_file_names( uploaded_file: object ) -> List[str]'
+		Logger( ).write( error )
 		return [ ]
 
 def save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[ Path ]:
-	"""
-	
-		Purpose:
-		--------
-		Safely extract supported label artwork files from a ZIP archive into a temporary directory.
-	
-		Parameters:
-		-----------
+	"""Safely extract supported artwork files from a ZIP archive.
+
+	This function extracts only safe ZIP members with supported artwork extensions. Files are
+	written under the supplied temporary directory using the member basename, and resolved paths
+	are checked to prevent path traversal outside the temporary root.
+
+	Args:
 		uploaded_file (object): Streamlit uploaded ZIP file.
 		temp_dir (str): Temporary extraction directory.
-	
-		Returns:
-		--------
-		List[Path]: Extracted image/PDF file paths.
-		
+
+	Returns:
+		List[Path]: Extracted image/PDF file paths. If extraction fails, any files extracted
+		before the failure remain in the returned list.
 	"""
 	file_paths = [ ]
 	
@@ -1629,26 +1603,27 @@ def save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[ Path
 		
 		return file_paths
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'save_zip_artwork_files( uploaded_file: object, temp_dir: str ) -> List[Path]'
+		Logger( ).write( error )
 		st.warning( f'Unable to extract ZIP archive {getattr( uploaded_file, "name", "" )}: {e}' )
 		return file_paths
 
 def save_uploaded_files( uploaded_files: List[ object ], temp_dir: str ) -> List[ Path ]:
-	"""
-	
-		Purpose:
-		--------
-		Save uploaded label artwork files and safely extract supported ZIP archive contents to a
-		temporary directory for OCR processing.
-	
-		Parameters:
-		-----------
+	"""Save uploaded artwork files and safely extract supported ZIP contents.
+
+	This function writes individual supported image/PDF uploads to a temporary directory and
+	expands ZIP uploads through ``save_zip_artwork_files``. All output paths are resolved and
+	checked against the temporary root to prevent writes outside the working directory.
+
+	Args:
 		uploaded_files (List[object]): Streamlit uploaded file objects.
 		temp_dir (str): Temporary directory path.
-	
-		Returns:
-		--------
-		List[Path]: Paths to temporary image/PDF files.
-		
+
+	Returns:
+		List[Path]: Paths to temporary image/PDF files saved for OCR processing.
 	"""
 	file_paths = [ ]
 	
@@ -1678,23 +1653,23 @@ def save_uploaded_files( uploaded_files: List[ object ], temp_dir: str ) -> List
 		
 		return file_paths
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'save_uploaded_files( uploaded_files: List[object], temp_dir: str ) -> List[Path]'
+		Logger( ).write( error )
 		st.error( f'Unable to save uploaded files: {e}' )
 		return file_paths
 
 def save_manifest_file( uploaded_manifest: object, temp_dir: str ) -> Path:
-	"""
-	Purpose:
-	--------
-	Save an uploaded manifest CSV to a temporary directory.
+	"""Save an uploaded manifest CSV to a temporary directory.
 
-	Parameters:
-	-----------
-	uploaded_manifest (object): Streamlit uploaded manifest object.
-	temp_dir (str): Temporary directory path.
+	Args:
+		uploaded_manifest (object): Streamlit uploaded manifest object.
+		temp_dir (str): Temporary directory path.
 
 	Returns:
-	--------
-	Path: Saved manifest path.
+		Path: Saved manifest path, or ``Path('')`` when saving fails.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
@@ -1704,24 +1679,26 @@ def save_manifest_file( uploaded_manifest: object, temp_dir: str ) -> Path:
 		manifest_path.write_bytes( uploaded_manifest.getbuffer( ) )
 		
 		return manifest_path
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'save_manifest_file( uploaded_manifest: object, temp_dir: str ) -> Path'
+		Logger( ).write( error )
 		return Path( '' )
 
 def create_uploaded_file_dataframe( uploaded_files: List[ object ] ) -> pd.DataFrame:
-	"""
-		
-		Purpose:
-		--------
-		Create a display table for uploaded label artwork and supported ZIP archive contents.
-	
-		Parameters:
-		-----------
+	"""Create a display table for uploaded artwork and ZIP archive contents.
+
+	This function creates one row for each individual uploaded artwork file and one row for
+	each supported artwork member inside uploaded ZIP archives. The result is used by Advanced
+	Mode upload previews.
+
+	Args:
 		uploaded_files (List[object]): Uploaded label files.
-	
-		Returns:
-		--------
-		pd.DataFrame: Uploaded file summary.
-	
+
+	Returns:
+		pd.DataFrame: Uploaded file summary DataFrame.
 	"""
 	try:
 		records = [ ]
@@ -1766,7 +1743,12 @@ def create_uploaded_file_dataframe( uploaded_files: List[ object ] ) -> pd.DataF
 			)
 		
 		return pd.DataFrame( records )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'create_uploaded_file_dataframe( uploaded_files: List[object] ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame(
 			columns=[
 					'Source',
@@ -1776,48 +1758,40 @@ def create_uploaded_file_dataframe( uploaded_files: List[ object ] ) -> pd.DataF
 					'Input Type'
 			]
 		)
-	
+
 # ==========================================================================================
 # Verification Actions
 # ==========================================================================================
 
 @st.cache_resource( show_spinner=False )
 def load_batch_processor( max_workers: int, sla_seconds: float ) -> BatchProcessor:
-	"""
-	Purpose:
-	--------
-	Load and cache the batch processor resource for Streamlit execution.
+	"""Load and cache the batch processor resource for Streamlit execution.
 
-	Parameters:
-	-----------
-	max_workers (int): Maximum number of batch worker threads.
-	sla_seconds (float): Per-label SLA threshold in seconds.
+	Args:
+		max_workers (int): Maximum number of batch worker threads.
+		sla_seconds (float): Per-label SLA threshold in seconds.
 
 	Returns:
-	--------
-	BatchProcessor: Cached batch processor.
+		BatchProcessor: Cached batch processor.
 	"""
 	return BatchProcessor( max_workers=max_workers, sla_seconds=sla_seconds )
 
 def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: List[ object ],
 		max_workers: int, sla_seconds: float ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Run manifest-driven batch verification for uploaded label artwork.
-	
-		Parameters:
-		-----------
+	"""Run manifest-driven batch verification for uploaded label artwork.
+
+	This function saves the manifest and artwork files to a temporary directory, runs the cached
+	batch processor, builds summary, detail, comparison, performance, JSON, and Markdown
+	outputs, stores those outputs in session state, and updates Streamlit progress indicators.
+
+	Args:
 		uploaded_manifest (object): Uploaded application manifest CSV.
 		uploaded_files (List[object]): Uploaded label artwork files.
 		max_workers (int): Maximum number of worker threads.
 		sla_seconds (float): Per-label SLA threshold.
-	
-		Returns:
-		--------
-		None
-		
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'uploaded_manifest', uploaded_manifest )
@@ -1833,22 +1807,15 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 			processor = load_batch_processor( max_workers, sla_seconds )
 			
 			def update_progress( completed: int, total: int, file_name: str ) -> None:
-				"""
-				
-					Purpose:
-					--------
-					Update Streamlit progress from the batch processor.
-	
-					Parameters:
-					-----------
+				"""Update Streamlit progress from the batch processor.
+
+				Args:
 					completed (int): Completed file count.
 					total (int): Total file count.
 					file_name (str): Current file name.
-	
-					Returns:
-					--------
-					None
-					
+
+				Returns:
+					None.
 				"""
 				percent = int( completed / total * 100 ) if total else 0
 				progress_bar.progress( min( 100, percent ) )
@@ -1884,26 +1851,28 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 		progress_bar.progress( 100 )
 		status_text.success( 'Batch verification complete.' )
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: List[object], max_workers: int, sla_seconds: float ) -> None'
+		Logger( ).write( error )
 		st.error( f'Batch verification failed: {e}' )
 		st.session_state[ 'verification_complete' ] = False
 
 def run_manual_fallback_verification( application: LabelApplication,
 		uploaded_files: List[ object ] ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Run single-application fallback verification when no manifest is supplied.
-	
-		Parameters:
-		-----------
+	"""Run single-application fallback verification when no manifest is supplied.
+
+	This function saves uploaded artwork to a temporary directory, verifies every saved file
+	against one manually supplied ``LabelApplication``, builds display/export outputs, and
+	stores results in Streamlit session state.
+
+	Args:
 		application (LabelApplication): Manual expected application values.
 		uploaded_files (List[object]): Uploaded label artwork files.
-	
-		Returns:
-		--------
-		None
-	
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'application', application )
@@ -1939,6 +1908,11 @@ def run_manual_fallback_verification( application: LabelApplication,
 		st.session_state[ 'verification_complete' ] = True
 		st.session_state[ 'selected_report_index' ] = 0
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'run_manual_fallback_verification( application: LabelApplication, uploaded_files: List[object] ) -> None'
+		Logger( ).write( error )
 		st.error( f'Manual fallback verification failed: {e}' )
 		st.session_state[ 'verification_complete' ] = False
 
@@ -1947,20 +1921,13 @@ def run_manual_fallback_verification( application: LabelApplication,
 # ==========================================================================================
 
 def get_uploaded_file_names( uploaded_files: List[ object ] ) -> List[ str ]:
-	"""
-	
-		Purpose:
-		--------
-		Return uploaded label artwork file names, including supported files inside ZIP archives.
-	
-		Parameters:
-		-----------
+	"""Return uploaded artwork file names, including supported ZIP members.
+
+	Args:
 		uploaded_files (List[object]): Uploaded label artwork files.
-	
-		Returns:
-		--------
+
+	Returns:
 		List[str]: Uploaded or archived artwork file names.
-	
 	"""
 	try:
 		if not uploaded_files:
@@ -1979,24 +1946,19 @@ def get_uploaded_file_names( uploaded_files: List[ object ] ) -> List[ str ]:
 				file_names.append( file_name )
 		
 		return file_names
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_uploaded_file_names( uploaded_files: List[object] ) -> List[str]'
+		Logger( ).write( error )
 		return [ ]
 
 def get_manifest_expected_file_names( ) -> List[ str ]:
-	"""
-	
-		Purpose:
-		--------
-		Return expected label artwork file names from the loaded manifest records.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
+	"""Return expected label artwork file names from loaded manifest records.
+
+	Returns:
 		List[str]: Expected manifest file names.
-		
 	"""
 	try:
 		records = st.session_state.get( 'manifest_records', [ ] )
@@ -2013,24 +1975,25 @@ def get_manifest_expected_file_names( ) -> List[ str ]:
 				file_names.append( file_name )
 		
 		return file_names
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_manifest_expected_file_names( ) -> List[str]'
+		Logger( ).write( error )
 		return [ ]
 
 def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ str, object ]:
-	"""
-	
-		Purpose:
-		--------
-		Compare manifest expected file names against uploaded label artwork file names.
-	
-		Parameters:
-		-----------
+	"""Compare manifest expected file names against uploaded artwork file names.
+
+	This function calculates expected, uploaded, matched, missing, and extra file names. It is
+	used by readiness checks and Advanced Mode diagnostic display.
+
+	Args:
 		uploaded_files (List[object]): Uploaded label artwork files.
-	
-		Returns:
-		--------
+
+	Returns:
 		Dict[str, object]: Manifest/upload file matching summary.
-		
 	"""
 	try:
 		expected_names = get_manifest_expected_file_names( )
@@ -2053,7 +2016,12 @@ def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ s
 				'missing_count': len( missing_files ),
 				'extra_count': len( extra_files )
 		}
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_manifest_file_match_summary( uploaded_files: List[object] ) -> Dict[str, object]'
+		Logger( ).write( error )
 		return {
 				'expected_files': [ ],
 				'uploaded_files': [ ],
@@ -2066,21 +2034,17 @@ def get_manifest_file_match_summary( uploaded_files: List[ object ] ) -> Dict[ s
 		}
 
 def has_minimum_cav_application_data( application: LabelApplication ) -> bool:
-	"""
-	
-		Purpose:
-		--------
-		Determine whether the CAV form contains enough application data for manual artwork
-		verification.
-	
-		Parameters:
-		-----------
+	"""Determine whether manual CAV values are sufficient for artwork verification.
+
+	This readiness helper requires brand name, class/type, ABV, net contents, producer/bottler,
+	and government warning. It is used only for the manual CAV plus artwork workflow when no
+	manifest is uploaded.
+
+	Args:
 		application (LabelApplication): CAV application data.
-	
-		Returns:
-		--------
-		bool: True when the minimum manual-review fields are populated.
-		
+
+	Returns:
+		bool: ``True`` when minimum manual-review fields are populated; otherwise, ``False``.
 	"""
 	try:
 		if not application:
@@ -2096,27 +2060,25 @@ def has_minimum_cav_application_data( application: LabelApplication ) -> bool:
 		]
 		
 		return all( value is not None and str( value ).strip( ) for value in required_values )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'has_minimum_cav_application_data( application: LabelApplication ) -> bool'
+		Logger( ).write( error )
 		return False
 
 def get_processing_mode( uploaded_manifest: object, uploaded_files: List[ object ],
 		application: LabelApplication ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Determine the active Fiddy processing mode.
-	
-		Parameters:
-		-----------
+	"""Determine the active Fiddy processing mode.
+
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 		application (LabelApplication): CAV application data.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Processing mode name.
-		
 	"""
 	try:
 		has_manifest = uploaded_manifest is not None
@@ -2129,27 +2091,31 @@ def get_processing_mode( uploaded_manifest: object, uploaded_files: List[ object
 			return 'Manual CAV + Artwork Review'
 		
 		return 'Not Ready'
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_processing_mode( uploaded_manifest: object, uploaded_files: List[object], application: LabelApplication ) -> str'
+		Logger( ).write( error )
 		return 'Not Ready'
 
 def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ object ],
 		application: LabelApplication ) -> Dict[ str, object ]:
-	"""
-	
-		Purpose:
-		--------
-		Determine whether verification can run and provide reviewer-facing readiness details.
-	
-		Parameters:
-		-----------
+	"""Determine whether verification can run and explain readiness status.
+
+	This function evaluates the active upload and application-data state, identifies the
+	processing mode, checks manifest record availability, checks artwork presence, checks
+	manifest/artwork filename matching, and verifies required manual CAV fields for the manual
+	workflow.
+
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 		application (LabelApplication): CAV application data.
-	
-		Returns:
-		--------
-		Dict[str, object]: Processing readiness information.
-		
+
+	Returns:
+		Dict[str, object]: Processing readiness information with readiness flag, mode, message,
+		and file matching summary.
 	"""
 	try:
 		has_manifest = uploaded_manifest is not None
@@ -2220,6 +2186,11 @@ def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ o
 				'match_summary': get_manifest_file_match_summary( uploaded_files )
 		}
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_processing_readiness( uploaded_manifest: object, uploaded_files: List[object], application: LabelApplication ) -> Dict[str, object]'
+		Logger( ).write( error )
 		return {
 				'is_ready': False,
 				'mode': 'Not Ready',
@@ -2228,21 +2199,17 @@ def get_processing_readiness( uploaded_manifest: object, uploaded_files: List[ o
 		}
 
 def display_processing_readiness( readiness: Dict[ str, object ] ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display processing mode, readiness status, and manifest/artwork matching details in
-		Advanced Mode only.
-	
-		Parameters:
-		-----------
+	"""Display processing mode, readiness status, and matching details.
+
+	This function displays a compact readiness message in all modes and, when Advanced Mode is
+	active, displays manifest-file matching metrics and expandable lists of missing or extra
+	files.
+
+	Args:
 		readiness (Dict[str, object]): Processing readiness information.
-	
-		Returns:
-		--------
-		None
-	
+
+	Returns:
+		None.
 	"""
 	try:
 		mode = str( readiness.get( 'mode', 'Not Ready' ) )
@@ -2293,28 +2260,26 @@ def display_processing_readiness( readiness: Dict[ str, object ] ) -> None:
 					for file_name in extra_files:
 						st.write( f'- {file_name}' )
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_processing_readiness( readiness: Dict[str, object] ) -> None'
+		Logger( ).write( error )
 		st.warning( f'Unable to display processing readiness: {e}' )
-
 
 # ==========================================================================================
 # Display Panels
 # ==========================================================================================
 
 def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
-	"""
-	
-		Purpose:
-		--------
-		Display manifest upload controls and label artwork upload controls.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
+	"""Display manifest and label artwork upload controls.
+
+	This function renders the first workflow panel and returns the uploaded manifest CSV plus
+	the uploaded artwork files. The artwork uploader accepts individual supported image/PDF
+	files and ZIP archives.
+
+	Returns:
 		Tuple[object, List[object]]: Uploaded manifest and uploaded label files.
-		
 	"""
 	st.markdown(
 		"""
@@ -2351,19 +2316,18 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 	return uploaded_manifest, uploaded_files or [ ]
 
 def display_upload_preview( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
-	"""
-	Purpose:
-	--------
-	Display manifest and uploaded-file previews in Advanced Mode only.
+	"""Display manifest and uploaded-file previews in Advanced Mode.
 
-	Parameters:
-	-----------
-	uploaded_manifest (object): Uploaded manifest file.
-	uploaded_files (List[object]): Uploaded label files.
+	This function displays a manifest preview and uploaded artwork summary only when Simple Mode
+	is disabled. Empty or unreadable manifests produce a warning, while file previews include
+	individual uploads and supported ZIP members.
+
+	Args:
+		uploaded_manifest (object): Uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label files.
 
 	Returns:
-	--------
-	None
+		None.
 	"""
 	try:
 		if st.session_state.get( 'simple_mode', True ):
@@ -2386,27 +2350,28 @@ def display_upload_preview( uploaded_manifest: object, uploaded_files: List[ obj
 				hide_index=True
 			)
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_upload_preview( uploaded_manifest: object, uploaded_files: List[object] ) -> None'
+		Logger( ).write( error )
 		st.warning( f'Upload preview unavailable: {e}' )
 
 def display_processing_controls( uploaded_manifest: object, uploaded_files: List[ object ],
 		application: LabelApplication ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display the unified processing controller for manual CAV verification and manifest-driven
-		batch verification.
-	
-		Parameters:
-		-----------
+	"""Display the unified processing controller.
+
+	This function renders readiness information, worker and SLA controls, Run Verification and
+	Clear Results buttons, and dispatches to the manifest-driven or manual verification workflow
+	based on the active processing mode.
+
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label files.
 		application (LabelApplication): CAV application values.
-	
-		Returns:
-		--------
-		None
-		
+
+	Returns:
+		None.
 	"""
 	st.markdown(
 		"""
@@ -2485,21 +2450,14 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 	st.warning( 'Verification cannot run until the workflow is ready.' )
 
 def display_batch_dashboard( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display batch-level metrics and conditionally display manifest/performance technical detail
-		when Advanced Mode is enabled.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Display batch-level metrics and Advanced Mode diagnostics.
+
+	This function shows file, failure, warning, review, and SLA breach metrics after
+	verification completes. Advanced Mode also displays manifest validation and performance
+	summary records, plus expandable error, warning, and per-file performance detail.
+
+	Returns:
+		None.
 	"""
 	batch_report = st.session_state[ 'batch_report' ]
 	batch_result = st.session_state[ 'batch_result' ]
@@ -2568,17 +2526,12 @@ def display_batch_dashboard( ) -> None:
 				)
 
 def get_comparison_status_icon( status: str ) -> str:
-	"""
-		Purpose:
-		--------
-		Return a compact status icon and label for the side-by-side comparison table.
-	
-		Parameters:
-		-----------
+	"""Return a compact status icon and label for comparison tables.
+
+	Args:
 		status (str): Rule status value.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Display-ready status value.
 	"""
 	try:
@@ -2597,25 +2550,23 @@ def get_comparison_status_icon( status: str ) -> str:
 			return '⚠️ Needs Review'
 		
 		return status
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_comparison_status_icon( status: str ) -> str'
+		Logger( ).write( error )
 		return '⚠️ Needs Review'
 
 def get_reviewer_action( status: str, severity: str ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Return a reviewer-facing action statement based on status and severity.
-	
-		Parameters:
-		-----------
+	"""Return a reviewer-facing action statement based on status and severity.
+
+	Args:
 		status (str): Rule status value.
 		severity (str): Rule severity value.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Recommended reviewer action.
-		
 	"""
 	try:
 		cfg.throw_if( 'status', status )
@@ -2633,29 +2584,31 @@ def get_reviewer_action( status: str, severity: str ) -> str:
 			return 'Human review required before final determination.'
 		
 		return 'Review the field before final determination.'
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_reviewer_action( status: str, severity: str ) -> str'
+		Logger( ).write( error )
 		return 'Human review required before final determination.'
 
 def get_tooltip_text( field_name: str, expected: object, observed: object, message: str,
 		evidence: str ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Create a tooltip-ready explanation for one comparison row.
-	
-		Parameters:
-		-----------
+	"""Create a tooltip-ready explanation for one comparison row.
+
+	The tooltip combines field name, application value, extracted value, rule explanation, and
+	OCR evidence into one compact text string suitable for detail captions and exported
+	comparison records.
+
+	Args:
 		field_name (str): Reviewer-facing field name.
 		expected (object): Application-side expected value.
 		observed (object): Label-side observed value.
 		message (str): Rule explanation message.
 		evidence (str): OCR evidence or extracted context.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Tooltip-ready explanation text.
-	
 	"""
 	try:
 		cfg.throw_if( 'field_name', field_name )
@@ -2678,26 +2631,28 @@ def get_tooltip_text( field_name: str, expected: object, observed: object, messa
 			parts.append( f'Evidence: {evidence_text}' )
 		
 		return ' | '.join( parts )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_tooltip_text( field_name: str, expected: object, observed: object, message: str, evidence: str ) -> str'
+		Logger( ).write( error )
 		return 'Reviewer should inspect this field manually.'
 
-def get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[ str, object ]:
-	"""
-	
-		Purpose:
-		--------
-		Create one enriched side-by-side comparison record from a rule result and structured
-		extracted label fields.
-	
-		Parameters:
-		-----------
+def get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[
+	str, object ]:
+	"""Create one enriched side-by-side comparison record.
+
+	This function combines a rule result with structured extracted-label fields when available.
+	It produces a reviewer-facing row containing application value, extracted value, status,
+	severity, confidence, explanation, recommended action, and detailed tooltip text.
+
+	Args:
 		report (LabelVerificationReport): Verification report containing the rule result.
 		result (object): Rule result to convert.
-	
-		Returns:
-		--------
+
+	Returns:
 		Dict[str, object]: Enriched side-by-side comparison record.
-		
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -2730,7 +2685,12 @@ def get_result_explanation_record( report: LabelVerificationReport, result: obje
 				'Reviewer Action': get_reviewer_action( status, severity ),
 				'Tooltip': get_tooltip_text( field_name, expected, observed, message, evidence )
 		}
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[str, object]'
+		Logger( ).write( error )
 		return {
 				'File Name': report.file_name if report else '',
 				'Field': '',
@@ -2745,20 +2705,17 @@ def get_result_explanation_record( report: LabelVerificationReport, result: obje
 		}
 
 def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
-	"""
-	
-		Purpose:
-		--------
-		Create an enriched side-by-side reviewer comparison table from one verification report.
-	
-		Parameters:
-		-----------
+	"""Create a side-by-side comparison table from one verification report.
+
+	This function converts each rule result into an enriched comparison record and drops the
+	file-name column for single-report display. Empty reports return an empty DataFrame with the
+	expected comparison columns.
+
+	Args:
 		report (LabelVerificationReport): Verification report to convert.
-	
-		Returns:
-		--------
+
+	Returns:
 		pd.DataFrame: Side-by-side comparison table.
-		
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -2789,7 +2746,12 @@ def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) 
 			df_comparison = df_comparison.drop( columns=[ 'File Name' ] )
 		
 		return df_comparison
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame(
 			columns=[
 					'Field',
@@ -2805,20 +2767,17 @@ def create_side_by_side_comparison_dataframe( report: LabelVerificationReport ) 
 		)
 
 def get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame:
-	"""
-	
-		Purpose:
-		--------
-		Return the reviewer-facing comparison DataFrame without internal tooltip/detail columns.
-	
-		Parameters:
-		-----------
+	"""Return the reviewer-facing comparison DataFrame without internal columns.
+
+	This function removes internal tooltip/detail columns before display while preserving those
+	values in the underlying comparison DataFrame for Advanced Mode explanation cards and CSV
+	downloads.
+
+	Args:
 		df_comparison (pd.DataFrame): Source comparison DataFrame.
-	
-		Returns:
-		--------
+
+	Returns:
 		pd.DataFrame: Display-safe comparison DataFrame.
-		
 	"""
 	try:
 		if df_comparison is None or df_comparison.empty:
@@ -2835,25 +2794,26 @@ def get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFr
 				display_dataframe = display_dataframe.drop( columns=[ column ] )
 		
 		return display_dataframe
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_display_comparison_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame( )
 
 def display_side_by_side_comparison_table( report: LabelVerificationReport ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Display a reviewer-facing side-by-side comparison table and conditionally display mismatch
-		explanation cards in Advanced Mode.
-	
-		Parameters:
-		-----------
+	"""Display one report's side-by-side comparison table.
+
+	This function creates and displays the reviewer-facing comparison table for a selected
+	report. In Advanced Mode, it also displays mismatch explanation cards containing evidence,
+	reviewer action, and tooltip detail for flagged fields.
+
+	Args:
 		report (LabelVerificationReport): Verification report to display.
-	
-		Returns:
-		--------
-		None
-	
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -2953,24 +2913,24 @@ def display_side_by_side_comparison_table( report: LabelVerificationReport ) -> 
 					
 					st.divider( )
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_side_by_side_comparison_table( report: LabelVerificationReport ) -> None'
+		Logger( ).write( error )
 		st.warning( f'Unable to display side-by-side comparison table: {e}' )
 
 def create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -> pd.DataFrame:
-	"""
-	
-		Purpose:
-		--------
-		Create an enriched batch-level side-by-side comparison DataFrame from all verification
-		reports.
-	
-		Parameters:
-		-----------
+	"""Create a batch-level side-by-side comparison DataFrame.
+
+	This function converts every rule result in every batch report into enriched comparison
+	rows. The file name is retained for batch-level display and export.
+
+	Args:
 		batch_report (BatchVerificationReport): Batch verification report to convert.
-	
-		Returns:
-		--------
+
+	Returns:
 		pd.DataFrame: Batch-level side-by-side comparison DataFrame.
-	
 	"""
 	try:
 		cfg.throw_if( 'batch_report', batch_report )
@@ -2998,7 +2958,12 @@ def create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -
 			)
 		
 		return pd.DataFrame( records )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame(
 			columns=[
 					'File Name',
@@ -3015,20 +2980,13 @@ def create_batch_comparison_dataframe( batch_report: BatchVerificationReport ) -
 		)
 
 def get_image_diagnostic_status( report: LabelVerificationReport ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Determine the reviewer-facing OCR and image diagnostic status for one label report.
-	
-		Parameters:
-		-----------
+	"""Determine OCR and image diagnostic status for one label report.
+
+	Args:
 		report (LabelVerificationReport): Verification report to inspect.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Diagnostic status.
-		
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -3040,24 +2998,26 @@ def get_image_diagnostic_status( report: LabelVerificationReport ) -> str:
 			return STATUS_WARNING
 		
 		return STATUS_PASS
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_image_diagnostic_status( report: LabelVerificationReport ) -> str'
+		Logger( ).write( error )
 		return STATUS_REVIEW
 
 def get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> str:
-	"""
-	
-		Purpose:
-		--------
-		Return a reviewer-facing recommendation based on OCR text and image-quality notes.
-	
-		Parameters:
-		-----------
+	"""Return a reviewer-facing recommendation based on OCR diagnostics.
+
+	This function inspects OCR text presence and image-quality notes to provide a practical
+	action recommendation for clearer artwork, manual review, improved lighting, sharper focus,
+	deskewing, or higher resolution.
+
+	Args:
 		report (LabelVerificationReport): Verification report to inspect.
-	
-		Returns:
-		--------
+
+	Returns:
 		str: Recommended reviewer action.
-		
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -3106,24 +3066,25 @@ def get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> st
 			)
 		
 		return 'Review the OCR output and image-quality notes before making a final determination.'
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_image_diagnostic_recommendation( report: LabelVerificationReport ) -> str'
+		Logger( ).write( error )
 		return 'Human review is recommended because image diagnostics could not be evaluated.'
 
 def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.DataFrame:
-	"""
-	
-		Purpose:
-		--------
-		Create a structured image and OCR diagnostics DataFrame for one label report.
-	
-		Parameters:
-		-----------
+	"""Create a structured image and OCR diagnostics DataFrame.
+
+	This function converts one report's OCR status, OCR engine, OCR timing, and image-quality
+	notes into reviewer-facing diagnostic records.
+
+	Args:
 		report (LabelVerificationReport): Verification report to convert.
-	
-		Returns:
-		--------
+
+	Returns:
 		pd.DataFrame: Image diagnostics DataFrame.
-		
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -3177,7 +3138,12 @@ def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.
 			)
 		
 		return pd.DataFrame( records )
-	except Exception:
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.DataFrame'
+		Logger( ).write( error )
 		return pd.DataFrame(
 			columns=[
 					'Diagnostic',
@@ -3188,20 +3154,17 @@ def create_image_diagnostics_dataframe( report: LabelVerificationReport ) -> pd.
 		)
 
 def display_image_diagnostics_panel( report: LabelVerificationReport ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display OCR and image-quality diagnostics for one selected label report.
-	
-		Parameters:
-		-----------
+	"""Display OCR and image-quality diagnostics for one selected label report.
+
+	This function shows diagnostic status, OCR text presence, OCR seconds, diagnostic records,
+	and a reviewer-facing recommendation. It is displayed only through Advanced Mode report
+	detail.
+
+	Args:
 		report (LabelVerificationReport): Verification report to display.
-	
-		Returns:
-		--------
-		None
-		
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -3273,24 +3236,25 @@ def display_image_diagnostics_panel( report: LabelVerificationReport ) -> None:
 		
 		st.info( recommendation )
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_image_diagnostics_panel( report: LabelVerificationReport ) -> None'
+		Logger( ).write( error )
 		st.warning( f'Unable to display image diagnostics: {e}' )
 
 def display_report_detail( report: LabelVerificationReport ) -> None:
-	"""
-		
-		Purpose:
-		--------
-		Display one report's reviewer-facing comparison and conditionally display technical detail
-		when Advanced Mode is enabled.
-	
-		Parameters:
-		-----------
+	"""Display one report's comparison and optional technical detail.
+
+	This function displays the selected label header, side-by-side comparison table, and, in
+	Advanced Mode, image diagnostics, rule-by-rule explanations, extracted OCR text, and the
+	reviewer disclaimer.
+
+	Args:
 		report (LabelVerificationReport): Verification report to display.
-	
-		Returns:
-		--------
-		None
-	
+
+	Returns:
+		None.
 	"""
 	try:
 		cfg.throw_if( 'report', report )
@@ -3340,24 +3304,22 @@ def display_report_detail( report: LabelVerificationReport ) -> None:
 		with st.expander( 'Reviewer Disclaimer', expanded=False ):
 			st.write( report.reviewer_disclaimer )
 	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_report_detail( report: LabelVerificationReport ) -> None'
+		Logger( ).write( error )
 		st.warning( f'Unable to display report details: {e}' )
 
 def display_results_viewer( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display summary tables, side-by-side comparisons, selected-label review, and downloads.
-		Simple Mode hides technical detail.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-	
+	"""Display verification results, selected-label review, and downloads.
+
+	This function displays the batch summary table, batch comparison table, optional rule detail
+	table, selected flagged label review, and download controls after verification completes.
+	Simple Mode hides technical rule-detail output.
+
+	Returns:
+		None.
 	"""
 	batch_report = st.session_state[ 'batch_report' ]
 	df_summary = st.session_state[ 'summary_dataframe' ]
@@ -3464,20 +3426,14 @@ def display_results_viewer( ) -> None:
 	display_downloads( )
 
 def display_downloads( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display verification report download controls.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Display verification report download controls.
+
+	This function creates CSV text for summary, comparison, detail, and performance DataFrames,
+	then renders download buttons for those CSV files plus the generated JSON and Markdown
+	reports.
+
+	Returns:
+		None.
 	"""
 	df_summary = st.session_state[ 'summary_dataframe' ]
 	df_details = st.session_state[ 'detail_dataframe' ]
@@ -3548,20 +3504,14 @@ def display_downloads( ) -> None:
 	)
 
 def display_methodology_expander( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display methodology content in Advanced Mode only.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Display methodology and safeguard notes in Advanced Mode.
+
+	This function explains the local OCR approach, deterministic rules, fuzzy matching, strict
+	warning handling, image-quality risk scoring, SLA tracking, and reviewer responsibility. It
+	is intentionally hidden in Simple Mode.
+
+	Returns:
+		None.
 	"""
 	if not st.session_state[ 'simple_mode' ]:
 		with st.expander( 'Methodology and Safeguards', expanded=False ):
@@ -3582,21 +3532,18 @@ def display_methodology_expander( ) -> None:
 			)
 
 def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display the streamlined reviewer workflow for Simple Mode.
-	
-		Parameters:
-		-----------
+	"""Display the streamlined reviewer workflow for Simple Mode.
+
+	This function builds or suppresses the compact manual CAV form depending on manifest
+	presence, displays processing controls, and displays dashboard/results content after
+	verification completes.
+
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
-	
-		Returns:
-		--------
-		None
-		
+
+	Returns:
+		None.
 	"""
 	application = create_simple_label_application( uploaded_manifest )
 	display_processing_controls( uploaded_manifest, uploaded_files, application )
@@ -3606,21 +3553,17 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 		display_results_viewer( )
 
 def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Display the full reviewer workflow for Advanced Mode.
-	
-		Parameters:
-		-----------
+	"""Display the full reviewer workflow for Advanced Mode.
+
+	This function renders the full CAV form, upload preview, processing controls, post-run
+	dashboard/results content, and methodology expander.
+
+	Args:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
-	
-		Returns:
-		--------
-		None
-		
+
+	Returns:
+		None.
 	"""
 	application = create_manual_label_application( )
 	display_upload_preview( uploaded_manifest, uploaded_files )
@@ -3631,27 +3574,20 @@ def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ 
 		display_results_viewer( )
 	
 	display_methodology_expander( )
-	
+
 # ==========================================================================================
 # Main
 # ==========================================================================================
 
 def main( ) -> None:
-	"""
-	
-		Purpose:
-		--------
-		Run the Fiddy Streamlit application with sidebar controls rendered once and workflow
-		content routed by review mode.
-	
-		Parameters:
-		-----------
-		None
-	
-		Returns:
-		--------
-		None
-		
+	"""Run the Fiddy Streamlit application.
+
+	This function configures the page, initializes session state, renders sidebar controls,
+	displays the header and upload panel, synchronizes manifest upload state, and routes the
+	reviewer into Simple or Advanced workflow rendering based on the current review mode.
+
+	Returns:
+		None.
 	"""
 	configure_page( )
 	initialize_session_state( )
