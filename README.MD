@@ -4,7 +4,7 @@
 
 
 [Overview](#-overview) •
-[Installation](#%EF%B8%8F-installation) •
+[Installation](#-installation) •
 [Capabilities](#-capabilities) •
 [Workflow](#-workflow) •
 [Architecture](#%EF%B8%8F-architecture) •
@@ -12,8 +12,7 @@
 [Usage](#-usage-examples) •
 [Outputs](#-outputs) •
 [Configuration](#%EF%B8%8F-configuration) •
-[Run](#%EF%B8%8F-run-the-app) 
-___
+[Run](#%EF%B8%8F-run-the-app)
 
 ## 🚀 Overview
 
@@ -804,6 +803,15 @@ Some Python packages require external system tools.
 | [Poppler](https://github.com/oschwartz10612/poppler-windows)   | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
 
 
+## Documentation
+
+Full documentation is available in the `docs/` directory and can be built with MkDocs.
+
+| Guide                                        | Purpose |
+|----------------------------------------------|---|
+| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, and dependency setup. |
+| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support. |
+| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment instructions. |
 
 
 ## 👮 License

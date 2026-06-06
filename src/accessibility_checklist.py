@@ -758,7 +758,7 @@ class AccessibilityChecklist( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'apply_status_map( self, status_map: Dict[str, str], notes_map: Dict[str, str] = None ) -> None'
+			error.method = 'apply_status_map( self, *args ) -> None'
 			Logger( ).write( error )
 			return None
 	
