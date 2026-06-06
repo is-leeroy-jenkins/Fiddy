@@ -15,19 +15,19 @@
 [Run](#%EF%B8%8F-run-the-app) 
 ___
 
-**AI-Powered Alcohol Label Verification App**
+**AI-Assited Label Verification**
 
-Fiddy is a standalone Streamlit application that helps alcohol-label compliance reviewers compare
-submitted label artwork against application data. It combines AI-assisted local OCR, deterministic
+Fiddy is a standalone application written in python that helps alcohol-label reviewers compare
+label submissions against data. It combines an AI-assisted local OCR, deterministic
 verification rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
 into a fast, explainable reviewer-assist workflow.
 
-Fiddy is designed for practical compliance operations: upload the application data, upload the label
-artwork, run verification, review exceptions, and download results.
+Fiddy is designed to simplify and expedite compliance operations: upload the application data and label, 
+run a verification, review and download.
 
-## 📌 Overview
+## 🚀 Overview
 
-Fiddy supports alcohol-label review by comparing application data to the text and evidence found on
+Fiddy supports alcohol-label review by comparing data from CAV to the text and evidence found on
 submitted label artwork.
 
 The reviewer can work from a CSV manifest for batch review or enter CAV-style application values
@@ -35,22 +35,11 @@ manually for single-label review. Fiddy then extracts readable label text using 
 the label against structured application values, and produces a field-by-field review surface with
 status, severity, confidence, explanation, and recommended reviewer action.
 
-The application is intentionally transparent. It does not hide uncertainty behind a false pass. If
-OCR is weak, if an image is difficult to read, or if a visual condition requires judgment, Fiddy
-marks the item for review and explains why.
-Here’s a **short, clean, README‑friendly version** that blends naturally with your existing style,
-avoids addressing any individual, and aligns with the stated goal in the email: *to understand how
-you approach problems relevant to the work.*
+Fiddy is intentionally transparent. If the OCR is weak, if an image is difficult to read, 
+or if a visual condition requires judgment, Fiddy marks the item for review and explains why.
 
-It keeps the icons, keeps it tight, and stays focused on demonstrating problem‑solving approach
-rather than addressing a person.
-
-
-
-## 🚀 Solution Alignment & Goals
-
-This implementation provides a clear, practical approach to automating
-alcohol‑label review while emphasizing explainability, security, and alignment with real analyst
+Fiddy provides a clear and practical approach to automating
+alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
 workflows.
 
 - **🔍 Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
@@ -77,8 +66,8 @@ workflows.
   
 ## 🧠 AI-Assisted Verification
 
-Fiddy is AI-assisted, not AI-autonomous. The application uses local OCR, image analysis, fuzzy
-matching, confidence scoring, and deterministic compliance rules to help reviewers evaluate alcohol
+Fiddy is AI-assisted, bt not AI-autonomous. The application uses local OCR, image analysis, fuzzy
+matching, confidence scoring, and deterministic rules to help reviewers evaluate alcohol
 label artwork faster and more consistently.
 
 The AI-assisted pipeline performs four jobs:
