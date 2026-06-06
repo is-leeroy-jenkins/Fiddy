@@ -45,11 +45,11 @@ you approach problems relevant to the work.*
 It keeps the icons, keeps it tight, and stays focused on demonstrating problem‑solving approach
 rather than addressing a person.
 
----
 
-## 🚀 Solution Alignment & Assignment Goals
 
-This implementation was structured to demonstrate a clear, practical approach to automating
+## 🚀 Solution Alignment & Goals
+
+This implementation provides a clear, practical approach to automating
 alcohol‑label review while emphasizing explainability, security, and alignment with real analyst
 workflows.
 
@@ -74,8 +74,7 @@ workflows.
 - **🧑‍ Human‑in‑the‑Loop Handling** — Low‑confidence or ambiguous fields are routed for manual
   review, reducing false positives and supporting compliance‑oriented decision‑making.
 
----
-
+  
 ## 🧠 AI-Assisted Verification
 
 Fiddy is AI-assisted, not AI-autonomous. The application uses local OCR, image analysis, fuzzy
