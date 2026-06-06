@@ -113,7 +113,7 @@ focus reviewer attention on exceptions.
 
 ## 🧭 Workflow
 
-Fiddy supports two reviewer workflows.
+Fiddy supports two reviewer workflows: Simple Mode and Advanced Mode
 
 ### Simple Mode
 
@@ -174,20 +174,20 @@ Azure-compatible runtime boundary.
 
 | Component                                                                                             | Role                                                                                               |
 |-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| [app](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/app.py)                                    | Streamlit interface, workflow routing, uploads, reviewer controls, result display, and downloads.  |
-| [config](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py)                              | Application settings, paths, upload limits, OCR settings, thresholds, assets, and logging paths.   |
-| [batch_manifest](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_manifest.py)          | CSV manifest parsing, validation, filename matching, and conversion to application records.        |
-| [batch_processor](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_processor.py)        | Batch orchestration, per-file isolation, skipped-file tracking, and batch result assembly.         |
-| [image_processor](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/image_processor.py)        | Image loading, EXIF orientation correction, mode conversion, and OCR preparation.                  |
-| [visual_quality](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/visual_quality.py)          | Blur, contrast, glare, darkness, skew, size, and readability diagnostics.                          |
-| [ocr_engine](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/ocr_engine.py)                  | Local OCR extraction from supported image files and PDF pages.                                     |
-| [normalizer](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/normalizer.py)                  | Text, punctuation, whitespace, ABV, proof, and unit normalization.                                 |
-| [label_rules](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_rules.py)                | Field-level verification rules, fuzzy matching, numeric comparison, and result creation.           |
-| [warning_validator](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/warning_validator.py)    | Government-warning presence, exact text, prefix, and visual-review handling.                       |
-| [label_verifier](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_verifier.py)          | Single-label OCR coordination, rule execution, and verification report creation.                   |
-| [performance_monitor](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
-| [report_writer](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
-| [booger](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
+| [app.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/app.py)                                 | Streamlit interface, workflow routing, uploads, reviewer controls, result display, and downloads.  |
+| [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py)                              | Application settings, paths, upload limits, OCR settings, thresholds, assets, and logging paths.   |
+| [batch_manifest.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_manifest.py)          | CSV manifest parsing, validation, filename matching, and conversion to application records.        |
+| [batch_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_processor.py)        | Batch orchestration, per-file isolation, skipped-file tracking, and batch result assembly.         |
+| [image_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/image_processor.py)        | Image loading, EXIF orientation correction, mode conversion, and OCR preparation.                  |
+| [visual_quality.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/visual_quality.py)          | Blur, contrast, glare, darkness, skew, size, and readability diagnostics.                          |
+| [ocr_engine.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/ocr_engine.py)                  | Local OCR extraction from supported image files and PDF pages.                                     |
+| [normalizer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/normalizer.py)                  | Text, punctuation, whitespace, ABV, proof, and unit normalization.                                 |
+| [label_rules.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_rules.py)                | Field-level verification rules, fuzzy matching, numeric comparison, and result creation.           |
+| [warning_validator.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/warning_validator.py)    | Government-warning presence, exact text, prefix, and visual-review handling.                       |
+| [label_verifier.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_verifier.py)          | Single-label OCR coordination, rule execution, and verification report creation.                   |
+| [performance_monitor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
+| [report_writer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
+| [booger.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
 
 
 ## 🗺️ Component UML
