@@ -437,7 +437,7 @@ The side-by-side comparison is the primary reviewer surface.
 ## ⚙️ Installation
 
 - Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended.
-- Detailed installation instructions can be found in
+- Comprehensive installation instructions can be found in
   the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md)
   that is provided in this repo.
 
@@ -530,7 +530,7 @@ Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
 
 ## 🛠️ Configuration
 
-Configuration details are centralized in the  [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py) file.
+Configuration details are centralized in the [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py) file.
 
 | Setting                      | Purpose                                |
 |------------------------------|----------------------------------------|
