@@ -267,11 +267,7 @@ class ImageProcessor( ):
 			error.method = 'to_cv_gray( image: Image.Image ) -> np.ndarray'
 			Logger( ).write( error )
 			self._notes.append( 'Grayscale conversion failed.' )
-			return np.full(
-				(self._minimum_height, self._minimum_width),
-				255,
-				dtype=np.uint8
-			)
+			return np.full( (self._minimum_height, self._minimum_width), 255, dtype=np.uint8 )
 	
 	def preprocess_for_ocr( self, image: Image.Image ) -> Image.Image:
 		"""Apply deterministic preprocessing to improve OCR extraction.
@@ -299,14 +295,8 @@ class ImageProcessor( ):
 			gray = self.to_cv_gray( self._image )
 			
 			denoised = cv2.fastNlMeansDenoising( gray, None, 10, 7, 21 )
-			thresholded = cv2.adaptiveThreshold(
-				denoised,
-				255,
-				cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-				cv2.THRESH_BINARY,
-				31,
-				11
-			)
+			thresholded = cv2.adaptiveThreshold( denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+				cv2.THRESH_BINARY, 31, 11 )
 			
 			kernel = np.array(
 				[

@@ -6,7 +6,7 @@
       Created:                 06-03-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        06-03-2026
+      Last Modified On:        06-06-2026
     ******************************************************************************************
     <copyright file="app.py" company="Terry D. Eppler">
 
@@ -40,7 +40,7 @@
 
         This module initializes reviewer session state, configures the page, manages manifest
         and artwork uploads, synchronizes CAV form values, runs manifest-driven and manual
-        verification workflows, displays readiness checks, dashboards, side-by-side comparison
+        verification workflows, displays readiness checks, accessibility guidance, dashboards, side-by-side comparison
         tables, OCR diagnostics, result details, and report downloads.
     </summary>
     ******************************************************************************************
@@ -84,14 +84,14 @@ from src.report_writer import ReportWriter
 def initialize_session_state( ) -> None:
 	"""Initialize all Streamlit session-state keys used by the application.
 
-	This function prepares the batch result, report objects, DataFrame placeholders, manifest
-	state, generated report text, verification flags, selected report index, reviewer display
-	mode, accessibility options, and CAV form fields before any widgets or display functions
-	read those keys.
+	Purpose:
+		Prepare batch results, report objects, display DataFrames, manifest state, generated report
+		text, verification flags, selected report index, reviewer mode, accessibility options,
+		keyboard guidance state, and CAV form fields before widgets or display functions read those
+		keys. The function is idempotent and preserves existing state across Streamlit reruns.
 
-	The function is intentionally idempotent. Existing session-state values are preserved so
-	Streamlit reruns do not discard uploaded manifest state, CAV form edits, verification
-	results, selected report navigation, or accessibility choices.
+	Parameters:
+		None.
 
 	Returns:
 		None.
@@ -145,13 +145,25 @@ def initialize_session_state( ) -> None:
 		st.session_state[ 'selected_report_index' ] = 0
 	
 	if 'simple_mode' not in st.session_state:
-		st.session_state[ 'simple_mode' ] = True
+		st.session_state[ 'simple_mode' ] = bool( getattr( cfg, 'DEFAULT_SIMPLE_MODE', True ) )
 	
 	if 'high_contrast_mode' not in st.session_state:
-		st.session_state[ 'high_contrast_mode' ] = False
+		st.session_state[ 'high_contrast_mode' ] = bool(
+			getattr( cfg, 'DEFAULT_HIGH_CONTRAST_MODE', False ) )
 	
 	if 'large_text_mode' not in st.session_state:
-		st.session_state[ 'large_text_mode' ] = False
+		st.session_state[ 'large_text_mode' ] = bool(
+			getattr( cfg, 'DEFAULT_LARGE_TEXT_MODE', False ) )
+	
+	if 'show_keyboard_notes' not in st.session_state:
+		st.session_state[ 'show_keyboard_notes' ] = bool(
+			getattr( cfg, 'SHOW_KEYBOARD_ACCESSIBILITY_NOTES', True ) )
+	
+	if 'processing_status_message' not in st.session_state:
+		st.session_state[ 'processing_status_message' ] = ''
+	
+	if 'processing_status_history' not in st.session_state:
+		st.session_state[ 'processing_status_history' ] = [ ]
 	
 	initialize_cav_form_state( )
 
@@ -712,21 +724,84 @@ def get_configured_image_path( value: object ) -> str:
 		return ''
 
 def get_accessibility_css( ) -> str:
-	"""Return accessibility CSS overrides based on current sidebar settings.
+	"""Return accessibility CSS overrides based on current reviewer settings.
 
-	This function reads large-text and high-contrast options from Streamlit session state and
-	returns a style block containing the applicable CSS overrides. Empty CSS sections are
-	included safely when options are disabled.
+	Purpose:
+		Build the base accessibility layer for keyboard navigation, visible focus, high contrast,
+		large text, large touch targets, readable disabled states, and table readability. The CSS is
+		generated from session-state flags so Simple and Advanced workflows share the same
+		accessibility behavior.
+
+	Parameters:
+		None.
 
 	Returns:
-		str: CSS override block, or an empty string if CSS generation fails.
+		str: CSS override block, or an empty string when CSS generation fails.
 	"""
 	try:
 		large_text = bool( st.session_state.get( 'large_text_mode', False ) )
 		high_contrast = bool( st.session_state.get( 'high_contrast_mode', False ) )
-		
+		minimum_target = int( getattr( cfg, 'MINIMUM_TOUCH_TARGET_PX', 44 ) )
 		large_text_css = ''
 		high_contrast_css = ''
+		
+		base_accessibility_css = f"""
+		button,
+		div.stButton > button,
+		div.stDownloadButton > button,
+		div[data-testid="stFileUploader"] button,
+		input,
+		textarea,
+		select,
+		div[data-baseweb="select"] > div,
+		div[role="button"] {{
+			min-height: {minimum_target}px !important;
+		}}
+
+		button:focus,
+		button:focus-visible,
+		input:focus,
+		input:focus-visible,
+		textarea:focus,
+		textarea:focus-visible,
+		div[role="button"]:focus,
+		div[role="button"]:focus-visible,
+		div[data-baseweb="select"]:focus-within,
+		div[data-testid="stFileUploader"] section:focus-within {{
+			outline: 3px solid #00A3FF !important;
+			outline-offset: 3px !important;
+			box-shadow: 0 0 0 3px rgba(0, 163, 255, 0.25) !important;
+		}}
+
+		button:disabled,
+		button[disabled],
+		div.stButton > button:disabled,
+		div.stDownloadButton > button:disabled {{
+			opacity: 0.70 !important;
+			cursor: not-allowed !important;
+		}}
+
+		.fiddy-keyboard-note {{
+			border: 1px solid #007AFC;
+			border-radius: 0.75rem;
+			padding: 0.85rem 1.0rem;
+			background: rgba(0, 122, 252, 0.12);
+			color: #EAF3FF;
+			font-size: 0.96rem;
+			line-height: 1.45;
+			margin-bottom: 1.0rem;
+		}}
+
+		.fiddy-primary-action button {{
+			font-size: 1.08rem !important;
+			font-weight: 800 !important;
+		}}
+
+		div[data-testid="stDataFrame"] div[role="gridcell"],
+		div[data-testid="stDataEditor"] div[role="gridcell"] {{
+			line-height: 1.35 !important;
+		}}
+		"""
 		
 		if large_text:
 			large_text_css = """
@@ -756,7 +831,8 @@ def get_accessibility_css( ) -> str:
 				font-size: 1.30rem !important;
 			}
 
-			.fiddy-panel-text {
+			.fiddy-panel-text,
+			.fiddy-keyboard-note {
 				font-size: 1.08rem !important;
 			}
 			"""
@@ -773,7 +849,8 @@ def get_accessibility_css( ) -> str:
 			}
 
 			.fiddy-header,
-			.fiddy-panel {
+			.fiddy-panel,
+			.fiddy-keyboard-note {
 				background: #000000 !important;
 				border: 2px solid #FFFFFF !important;
 			}
@@ -783,7 +860,8 @@ def get_accessibility_css( ) -> str:
 			label,
 			p,
 			span,
-			div {
+			div,
+			.fiddy-keyboard-note {
 				color: #FFFFFF !important;
 			}
 
@@ -804,7 +882,9 @@ def get_accessibility_css( ) -> str:
 			}
 
 			div.stButton > button:hover,
-			div.stDownloadButton > button:hover {
+			div.stDownloadButton > button:hover,
+			div.stButton > button:focus,
+			div.stDownloadButton > button:focus {
 				background: #003B73 !important;
 				border: 2px solid #00A3FF !important;
 				color: #FFFFFF !important;
@@ -822,6 +902,7 @@ def get_accessibility_css( ) -> str:
 		
 		return f"""
 		<style>
+			{base_accessibility_css}
 			{large_text_css}
 			{high_contrast_css}
 		</style>
@@ -1012,9 +1093,14 @@ def configure_page( ) -> None:
 def display_sidebar_header( ) -> None:
 	"""Display the application logo and reviewer controls in the sidebar.
 
-	This function resolves and displays the configured Fiddy logo, then renders a collapsible
-	control group for Simple versus Advanced review mode and accessibility toggles. The selected
-	review mode updates session state so the main workflow can hide or show technical details.
+	Purpose:
+		Render the configured Fiddy logo and reviewer controls for Simple or Advanced mode, high
+		contrast mode, large text mode, and keyboard guidance notes. Session-state values are
+		updated immediately so the main workflow can hide technical controls and apply
+		accessibility CSS consistently.
+
+	Parameters:
+		None.
 
 	Returns:
 		None.
@@ -1051,19 +1137,24 @@ def display_sidebar_header( ) -> None:
 		st.toggle(
 			'High Contrast',
 			key='high_contrast_mode',
-			help='Increase contrast for readability.'
+			help='Increase contrast for visual accessibility.'
 		)
 		
 		st.toggle(
 			'Large Text',
 			key='large_text_mode',
-			help='Increase text and control sizes.'
+			help='Increase text and control size for readability.'
 		)
 		
-		mode_text = 'Simple Mode: technical detail hidden.' if st.session_state[ 'simple_mode' ] \
-			else 'Advanced Mode: technical detail visible.'
-		
-		st.caption( mode_text )
+		st.toggle(
+			'Keyboard Tips',
+			key='show_keyboard_notes',
+			help='Show keyboard navigation guidance in the reviewer workflow.'
+		)
+	
+	with st.sidebar.expander( 'Demo Assets', expanded=False ):
+		st.caption( 'Place demonstration label artwork in samples/labels.' )
+		st.caption( 'Place demonstration CSV manifests in samples/manifests.' )
 
 def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
 	"""Create application data for Simple Mode manual artwork verification.
@@ -2267,6 +2358,43 @@ def display_processing_readiness( readiness: Dict[ str, object ] ) -> None:
 		Logger( ).write( error )
 		st.warning( f'Unable to display processing readiness: {e}' )
 
+def display_keyboard_accessibility_notes( ) -> None:
+	"""Display keyboard navigation guidance for reviewer workflows.
+
+	Purpose:
+		Provide visible keyboard guidance that does not depend on mouse-hover behavior. The note
+		supports the accessibility requirement by telling reviewers how to traverse controls,
+		activate buttons, move backward, and reach downloads using standard keyboard operations.
+
+	Parameters:
+		None.
+
+	Returns:
+		None.
+	"""
+	try:
+		if not bool( st.session_state.get( 'show_keyboard_notes', True ) ):
+			return
+		
+		st.markdown(
+			"""
+			<div class="fiddy-keyboard-note">
+				<strong>Keyboard access:</strong> Press <strong>Tab</strong> to move through uploads,
+				buttons, tables, and downloads. Press <strong>Shift + Tab</strong> to move backward.
+				Press <strong>Enter</strong> or <strong>Space</strong> to activate the selected button.
+				Visible blue outlines show the active control.
+			</div>
+			""",
+			unsafe_allow_html=True
+		)
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_keyboard_accessibility_notes( ) -> None'
+		Logger( ).write( error )
+		return None
+
 # ==========================================================================================
 # Display Panels
 # ==========================================================================================
@@ -2361,11 +2489,13 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 		application: LabelApplication ) -> None:
 	"""Display the unified processing controller.
 
-	This function renders readiness information, worker and SLA controls, Run Verification and
-	Clear Results buttons, and dispatches to the manifest-driven or manual verification workflow
-	based on the active processing mode.
+	Purpose:
+		Render readiness guidance, reviewer action buttons, and workflow dispatch logic for both
+		manifest-driven and manual CAV verification. Simple Mode hides technical worker and SLA
+		controls to preserve a low-navigation reviewer experience, while Advanced Mode exposes
+		those controls for testing and tuning.
 
-	Args:
+	Parameters:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label files.
 		application (LabelApplication): CAV application values.
@@ -2378,8 +2508,8 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 		<div class="fiddy-panel">
 			<div class="fiddy-panel-title">2. Run Verification</div>
 			<div class="fiddy-panel-text">
-				Select the active workflow, confirm readiness, and run local OCR/rule
-				verification. Processing runs locally without external OCR or AI endpoints.
+				Confirm readiness and run local OCR/rule verification. Processing runs locally without
+				external OCR or AI endpoints.
 			</div>
 		</div>
 		""",
@@ -2389,41 +2519,68 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 	readiness = get_processing_readiness( uploaded_manifest, uploaded_files, application )
 	display_processing_readiness( readiness )
 	
-	col1, col2, col3, col4 = st.columns( [ 0.22, 0.22, 0.28, 0.28 ] )
+	simple_mode = bool( st.session_state.get( 'simple_mode', True ) )
+	max_workers = int( getattr( cfg, 'MAX_PARALLEL_WORKERS', 4 ) )
+	sla_seconds = float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) )
 	
-	with col1:
-		max_workers = st.number_input(
-			'Workers',
-			min_value=1,
-			max_value=8,
-			value=4,
-			step=1,
-			help='Parallel workers for batch processing.'
-		)
-	
-	with col2:
-		sla_seconds = st.number_input(
-			'SLA Seconds',
-			min_value=1.0,
-			max_value=30.0,
-			value=float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) ),
-			step=0.5,
-			help='Per-label processing target.'
-		)
-	
-	with col3:
-		run_button = st.button(
-			'Run Verification',
-			type='primary',
-			disabled=not bool( readiness.get( 'is_ready', False ) ),
-			use_container_width=True
-		)
-	
-	with col4:
-		clear_button = st.button(
-			'Clear Results',
-			use_container_width=True
-		)
+	if simple_mode:
+		left_column, right_column = st.columns( [ 0.55, 0.45 ] )
+		
+		with left_column:
+			run_button = st.button(
+				'Run Verification',
+				type='primary',
+				disabled=not bool( readiness.get( 'is_ready', False ) ),
+				use_container_width=True,
+				key='simple_run_verification_button'
+			)
+		
+		with right_column:
+			clear_button = st.button(
+				'Clear Results',
+				use_container_width=True,
+				key='simple_clear_results_button'
+			)
+	else:
+		col1, col2, col3, col4 = st.columns( [ 0.22, 0.22, 0.28, 0.28 ] )
+		
+		with col1:
+			max_workers = st.number_input(
+				'Workers',
+				min_value=1,
+				max_value=int( getattr( cfg, 'MAX_PARALLEL_WORKERS', 8 ) ),
+				value=min( 4, int( getattr( cfg, 'MAX_PARALLEL_WORKERS', 4 ) ) ),
+				step=1,
+				help='Parallel workers for batch processing.',
+				key='advanced_max_workers_input'
+			)
+		
+		with col2:
+			sla_seconds = st.number_input(
+				'SLA Seconds',
+				min_value=1.0,
+				max_value=30.0,
+				value=float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) ),
+				step=0.5,
+				help='Per-label processing target.',
+				key='advanced_sla_seconds_input'
+			)
+		
+		with col3:
+			run_button = st.button(
+				'Run Verification',
+				type='primary',
+				disabled=not bool( readiness.get( 'is_ready', False ) ),
+				use_container_width=True,
+				key='advanced_run_verification_button'
+			)
+		
+		with col4:
+			clear_button = st.button(
+				'Clear Results',
+				use_container_width=True,
+				key='advanced_clear_results_button'
+			)
 	
 	if clear_button:
 		clear_results( )
@@ -2432,6 +2589,8 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 	if not run_button:
 		return
 	
+	st.session_state[ 'processing_status_message' ] = 'Starting verification.'
+	st.session_state[ 'processing_status_history' ] = [ 'Starting verification.' ]
 	mode = str( readiness.get( 'mode', 'Not Ready' ) )
 	
 	if mode == 'Manifest + Artwork Batch':
@@ -2446,8 +2605,6 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 	if mode == 'Manual CAV + Artwork Review':
 		run_manual_fallback_verification( application, uploaded_files )
 		return
-	
-	st.warning( 'Verification cannot run until the workflow is ready.' )
 
 def display_batch_dashboard( ) -> None:
 	"""Display batch-level metrics and Advanced Mode diagnostics.
@@ -3534,17 +3691,19 @@ def display_methodology_expander( ) -> None:
 def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
 	"""Display the streamlined reviewer workflow for Simple Mode.
 
-	This function builds or suppresses the compact manual CAV form depending on manifest
-	presence, displays processing controls, and displays dashboard/results content after
-	verification completes.
+	Purpose:
+		Render the low-navigation reviewer workflow consisting of upload, run verification, and
+		review results. Technical processing controls, manifest previews, diagnostics, methodology,
+		and raw rule tables remain hidden unless Advanced Mode is selected.
 
-	Args:
+	Parameters:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 
 	Returns:
 		None.
 	"""
+	display_keyboard_accessibility_notes( )
 	application = create_simple_label_application( uploaded_manifest )
 	display_processing_controls( uploaded_manifest, uploaded_files, application )
 	
@@ -3555,16 +3714,19 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
 	"""Display the full reviewer workflow for Advanced Mode.
 
-	This function renders the full CAV form, upload preview, processing controls, post-run
-	dashboard/results content, and methodology expander.
+	Purpose:
+		Render the full CAV form, upload preview, processing controls, dashboard, results content,
+		diagnostics, rule detail, downloads, and methodology material for testing, tuning, and
+		developer-level inspection.
 
-	Args:
+	Parameters:
 		uploaded_manifest (object): Uploaded manifest file.
 		uploaded_files (List[object]): Uploaded label artwork files.
 
 	Returns:
 		None.
 	"""
+	display_keyboard_accessibility_notes( )
 	application = create_manual_label_application( )
 	display_upload_preview( uploaded_manifest, uploaded_files )
 	display_processing_controls( uploaded_manifest, uploaded_files, application )
