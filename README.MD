@@ -434,7 +434,7 @@ old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled
 
 Fiddy presents results in progressively detailed layers.
 
-#### Batch Dashboard
+### Batch Dashboard
 
 The dashboard provides a quick summary of the current review run:
 
@@ -444,11 +444,11 @@ The dashboard provides a quick summary of the current review run:
 * Needs-review items
 * SLA breaches
 
-#### Summary Table
+### Summary Table
 
 The summary table provides one row per processed label.
 
-#### Side-by-Side Comparison
+### Side-by-Side Comparison
 
 The side-by-side comparison is the primary reviewer surface.
 
