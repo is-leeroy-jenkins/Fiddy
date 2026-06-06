@@ -75,6 +75,15 @@ marks the item for review and explains why.
 | Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
 | Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
 
+## Documentation
+
+Full documentation is available in the `docs/` directory and can be built with MkDocs.
+
+| Guide                                        | Purpose                                             |
+|----------------------------------------------|-----------------------------------------------------|
+| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, and dependency setup.            |
+| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support. |
+| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment instructions.        |
 
 ## 🧠 AI-Assisted Verification
 
@@ -802,16 +811,6 @@ Some Python packages require external system tools.
 | [Tesseract OCR](https://github.com/UB-Mannheim/tesseract/wiki) | OCR extraction | Required by `pytesseract`. Must be installed on the host or container image. |
 | [Poppler](https://github.com/oschwartz10612/poppler-windows)   | PDF processing | Required by `pdf2image` when processing PDF label artwork.                   |
 
-
-## Documentation
-
-Full documentation is available in the `docs/` directory and can be built with MkDocs.
-
-| Guide                                        | Purpose |
-|----------------------------------------------|---|
-| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, and dependency setup. |
-| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support. |
-| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment instructions. |
 
 
 ## 👮 License
