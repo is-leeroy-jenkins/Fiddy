@@ -71,7 +71,7 @@ workflows.
 - **🧱 Modular Architecture** — OCR, diagnostics, matching, and reporting are separated into clear
   components, making the system maintainable, testable, and easy to extend.
 
-- **🧑‍⚖️ Human‑in‑the‑Loop Handling** — Low‑confidence or ambiguous fields are routed for manual
+- **🧑‍ Human‑in‑the‑Loop Handling** — Low‑confidence or ambiguous fields are routed for manual
   review, reducing false positives and supporting compliance‑oriented decision‑making.
 
 ---
