@@ -455,7 +455,7 @@ The side-by-side comparison is the primary reviewer surface.
 
 - Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended.
 - Comprehensive installation instructions can be found in
-  the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/INSTALLATION.md)
+  the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/docs/INSTALLATION.md)
   that is provided in this repo.
 
 ### Prerequisites
@@ -666,6 +666,8 @@ Azure-compatible runtime boundary.
 | [performance_monitor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
 | [report_writer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
 | [booger.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
+| [acceptance_checker.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/acceptance_checker.py) | Evaluates runtime batch evidence against stakeholder acceptance requirements. |
+| [accessibility_checklist.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/accessibility_checklist.py) | Defines the manual accessibility checklist for keyboard navigation, high contrast, large text, result review, and downloads. |
 
 
 
