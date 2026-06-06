@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="..assets/images/fiddy_fade_loop_gentle.gif" alt="Fiddy animated header" width="100%">
+  <img src="../assets/images/fiddy_fade_loop_gentle.gif" alt="Fiddy animated header" width="100%">
 </p>
 
 # Fiddy Documentation
