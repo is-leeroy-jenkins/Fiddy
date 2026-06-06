@@ -22,8 +22,7 @@ label submissions against data. It combines an AI-assisted local OCR, determinis
 verification rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
 into a fast, explainable reviewer-assist workflow.
 
-Fiddy is designed to simplify and expedite compliance operations: upload the application data and label, 
-run a verification, review and download.
+## 🎦 Features
 
 Fiddy provides a clear and practical approach to automating
 alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
@@ -434,7 +433,7 @@ The side-by-side comparison is the primary reviewer surface.
 | JSON Report     | Structured machine-readable report.                  |
 | Markdown Report | Human-readable review report.                        |
 
-## ⚙️ Installation
+## 📥 Installation
 
 - Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended.
 - Comprehensive installation instructions can be found in
@@ -528,7 +527,7 @@ Windows:
 Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
 - Detailed instructions on how to set environment variables can be found [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/PATH-POPPLER.md). 
 
-## 🛠️ Configuration
+## ⚙️ Configuration
 
 Configuration details are centralized in the [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py) file.
 
@@ -566,7 +565,7 @@ REPORT_FILENAME_PREFIX=fiddy_report
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-## ▶️ Run the App
+## 🏃 Run the App
 
 Start Fiddy:
 
@@ -652,14 +651,14 @@ Azure-compatible runtime boundary.
 
 
 
-## 🗺️ Component UML
+## 🗺️ Component Map
 
 <p align="center">
   <img src="assets/images/fiddy-component-map.png" alt="Fiddy architecture diagram" width="100%">
 </p>
 
 
-## ♿ Reviewer Controls
+## 🎮 Reviewer Controls
 
 Fiddy includes reviewer controls for usability and accessibility:
 
@@ -768,7 +767,7 @@ Known limitations include:
 * Queue-based large-scale processing is outside the prototype scope.
 * Production performance commitments require testing in the final runtime.
 
-## 📦 Dependencies
+## 👶 Dependencies
 
 Fiddy uses a compact Python dependency stack focused on a Web UI, local OCR, image processing,
 fuzzy matching, structured models, and test automation.
@@ -799,9 +798,9 @@ Some Python packages require external system tools.
 
 
 
-## 📄 License
+## 👮 License
 
-Fiddy is distributed for free, general-purpose use under the MIT license located [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt).
+Fiddy is distributed for free and available for general use under the MIT license located [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/LICENSE.txt).
 
 
 
