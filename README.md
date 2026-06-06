@@ -566,6 +566,23 @@ Configuration details are centralized in the [config.py](https://github.com/is-l
 | `REPORT_FILENAME_PREFIX`     | Report download filename prefix.       |
 | `LOG_PATH`                   | SQLite exception log database path.    |
 | `LOG_FILE`                   | SQLite exception table name.           |
+| `LABEL_PROCESSING_SLA_SECONDS` | Per-label processing target, defaulting to 5 seconds. |
+| `BATCH_ACCEPTANCE_MIN_FILES` | Minimum formal acceptance batch size, defaulting to 20. |
+| `BATCH_ACCEPTANCE_MAX_FILES` | Maximum prototype acceptance batch size, defaulting to 50. |
+| `BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS` | Maximum accepted average processing time. |
+| `BATCH_ACCEPTANCE_MAX_P95_SECONDS` | Maximum accepted p95 processing time. |
+| `BATCH_ACCEPTANCE_MAX_BREACH_RATE` | Maximum accepted SLA breach rate. |
+| `DEPLOYMENT_TARGET` | Deployment target label such as local or Azure. |
+| `REQUIRE_LOCAL_OCR` | Requires OCR to run locally. |
+| `ALLOW_EXTERNAL_ML_ENDPOINTS` | Allows or blocks external ML endpoints. |
+| `ENABLE_UPLOAD_PERSISTENCE` | Controls whether uploaded files may persist beyond runtime handling. |
+| `ENABLE_RAW_TEXT_LOGGING` | Controls whether raw OCR/application text may be logged. |
+| `ENABLE_FILE_PATH_LOGGING` | Controls whether raw file paths may be logged. |
+| `LOG_RETENTION_DAYS` | Local exception-log retention window. |
+| `DEFAULT_SIMPLE_MODE` | Starts the interface in Simple Mode by default. |
+| `DEFAULT_HIGH_CONTRAST_MODE` | Default high-contrast accessibility setting. |
+| `DEFAULT_LARGE_TEXT_MODE` | Default large-text accessibility setting. |
+| `REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK` | Indicates whether manual keyboard accessibility validation is required. |
 
 Example `.env` file:
 
@@ -597,12 +614,15 @@ Open the local app:
 http://localhost:8501
 ```
 
-## 🧪 Testing
+## 🧪 Acceptance Validation
 
-Run the test suite:
+Fiddy includes a lightweight acceptance-validation workflow for checking prototype requirements
+without adding a testing framework to the runtime container.
+
+Run the validation script from the project root:
 
 ```bash
-pytest
+python tests/acceptance_requirements_check.py
 ```
 
 Recommended test coverage includes:
