@@ -17,6 +17,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\docs\USER_GUIDE.md">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\samples\manifests\template.csv">
           <value>
             <Attribute>
