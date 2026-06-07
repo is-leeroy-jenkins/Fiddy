@@ -1,9 +1,59 @@
-## 💻 Usage Examples
+# 💻 Examples
 
-The Streamlit interface is the primary way to use Fiddy. The following examples show how the core
-modules can also be used directly for testing, scripting, or future integration work.
+## 📌 Purpose
 
-### Verify One Label File
+This page provides programmatic examples for using Fiddy’s core Python modules directly.
+
+The Streamlit application is the primary reviewer interface, but these examples demonstrate that
+Fiddy is also organized as a set of separable, testable services. They are useful for developers,
+technical reviewers, maintainers, and evaluators who want to understand how the workflow can be
+invoked outside the UI.
+
+These examples support:
+
+* Single-label verification.
+* Manifest parsing.
+* Manifest-to-application conversion.
+* Batch processing.
+* Review table generation.
+* CSV export.
+* OCR inspection.
+* Government-warning validation.
+* Local exception logging.
+
+---
+
+## 🧭 Example Assumptions
+
+The examples assume they are run from the project root.
+
+Expected project structure:
+
+```text
+Fiddy/
+├── app.py
+├── config.py
+├── booger.py
+├── samples/
+│   ├── labels/
+│   └── manifests/
+└── src/
+```
+
+The examples also assume the virtual environment is active and dependencies are installed:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+Run examples from the project root so Python can resolve the `src` package correctly.
+
+---
+
+## ✅ Verify One Label File
+
+This example verifies one label file against manually supplied expected application data.
 
 ```python
 from pathlib import Path
@@ -26,45 +76,63 @@ application = LabelApplication(
 	notes='Programmatic single-label review.'
 )
 
-label_path = Path( 'samples/old_tom_label.png' )
+label_path = Path( 'samples/labels/old_tom_label.png' )
 
 verifier = AlcoholLabelVerifier( )
-report = verifier.verify_file( application=application,
-	file_path=label_path )
+report = verifier.verify_file(
+	application=application,
+	file_path=label_path
+)
 
 print( report.file_name )
 print( report.overall_status )
 
 for result in report.results:
-	print( result.field_name, result.status,
-		result.severity, result.confidence,
-		result.message )
+	print(
+		result.field_name,
+		result.status,
+		result.severity,
+		result.confidence,
+		result.message
+	)
 ```
 
-### Parse a Manifest
+---
+
+## 📄 Parse a Manifest
+
+This example loads a manifest CSV and prints key application fields from each row.
 
 ```python
 from pathlib import Path
 
 from src.batch_manifest import BatchManifest
 
-manifest_path = Path( 'samples/alcohol_labels.csv' )
+manifest_path = Path( 'samples/manifests/alcohol_labels.csv' )
 
 manifest = BatchManifest( )
 records = manifest.load_records( manifest_path )
 
 for record in records:
-	print( record.file_name, record.brand_name, record.alcohol_content )
+	print(
+		record.file_name,
+		record.brand_name,
+		record.alcohol_content
+	)
 ```
 
-### Convert a Manifest Row to Application Data
+---
+
+## 🔁 Convert a Manifest Row to Application Data
+
+This example converts the first manifest row into a `LabelApplication` object.
 
 ```python
 from pathlib import Path
 
 from src.batch_manifest import BatchManifest
 
-manifest_path = Path( 'samples/alcohol_labels.csv' )
+manifest_path = Path( 'samples/manifests/alcohol_labels.csv' )
 
 manifest = BatchManifest( )
 records = manifest.load_records( manifest_path )
@@ -76,7 +144,12 @@ print( application.class_type )
 print( application.alcohol_content )
 ```
 
-### Process a Batch
+---
+
+## 📦 Process a Batch
+
+This example loads manifest records, scans a folder for supported label files, and processes the
+batch.
 
 ```python
 from pathlib import Path
@@ -84,7 +157,7 @@ from pathlib import Path
 from src.batch_manifest import BatchManifest
 from src.batch_processor import BatchProcessor
 
-manifest_path = Path( 'samples/alcohol_labels.csv' )
+manifest_path = Path( 'samples/manifests/alcohol_labels.csv' )
 artwork_folder = Path( 'samples/labels' )
 
 manifest = BatchManifest( )
@@ -116,24 +189,40 @@ print( 'Skipped:', len( batch_result.skipped_files ) )
 print( 'Errors:', len( batch_result.errors ) )
 
 for report in batch_result.batch_report.reports:
-	print( report.file_name, report.overall_status )
+	print(
+		report.file_name,
+		report.overall_status
+	)
 ```
 
-### Generate Review Tables
+---
+
+## 📊 Generate Review Tables
+
+This example converts a batch report into pandas DataFrames for summary and detail review.
 
 ```python
 from src.report_writer import ReportWriter
 
 writer = ReportWriter( )
 
-df_summary = writer.batch_to_summary_dataframe( batch_result.batch_report )
-df_details = writer.batch_to_detail_dataframe( batch_result.batch_report )
+df_summary = writer.batch_to_summary_dataframe(
+	batch_result.batch_report
+)
+
+df_details = writer.batch_to_detail_dataframe(
+	batch_result.batch_report
+)
 
 print( df_summary.head( ) )
 print( df_details.head( ) )
 ```
 
-### Export Results to CSV
+---
+
+## 📥 Export Results to CSV
+
+This example writes summary and detail CSV files to an output folder.
 
 ```python
 from pathlib import Path
@@ -141,25 +230,44 @@ from pathlib import Path
 from src.report_writer import ReportWriter
 
 output_folder = Path( 'outputs' )
-output_folder.mkdir( parents=True, exist_ok=True )
+output_folder.mkdir(
+	parents=True,
+	exist_ok=True
+)
 
 writer = ReportWriter( )
 
-df_summary = writer.batch_to_summary_dataframe( batch_result.batch_report )
-df_details = writer.batch_to_detail_dataframe( batch_result.batch_report )
+df_summary = writer.batch_to_summary_dataframe(
+	batch_result.batch_report
+)
 
-df_summary.to_csv( output_folder / 'fiddy_summary.csv', index=False )
-df_details.to_csv( output_folder / 'fiddy_details.csv', index=False )
+df_details = writer.batch_to_detail_dataframe(
+	batch_result.batch_report
+)
+
+df_summary.to_csv(
+	output_folder / 'fiddy_summary.csv',
+	index=False
+)
+
+df_details.to_csv(
+	output_folder / 'fiddy_details.csv',
+	index=False
+)
 ```
 
-### Inspect OCR Output
+---
+
+## 🔍 Inspect OCR Output
+
+This example runs OCR on one label file and prints raw OCR text and image-quality notes.
 
 ```python
 from pathlib import Path
 
 from src.ocr_engine import OcrEngine
 
-label_path = Path( 'samples/old_tom_label.png' )
+label_path = Path( 'samples/labels/old_tom_label.png' )
 
 ocr = OcrEngine( )
 extracted = ocr.extract_text( label_path )
@@ -176,7 +284,11 @@ for note in extracted.image_quality_notes:
 	print( '-', note )
 ```
 
-### Validate Government Warning Text
+---
+
+## ⚠️ Validate Government Warning Text
+
+This example validates government-warning text directly.
 
 ```python
 from src.warning_validator import GovernmentWarningValidator
@@ -198,10 +310,99 @@ validation = validator.validate( label_text )
 results = validator.create_results( validation )
 
 for result in results:
-	print( result.rule_id, result.status, result.severity, result.message )
+	print(
+		result.rule_id,
+		result.status,
+		result.severity,
+		result.message
+	)
 ```
 
-### Log an Exception Locally
+---
+
+## 🧪 Run Acceptance Evidence Components
+
+This example shows the intended pattern for running acceptance evidence generation from code.
+
+The exact inputs should point to local demonstration assets.
+
+```python
+from pathlib import Path
+
+from src.acceptance_test_harness import AcceptanceTestHarness
+
+project_root = Path( '.' )
+manifest_path = Path( 'samples/manifests/alcohol_labels.csv' )
+label_directory = Path( 'samples/labels' )
+output_root = Path( 'acceptance_evidence' )
+
+harness = AcceptanceTestHarness(
+	project_root=project_root,
+	output_root=output_root,
+	max_workers=4,
+	sla_seconds=5.0
+)
+
+result = harness.run(
+	test_name='fiddy_demo_acceptance',
+	manifest_path=manifest_path,
+	label_directory=label_directory
+)
+
+print( result.status )
+print( result.message )
+print( result.package.to_json( ) )
+```
+
+---
+
+## ♿ Generate Accessibility Checklist Evidence
+
+This example creates the accessibility checklist model and exports records.
+
+```python
+from src.accessibility_checklist import AccessibilityChecklist
+
+checklist = AccessibilityChecklist( )
+result = checklist.evaluate( )
+
+df_accessibility = result.to_dataframe( )
+
+print( result.status )
+print( result.message )
+print( df_accessibility.head( ) )
+```
+
+Accessibility should still be manually validated in the target browser because Streamlit renders
+final interactive controls at runtime.
+
+---
+
+## ☁️ Generate Deployment Evidence
+
+This example evaluates local deployment posture and supporting project artifacts.
+
+```python
+from pathlib import Path
+
+from src.deployment_evidence import DeploymentEvidenceChecker
+
+checker = DeploymentEvidenceChecker(
+	project_root=Path( '.' )
+)
+
+evidence = checker.evaluate( )
+df_deployment = evidence.to_dataframe( )
+
+print( evidence.overall_status( ) )
+print( df_deployment.head( ) )
+```
+
+---
+
+## 🧾 Log an Exception Locally
+
+This example logs a sanitized local exception using Fiddy’s structured logging pattern.
 
 ```python
 from booger import Error, Logger
@@ -209,48 +410,88 @@ from booger import Error, Logger
 try:
 	raise ValueError( 'Example failure while processing label artwork.' )
 except Exception as e:
-	exception = Error(
-		error=e,
-		cause='Demo',
-		method='example_exception_logging',
-		module='README'
-	)
+	error = Error( e )
+	error.cause = 'Demo'
+	error.module = 'docs.EXAMPLES'
+	error.method = 'example_exception_logging( ) -> None'
 
-	row_id = Logger( ).log( exception )
+	row_id = Logger( ).write( error )
 	print( 'Logged row:', row_id )
 ```
 
-## 📄 Manifest Format
+---
 
-A manifest row represents the expected application data for one uploaded label file.
+## 🛠️ Troubleshooting Examples
 
-Recommended CSV header:
+### ModuleNotFoundError: No module named `src`
 
-```csv
-file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes
+Run the example from the project root.
+
+The project root should contain:
+
+```text
+app.py
+config.py
+src/
 ```
 
-Example:
+Then run your script from that folder.
 
-```csv
-file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes
-old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled Spirits,45,90,750 mL,Old Tom Distillery LLC,false,,,COLA-001,Demo record
+---
+
+### Tesseract Not Found
+
+Confirm Tesseract is installed.
+
+On Windows, configure the path if needed:
+
+```env
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-### Schema
+Restart the terminal or IDE after changing environment variables.
 
-| Column                | Description                                                                   |
-|-----------------------|-------------------------------------------------------------------------------|
-| `file_name`           | Expected uploaded label filename.                                             |
-| `brand_name`          | Expected brand name.                                                          |
-| `class_type`          | Expected class or type designation.                                           |
-| `beverage_type`       | Product category used for review context.                                     |
-| `alcohol_content`     | Expected ABV value.                                                           |
-| `proof`               | Expected proof, when applicable.                                              |
-| `net_contents`        | Expected container volume.                                                    |
-| `producer_bottler`    | Expected producer, bottler, brewer, vintner, importer, or responsible party.  |
-| `imported`            | Indicates whether imported-product review applies.                            |
-| `importer`            | Expected importer when applicable.                                            |
-| `country_of_origin`   | Expected country of origin when applicable.                                   |
-| `cola_id`             | Optional application or COLA reference.                                       |
-| `notes`               | Optional reviewer notes.                                                      |
+---
+
+### PDF Conversion Fails
+
+PDF support requires Poppler.
+
+Confirm Poppler is available:
+
+```powershell
+pdfinfo -v
+```
+
+If the command is not found, install Poppler and add its `bin` folder to the Windows PATH.
+
+See:
+
+```text
+docs/PATH-POPPLER.md
+```
+
+---
+
+## ⚖️ Example Limitations
+
+These examples are intended for development, testing, and demonstration. They do not replace the
+Streamlit reviewer workflow.
+
+Important limitations:
+
+* OCR quality depends on source artwork.
+* Programmatic examples do not perform browser accessibility validation.
+* Government-warning visual properties still require human confirmation.
+* Acceptance evidence depends on representative runtime inputs.
+* Examples should use synthetic or fictional data unless formal handling rules are in place.
+* Generated outputs should not include real sensitive application data unless appropriate controls
+  are established.
+
+---
+
+## 🧠 Final Note
+
+The examples show that Fiddy’s implementation is not tightly coupled to the UI. The core OCR,
+manifest, verification, reporting, performance, accessibility, deployment, and acceptance components
+can be invoked directly for testing, automation, or future integration work.

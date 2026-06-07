@@ -262,47 +262,46 @@ Download outputs
 
 Fiddy supports both reviewer-friendly operation and technical inspection.
 
-| Mode | Purpose |
-| . . . . - | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . |
-| Simple Mode | Keeps the workflow focused on upload, run, review, and download. |
-| Advanced Mode | Exposes manifest preview, file matching, OCR diagnostics, image-quality
-diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
+| Mode                                                                           | Purpose |
+|--------------------------------------------------------------------------------| ---|
+| Simple Mode                                                                    | Keeps the workflow focused on upload, run, review, and download. |
+| Advanced Mode                                                                  | Exposes manifest preview, file matching, OCR diagnostics, image-quality
+ diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
 
 Simple Mode is intended for routine reviewer use. Advanced Mode is intended for testing,
 troubleshooting, demonstration, acceptance review, and technical evaluation.
 
-.
 
 ## 📋 Requirement Traceability
 
-| Requirement Area | Fiddy Implementation |
-| . . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . - |
-| Label data extraction | `src/ocr_engine.py`, `src/image_processor.py`,
-`src/label_field_extractor.py`, `src/models.py` |
-| OCR on imperfect images | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,
-image-quality diagnostics |
-| Application versus label comparison | `src/label_rules.py`, `src/label_verifier.py`, side-by-side
-comparison table |
-| Fuzzy matching | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules |
-| Government warning exact review | `src/warning_validator.py`, strict normalized warning
-comparison |
-| Batch upload | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in
-`app.py`          |
-| Per-label results | `BatchVerificationReport`, summary/detail/comparison tables |
-| Five-second performance target | `src/performance_monitor.py`, SLA configuration, performance
-exports |
-| Reviewer outputs | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads |
-| Usability | Simple Mode, clear labels, large action controls, minimal routine workflow |
-| Reliability | OCR fallback reports, image-quality warnings, missing/skipped file handling |
-| Security | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports |
-| Prototype scalability | Parallel batch processing and 20–50 file acceptance posture |
-| Accessibility | High contrast, large text, keyboard guidance, accessibility checklist |
-| Azure readiness | Dockerfile, startup script, local OCR dependencies, Azure deployment
-documentation |
-| No COLA integration | Manifest/manual CAV input only; no COLA writeback |
-| No long-term storage | Temporary upload handling and data-retention policy controls |
+| Requirement Area                                | Fiddy Implementation                                                                |
+|-------------------------------------------------|-------------------------------------------------------------------------------------|
+| Label data extraction                           | `src/ocr_engine.py`, `src/image_processor.py`,                                      
+ `src/label_field_extractor.py`, `src/models.py` |
+| OCR on imperfect images                         | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,                       
+ image-quality diagnostics                       |
+| Application versus label comparison             | `src/label_rules.py`, `src/label_verifier.py`, side-by-side                         
+ comparison table                                |
+| Fuzzy matching                                  | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules                      |
+| Government warning exact review                 | `src/warning_validator.py`, strict normalized warning                               
+ comparison                                      |
+| Batch upload                                    | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in        
+ `app.py`                                        |
+| Per-label results                               | `BatchVerificationReport`, summary/detail/comparison tables                         |
+| Five-second performance target                  | `src/performance_monitor.py`, SLA configuration, performance                        
+ exports                                         |
+| Reviewer outputs                                | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads                  |
+| Usability                                       | Simple Mode, clear labels, large action controls, minimal routine workflow          |
+| Reliability                                     | OCR fallback reports, image-quality warnings, missing/skipped file handling         |
+| Security                                        | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports |
+| Prototype scalability                           | Parallel batch processing and 20–50 file acceptance posture                         |
+| Accessibility                                   | High contrast, large text, keyboard guidance, accessibility checklist               |
+| Azure readiness                                 | Dockerfile, startup script, local OCR dependencies, Azure deployment                
+ documentation                                   |
+| No COLA integration                             | Manifest/manual CAV input only; no COLA writeback                                   |
+| No long-term storage                            | Temporary upload handling and data-retention policy controls                        |
 
-.
+
 
 ## ⚠️ Government Warning Handling
 
@@ -321,7 +320,7 @@ Fiddy deliberately does **not** claim that OCR text alone can prove visual prope
 boldness, font size, prominence, contrast, or whether the warning is hidden. Those conditions are
 surfaced as reviewer-confirmation items.
 
-.
+
 
 ## ⏱️ Performance and Acceptance Evidence
 
@@ -350,20 +349,20 @@ LABEL_PROCESSING_SLA_SECONDS = 5.0
 Fiddy also includes acceptance-oriented components designed to turn runtime behavior into reviewable
 evidence.
 
-| Component | Purpose |
-| . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . -- |
-| `src/acceptance_checker.py`      | Evaluates stakeholder requirement status from runtime
-evidence. |
-| `src/acceptance_test_harness.py` | Runs non-UI acceptance checks and generates redacted evidence
-packages. |
-| `src/accessibility_checklist.py` | Produces accessibility checklist evidence. |
-| `src/deployment_evidence.py`     | Evaluates Azure, local-OCR, endpoint, COLA, and data-handling
-posture. |
-| `src/performance_monitor.py`     | Generates SLA and timing evidence. |
-| `src/report_writer.py`           | Produces redacted summary, detail, JSON, Markdown, and CSV
-outputs. |
+| Component                        | Purpose                                                       |
+|----------------------------------|---------------------------------------------------------------|
+| `src/acceptance_checker.py`      | Evaluates stakeholder requirement status from runtime         
+ evidence.                        |
+| `src/acceptance_test_harness.py` | Runs non-UI acceptance checks and generates redacted evidence 
+ packages.                        |
+| `src/accessibility_checklist.py` | Produces accessibility checklist evidence.                    |
+| `src/deployment_evidence.py`     | Evaluates Azure, local-OCR, endpoint, COLA, and data-handling 
+ posture.                         |
+| `src/performance_monitor.py`     | Generates SLA and timing evidence.                            |
+| `src/report_writer.py`           | Produces redacted summary, detail, JSON, Markdown, and CSV    
+ outputs.                         |
 
-.
+
 
 ## 🧪 Synthetic Data Generation
 
@@ -391,7 +390,6 @@ demonstrations. Generated files should represent fictional alcohol-label scenari
 Synthetic data is for demonstration and testing only. It should not be treated as production data,
 official TTB records, or real COLA application data.
 
-.
 
 ## 🔐 Security and Data Handling
 
@@ -421,7 +419,6 @@ ENABLE_EXTRACTED_DATA_EXPORT=false
 ENABLE_REDACTED_EVIDENCE_EXPORT=true
 ```
 
-.
 
 ## ☁️ Azure Deployment Readiness
 
@@ -445,7 +442,6 @@ Suitable prototype deployment targets include:
 
 Fiddy does not require an external OCR endpoint or external ML endpoint for prototype operation.
 
-.
 
 ## 📦 Downloadable Local Release
 
@@ -467,7 +463,6 @@ Suggested release artifact:
 Fiddy-v2-local.zip
 ```
 
-.
 
 ## 📁 Repository Structure
 
@@ -519,29 +514,22 @@ Fiddy/
 └── tests/
 ```
 
-.
-
 ## 📚 Documentation
 
 Full documentation is available in the `docs/` directory and can be built with MkDocs.
 
-| Guide | Purpose |
-| . . . . . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . -- |
-| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, dependency, and runtime setup. |
-| [User Guide](docs/USER_GUIDE.md)             | Reviewer workflow for running Fiddy. |
-| [Architecture](docs/ARCHITECTURE.md)         | Architecture, components, design patterns, and data
-flow. |
-| [API Reference](docs/API.md)                 | MkDocs/mkdocstrings API reference generated from
-docstrings. |
-| [Acceptance](docs/ACCEPTANCE.md)             | Acceptance posture, evidence, and validation
-workflow. |
-| [Accessibility](docs/ACCESSIBILITY.md)       | Accessibility features and manual validation
-checklist. |
-| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment guidance. |
-| [Development](docs/DEVELOPMENT.md)           | Development workflow, validation, logging, and
-contribution discipline. |
-| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF
-support. |
+| Guide                                        | Purpose                                                                                            |
+|----------------------------------------------|----------------------------------------------------------------------------------------------------|
+| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, dependency, and runtime setup.                                                  |
+| [User Guide](docs/USER_GUIDE.md)             | Reviewer workflow for running Fiddy through the Streamlit interface.                               |
+| [Examples](docs/EXAMPLES.md)                 | Programmatic examples for verification, manifests, OCR, reports, acceptance evidence, and logging. |
+| [Architecture](docs/ARCHITECTURE.md)         | Architecture, components, design patterns, and data flow.                                          |
+| [API Reference](docs/API.md)                 | MkDocs/mkdocstrings API reference generated from docstrings.                                       |
+| [Acceptance](docs/ACCEPTANCE.md)             | Acceptance posture, evidence, and validation workflow.                                             |
+| [Accessibility](docs/ACCESSIBILITY.md)       | Accessibility features and manual validation checklist.                                            |
+| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment guidance.                                                           |
+| [Development](docs/DEVELOPMENT.md)           | Development workflow, validation, logging, and contribution discipline.                            |
+| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support.                                                |
 
 Build documentation:
 
@@ -555,7 +543,6 @@ Preview documentation locally:
 mkdocs serve
 ```
 
-.
 
 ## 📥 Installation
 
@@ -591,7 +578,7 @@ Open:
 http://localhost:8501
 ```
 
-.
+
 
 ## ⚙️ Configuration
 
@@ -599,24 +586,24 @@ Configuration is centralized in `config.py` and may be supplemented by a local `
 
 Common settings include:
 
-| Setting | Purpose |
-| . . . . . . . . . . | . . . . . . . . . . . . . . |
-| `APP_NAME`                     | Application name. |
-| `APP_TITLE`                    | Browser and Streamlit title. |
-| `MAX_UPLOAD_MB`                | Upload size guardrail. |
-| `MAX_BATCH_FILES`              | Maximum batch upload size. |
-| `MAX_PARALLEL_WORKERS`         | Worker count for batch processing. |
-| `OCR_ENGINE`                   | OCR engine identifier. |
+| Setting                        | Purpose                                    |
+|--------------------------------|--------------------------------------------|
+| `APP_NAME`                     | Application name.                          |
+| `APP_TITLE`                    | Browser and Streamlit title.               |
+| `MAX_UPLOAD_MB`                | Upload size guardrail.                     |
+| `MAX_BATCH_FILES`              | Maximum batch upload size.                 |
+| `MAX_PARALLEL_WORKERS`         | Worker count for batch processing.         |
+| `OCR_ENGINE`                   | OCR engine identifier.                     |
 | `TESSERACT_CMD`                | Optional path to the Tesseract executable. |
-| `OCR_LANGUAGE`                 | OCR language. |
-| `OCR_TIMEOUT_SECONDS`          | OCR timeout threshold. |
-| `BRAND_MATCH_THRESHOLD`        | Fuzzy brand-match threshold. |
-| `CLASS_TYPE_MATCH_THRESHOLD`   | Fuzzy class/type threshold. |
-| `LOW_CONFIDENCE_THRESHOLD`     | Low-confidence review threshold. |
-| `LABEL_PROCESSING_SLA_SECONDS` | Per-label processing target. |
-| `REPORT_FILENAME_PREFIX`       | Download filename prefix. |
-| `LOG_PATH`                     | SQLite exception log database path. |
-| `LOG_FILE`                     | SQLite exception log table name. |
+| `OCR_LANGUAGE`                 | OCR language.                              |
+| `OCR_TIMEOUT_SECONDS`          | OCR timeout threshold.                     |
+| `BRAND_MATCH_THRESHOLD`        | Fuzzy brand-match threshold.               |
+| `CLASS_TYPE_MATCH_THRESHOLD`   | Fuzzy class/type threshold.                |
+| `LOW_CONFIDENCE_THRESHOLD`     | Low-confidence review threshold.           |
+| `LABEL_PROCESSING_SLA_SECONDS` | Per-label processing target.               |
+| `REPORT_FILENAME_PREFIX`       | Download filename prefix.                  |
+| `LOG_PATH`                     | SQLite exception log database path.        |
+| `LOG_FILE`                     | SQLite exception log table name.           |
 
 Example `.env`:
 
@@ -645,7 +632,7 @@ On Windows, if Tesseract is not already on `PATH`:
 TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 ```
 
-.
+
 
 ## 📄 Manifest Format
 
@@ -666,25 +653,25 @@ old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled
 
 ### Manifest Columns
 
-| Column | Description |
-| . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . . . - |
-| `file_name`          | Expected uploaded label filename. |
-| `brand_name`         | Expected brand name. |
-| `class_type`         | Expected class or type designation. |
-| `beverage_type`      | Product category used for review context. |
-| `alcohol_content`    | Expected ABV value. |
-| `proof`              | Expected proof value when applicable. |
-| `net_contents`       | Expected container volume. |
-| `producer_bottler`   | Expected producer, bottler, brewer, vintner, importer, or responsible
-party. |
-| `imported`           | Indicates whether imported-product review applies. |
-| `importer`           | Expected importer when applicable. |
-| `country_of_origin`  | Expected country of origin when applicable. |
-| `cola_id`            | Optional application or COLA reference. |
-| `notes`              | Optional reviewer notes. |
-| `government_warning` | Expected government-warning text. |
+| Column               | Description                                                           |
+|----------------------|-----------------------------------------------------------------------|
+| `file_name`          | Expected uploaded label filename.                                     |
+| `brand_name`         | Expected brand name.                                                  |
+| `class_type`         | Expected class or type designation.                                   |
+| `beverage_type`      | Product category used for review context.                             |
+| `alcohol_content`    | Expected ABV value.                                                   |
+| `proof`              | Expected proof value when applicable.                                 |
+| `net_contents`       | Expected container volume.                                            |
+| `producer_bottler`   | Expected producer, bottler, brewer, vintner, importer, or responsible 
+ party.               |
+| `imported`           | Indicates whether imported-product review applies.                    |
+| `importer`           | Expected importer when applicable.                                    |
+| `country_of_origin`  | Expected country of origin when applicable.                           |
+| `cola_id`            | Optional application or COLA reference.                               |
+| `notes`              | Optional reviewer notes.                                              |
+| `government_warning` | Expected government-warning text.                                     |
 
-.
+
 
 ## 📊 Outputs
 
@@ -708,30 +695,30 @@ The summary table provides one row per processed label.
 
 The side-by-side comparison is the primary reviewer surface.
 
-| Column | Purpose |
-| . . . . . | . . . . . . . . . . . . . . . . . -- |
-| File Name | Identifies the reviewed label file. |
-| Field | Shows the label field being checked. |
-| Application | Displays the expected application value. |
-| Extracted | Displays OCR-derived or rule-observed label evidence. |
-| Status | Shows the review outcome. |
-| Severity | Indicates the significance of the finding. |
-| Confidence | Shows the rule confidence score. |
-| Explanation | Explains the finding in reviewer-facing language. |
-| Reviewer Action | Recommends the next reviewer step. |
+| Column          | Purpose                                               |
+|-----------------|-------------------------------------------------------|
+| File Name       | Identifies the reviewed label file.                   |
+| Field           | Shows the label field being checked.                  |
+| Application     | Displays the expected application value.              |
+| Extracted       | Displays OCR-derived or rule-observed label evidence. |
+| Status          | Shows the review outcome.                             |
+| Severity        | Indicates the significance of the finding.            |
+| Confidence      | Shows the rule confidence score.                      |
+| Explanation     | Explains the finding in reviewer-facing language.     |
+| Reviewer Action | Recommends the next reviewer step.                    |
 
 ### Downloadable Files
 
-| Output | Purpose |
-| . . . . . | . . . . . . . . . . . . . . . . . |
-| Summary CSV | One row per reviewed label. |
-| Detail CSV | One row per rule result. |
-| Comparison CSV | Field-by-field application-versus-label comparison. |
-| Performance CSV | Per-label timing data. |
-| JSON Report | Structured machine-readable report. |
-| Markdown Report | Human-readable review report. |
+| Output          | Purpose                                              |
+|-----------------|------------------------------------------------------|
+| Summary CSV     | One row per reviewed label.                          |
+| Detail CSV      | One row per rule result.                             |
+| Comparison CSV  | Field-by-field application-versus-label comparison.  |
+| Performance CSV | Per-label timing data.                               |
+| JSON Report     | Structured machine-readable report.                  |
+| Markdown Report | Human-readable review report.                        |
 
-.
+
 
 ## ✅ Run Validation
 
@@ -761,7 +748,7 @@ Open:
 http://localhost:8501
 ```
 
-.
+
 
 ## 🧾 Demonstration Checklist
 
@@ -789,7 +776,7 @@ Before presenting Fiddy:
 * Container run opens the app.
 * Representative batch timing evidence is generated.
 
-.
+
 
 ## ⚖️ Trade-Offs and Limitations
 
@@ -818,7 +805,6 @@ These trade-offs are deliberate. They keep the prototype focused on the core rev
 extracting label evidence, comparing it to application data, flagging exceptions, and helping
 reviewers decide what needs attention.
 
-.
 
 ## 🛣️ Future Production Path
 
