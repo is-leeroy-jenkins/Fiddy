@@ -140,22 +140,16 @@ This architecture reflects several practical federal AI principles:
 | PDF support                                          | Uses Poppler through `pdf2image` for PDF label artwork conversion.            |
 | Image preparation                                    | Loads, orients, resizes, preprocesses, and prepares images for OCR.           |
 | Image diagnostics                                    | Evaluates blur, glare, darkness, low contrast, skew, size, and readability.   |
-| Field extraction                                     | Extracts likely brand, class/type, ABV, net contents, producer/bottler,       
- country, and warning text.                           |
-| Field comparison                                     | Compares expected application values against extracted or observed label      
- evidence.                                            |
+| Field extraction                                     | Extracts likely brand, class/type, ABV, net contents, producer/bottler,country, and warning text.                           |
+| Field comparison                                     | Compares expected application values against extracted or observed label evidence.                                            |
 | Fuzzy matching                                       | Handles acceptable minor text variations for ordinary fields.                 |
-| Government warning validation                        | Checks warning presence, prefix capitalization, exact text,                   
- near-match conditions, and visual-review boundaries. |
+| Government warning validation                        | Checks warning presence, prefix capitalization, exact text, near-match conditions, and visual-review boundaries. |
 | Batch verification                                   | Processes matched manifest rows and uploaded label files.                     |
-| Performance monitoring                               | Records per-label timing, SLA status, and batch-level performance             
- metrics.                                             |
+| Performance monitoring                               | Records per-label timing, SLA status, and batch-level performance  metrics.                                             |
 | Reviewer guidance                                    | Provides status, severity, confidence, explanation, and recommended action.   |
 | Report downloads                                     | Exports summary, detail, comparison, performance, JSON, and Markdown outputs. |
-| Accessibility controls                               | Provides Simple Mode, Advanced Mode, high contrast, large text, and           
- keyboard guidance.                                   |
-| Evidence generation                                  | Supports acceptance, deployment, accessibility, and performance evidence      
- outputs.                                             |
+| Accessibility controls                               | Provides Simple Mode, Advanced Mode, high contrast, large text, and keyboard guidance.                                   |
+| Evidence generation                                  | Supports acceptance, deployment, accessibility, and performance evidence  outputs.                                             |
 
 
 ## 🏗️ Architecture Overview
@@ -188,41 +182,31 @@ acceptance evidence, and deployment boundary.
   <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
 </p>
 
+## 🧩 Patterns Used
 
+Fiddy was intentionally designed around simple, durable, and auditable patterns. The goal was not to
+over-engineer the prototype, but to show how a working AI-assisted application can be structured so
+that the workflow remains understandable to reviewers, maintainable for developers, and defensible
+in a federal environment.
 
-## 🧩 Design Patterns Used
+| Pattern                          | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
+|----------------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Pipeline Pattern**             | Upload → normalize → preprocess → OCR → extract → compare → report                                             | Organizes the review process as a clear sequence of independently testable steps. This mirrors the reviewer workflow and makes failures easier to isolate.                   |
+| **Facade Pattern**               | `AlcoholLabelVerifier`                                                                                         | Provides a single high-level verification interface while hiding the internal coordination of OCR, field extraction, rule execution, and report construction.                |
+| **Strategy Pattern**             | `AlcoholLabelRules`, `GovernmentWarningValidator`                                                              | Keeps field-specific validation logic separated so brand matching, ABV checks, net-contents checks, importer checks, and government-warning checks can evolve independently. |
+| **Adapter Pattern**              | `BatchManifestRecord.to_label_application()`                                                                   | Converts CSV manifest rows into the `LabelApplication` model expected by the verification engine. This keeps spreadsheet intake separate from rule execution.                |
+| **DTO / Pydantic Model Pattern** | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`, `LabelVerificationReport`, `BatchVerificationReport` | Uses explicit structured models to move data between layers safely and predictably. This supports validation, serialization, exports, and testability.                       |
+| **Policy Object Pattern**        | `DataRetentionPolicy`                                                                                          | Centralizes redaction, export, and no-persistence decisions so sensitive-data handling is consistent across reports, acceptance evidence, and generated outputs.             |
+| **Service Object Pattern**       | `OcrEngine`, `ImageProcessor`, `VisualQualityAnalyzer`, `ReportWriter`, `PerformanceMonitor`                   | Encapsulates focused business or infrastructure operations in dedicated classes instead of concentrating logic in the Streamlit UI.                                          |
+| **Observer / Callback Pattern**  | OCR and batch progress callbacks                                                                               | Allows processing services to report progress without depending directly on Streamlit. This keeps UI concerns separate from processing logic.                                |
+| **Evidence Package Pattern**     | `AcceptanceChecker`, `AcceptanceTestHarness`, `DeploymentEvidenceChecker`, `AccessibilityChecklist`            | Converts runtime behavior into reviewable evidence for stakeholder acceptance, performance validation, deployment readiness, and accessibility review.                       |
+| **Defensive Boundary Pattern**   | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
+| **Human-in-the-Loop Pattern**    | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
 
-Fiddy was intentionally structured around simple, auditable design patterns that are appropriate for
-a prototype expected to demonstrate technical judgment.
+These patterns support the central engineering posture of Fiddy: **use AI where it helps extract
+evidence, use deterministic rules where explainability matters, and route uncertainty back to the
+reviewer.**
 
-| Pattern                                                                                       | Where It Appears                                                          | Why It Matters            |
-|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|---------------------------|
-| Pipeline Pattern                                                                              | Upload → preprocess → OCR → extract → compare → report                    | Keeps the review          
- workflow easy to understand, test, and explain.                                               |
-| Facade Pattern                                                                                |
- `AlcoholLabelVerifier`                                                                        |
- Hides OCR, extraction, and rule orchestration behind a simple verification interface.         |
-| Strategy Pattern                                                                              | Field-specific checks in `AlcoholLabelRules` and warning checks in        
- `GovernmentWarningValidator`                                                                  | Allows rule behavior to vary by field while preserving                    
- a common result contract.                                                                     |
-| Adapter Pattern                                                                               |
- `BatchManifestRecord.to_label_application()`                                                  |
- Converts manifest rows into the application model expected by the verifier.                   |
-| DTO / Pydantic Model Pattern                                                                  | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`,                 
- `LabelVerificationReport`, `BatchVerificationReport`                                          | Keeps data movement explicit, typed,                                      
- serializable, and testable.                                                                   |
-| Policy Object Pattern                                                                         |
- `DataRetentionPolicy`                                                                         |
- Centralizes redaction and no-persistence decisions instead of scattering them through exports. |
-| Observer / Callback Pattern                                                                   | OCR and batch progress callbacks                                          | Decouples processing from 
- Streamlit display concerns.                                                                   |
-| Evidence Package Pattern                                                                      | `AcceptanceChecker`, `AcceptanceTestHarness`, `ReportWriter`,             
- `DeploymentEvidenceChecker`                                                                   | Converts runtime behavior into reviewable                                 
- acceptance evidence.                                                                          |
-| Defensive Boundary Pattern                                                                    | Upload validation, ZIP safety checks, sanitized logging, fallback         
- reports                                                                                       | Prevents bad inputs or OCR failures from crashing the reviewer workflow.  |
-| Human-in-the-Loop Pattern                                                                     | `Needs Review`, visual warning checks, reviewer action text               |
- Preserves reviewer judgment where automation cannot responsibly decide.                       |
 
 ## 🧭 Core Workflow
 
@@ -262,11 +246,10 @@ Download outputs
 
 Fiddy supports both reviewer-friendly operation and technical inspection.
 
-| Mode                                                                           | Purpose |
-|--------------------------------------------------------------------------------| ---|
-| Simple Mode                                                                    | Keeps the workflow focused on upload, run, review, and download. |
-| Advanced Mode                                                                  | Exposes manifest preview, file matching, OCR diagnostics, image-quality
- diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
+| Mode                                                                           | Purpose                                                                                                                                                |
+|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Simple Mode                                                                    | Keeps the workflow focused on upload, run, review, and download.                                                                                       |
+| Advanced Mode                                                                  | Exposes manifest preview, file matching, OCR diagnostics, image-quality diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
 
 Simple Mode is intended for routine reviewer use. Advanced Mode is intended for testing,
 troubleshooting, demonstration, acceptance review, and technical evaluation.
@@ -278,29 +261,22 @@ troubleshooting, demonstration, acceptance review, and technical evaluation.
 |-------------------------------------------------|-------------------------------------------------------------------------------------|
 | Label data extraction                           | `src/ocr_engine.py`, `src/image_processor.py`,                                      
  `src/label_field_extractor.py`, `src/models.py` |
-| OCR on imperfect images                         | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,                       
- image-quality diagnostics                       |
-| Application versus label comparison             | `src/label_rules.py`, `src/label_verifier.py`, side-by-side                         
- comparison table                                |
+| OCR on imperfect images                         | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,                        image-quality diagnostics                       |
+| Application versus label comparison             | `src/label_rules.py`, `src/label_verifier.py`, side-by-side                          comparison table                                |
 | Fuzzy matching                                  | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules                      |
-| Government warning exact review                 | `src/warning_validator.py`, strict normalized warning                               
- comparison                                      |
-| Batch upload                                    | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in        
- `app.py`                                        |
+| Government warning exact review                 | `src/warning_validator.py`, strict normalized warning                                comparison                                      |
+| Batch upload                                    | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in         `app.py`                                        |
 | Per-label results                               | `BatchVerificationReport`, summary/detail/comparison tables                         |
-| Five-second performance target                  | `src/performance_monitor.py`, SLA configuration, performance                        
- exports                                         |
+| Five-second performance target                  | `src/performance_monitor.py`, SLA configuration, performance                         exports                                         |
 | Reviewer outputs                                | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads                  |
 | Usability                                       | Simple Mode, clear labels, large action controls, minimal routine workflow          |
 | Reliability                                     | OCR fallback reports, image-quality warnings, missing/skipped file handling         |
 | Security                                        | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports |
 | Prototype scalability                           | Parallel batch processing and 20–50 file acceptance posture                         |
 | Accessibility                                   | High contrast, large text, keyboard guidance, accessibility checklist               |
-| Azure readiness                                 | Dockerfile, startup script, local OCR dependencies, Azure deployment                
- documentation                                   |
+| Azure readiness                                 | Dockerfile, startup script, local OCR dependencies, Azure deployment                 documentation                                   |
 | No COLA integration                             | Manifest/manual CAV input only; no COLA writeback                                   |
 | No long-term storage                            | Temporary upload handling and data-retention policy controls                        |
-
 
 
 ## ⚠️ Government Warning Handling
@@ -322,7 +298,7 @@ surfaced as reviewer-confirmation items.
 
 
 
-## ⏱️ Performance and Acceptance Evidence
+## ⏱️ Performance & Acceptance Evidence
 
 Fiddy records per-label timing and batch-level timing metrics.
 
@@ -351,16 +327,12 @@ evidence.
 
 | Component                        | Purpose                                                       |
 |----------------------------------|---------------------------------------------------------------|
-| `src/acceptance_checker.py`      | Evaluates stakeholder requirement status from runtime         
- evidence.                        |
-| `src/acceptance_test_harness.py` | Runs non-UI acceptance checks and generates redacted evidence 
- packages.                        |
+| `src/acceptance_checker.py`      | Evaluates stakeholder requirement status from runtime         evidence.                        |
+| `src/acceptance_test_harness.py` | Runs non-UI acceptance checks and generates redacted evidence  packages.                        |
 | `src/accessibility_checklist.py` | Produces accessibility checklist evidence.                    |
-| `src/deployment_evidence.py`     | Evaluates Azure, local-OCR, endpoint, COLA, and data-handling 
- posture.                         |
+| `src/deployment_evidence.py`     | Evaluates Azure, local-OCR, endpoint, COLA, and data-handling  posture.                         |
 | `src/performance_monitor.py`     | Generates SLA and timing evidence.                            |
-| `src/report_writer.py`           | Produces redacted summary, detail, JSON, Markdown, and CSV    
- outputs.                         |
+| `src/report_writer.py`           | Produces redacted summary, detail, JSON, Markdown, and CSV     outputs.                         |
 
 
 
@@ -806,7 +778,7 @@ extracting label evidence, comparing it to application data, flagging exceptions
 reviewers decide what needs attention.
 
 
-## 🛣️ Future Production Path
+## 🛣️ Future Path
 
 A production version of Fiddy could extend the prototype through:
 
