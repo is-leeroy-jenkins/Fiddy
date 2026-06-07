@@ -1,42 +1,6 @@
-'''
-    ******************************************************************************************
-      Assembly:                Fiddy
-      Filename:                app.py
-      Author:                  Terry D. Eppler
-      Created:                 06-03-2026
-
-      Last Modified By:        Terry D. Eppler
-      Last Modified On:        06-06-2026
-    ******************************************************************************************
-    <copyright file="app.py" company="Terry D. Eppler">
-
-         Fiddy: AI-Powered Alcohol Label Verification App
-
-     Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
-     to deal in the Software without restriction,
-     including without limitation the rights to use,
-     copy, modify, merge, publish, distribute, sublicense,
-     and/or sell copies of the Software,
-     and to permit persons to whom the Software is furnished to do so,
-     subject to the following conditions:
-
-     The above copyright notice and this permission notice shall be included in all
-     copies or substantial portions of the Software.
-
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-     INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-     FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-     IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-     DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-     DEALINGS IN THE SOFTWARE.
-
-     You can contact me at:  terryeppler@gmail.com
-
-    </copyright>
+''' ******************************************************************************************
     <summary>
-        Provides the Streamlit user interface and workflow controller for Fiddy.
+        Provides the UI and workflow controller for Fiddy.
 
         This module initializes reviewer session state, configures the page, manages manifest
         and artwork uploads, synchronizes CAV form values, runs manifest-driven and manual
@@ -97,7 +61,10 @@ def initialize_session_state( ) -> None:
 	"""
 	if 'batch_result' not in st.session_state:
 		st.session_state[ 'batch_result' ] = BatchProcessingResult( )
-	
+		
+	if 'app_reset_token' not in st.session_state:
+		st.session_state[ 'app_reset_token' ] = 0
+		
 	if 'batch_report' not in st.session_state:
 		st.session_state[ 'batch_report' ] = BatchVerificationReport( )
 	
@@ -166,6 +133,35 @@ def initialize_session_state( ) -> None:
 	
 	initialize_cav_form_state( )
 
+def reset_application_state( ) -> None:
+	"""Reset the Streamlit application back to its initial reviewer state.
+
+	Purpose:
+		Clear all Streamlit session-state values used by Fiddy, increment the upload-widget reset
+		token, reinitialize default state, and allow the application to rerender as if it had just
+		started. The reset token is used by file uploader keys so uploaded manifest and artwork
+		widgets are cleared on rerun.
+
+	Returns:
+		None.
+	"""
+	try:
+		current_token = int( st.session_state.get( 'app_reset_token', 0 ) )
+		next_token = current_token + 1
+		
+		for key in list( st.session_state.keys( ) ):
+			del st.session_state[ key ]
+		
+		st.session_state[ 'app_reset_token' ] = next_token
+		initialize_session_state( )
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'reset_application_state( ) -> None'
+		Logger( ).write( error )
+		st.warning( f'Application reset failed: {e}' )
+		
 def clear_results( ) -> None:
 	"""Clear prior verification outputs while preserving current input widget values.
 
@@ -941,7 +937,7 @@ def configure_page( ) -> None:
 		None.
 	"""
 	favicon_path = get_configured_image_path( getattr( cfg, 'FAVICON', '' ) )
-	page_icon = favicon_path if favicon_path else getattr( cfg, 'APP_ICON', '🥃' )
+	page_icon = favicon_path if favicon_path else getattr( cfg, 'APP_ICON', '' )
 	
 	st.set_page_config( page_title=cfg.APP_TITLE, page_icon=page_icon,
 		layout='wide', initial_sidebar_state='expanded' )
@@ -956,8 +952,8 @@ def configure_page( ) -> None:
 			}
 
 			section[data-testid="stSidebar"] {
-				background: #414141;
-				border-right: 1px solid #2A2A2D;
+				background: #282829;
+				border-right: 1px solid #49A0FC;
 			}
 
 			section[data-testid="stSidebar"] img {
@@ -975,8 +971,8 @@ def configure_page( ) -> None:
 			textarea,
 			div[data-baseweb="select"] > div {
 				border-radius: 0.55rem !important;
-				border: 1px solid #2F2F32 !important;
-				background-color: #414141 !important;
+				border: 1px solid #007AFC !important;
+				background-color: #5C5C5C !important;
 			}
 
 			div[data-testid="stFileUploader"] section {
@@ -1022,7 +1018,7 @@ def configure_page( ) -> None:
 			}
 
 			.fiddy-eyebrow {
-				color: #292929;
+				color: #B3B3B3;
 				font-size: 0.74rem;
 				font-weight: 800;
 				letter-spacing: 0.15rem;
@@ -1041,7 +1037,7 @@ def configure_page( ) -> None:
 
 			.fiddy-subtitle {
 				font-size: 0.96rem;
-				color: #878787;
+				color: #B3B3B3;
 				line-height: 1.45;
 				max-width: 1000px;
 			}
@@ -1123,41 +1119,32 @@ def display_synthetic_generator_expander( ) -> None:
 			
 			return None
 		
-		with st.sidebar.expander( 'Synthetic Generator', expanded=False ):
-			st.caption(
-				'Generate fictional local demo files under samples/manifests and samples/labels.'
-			)
+		with st.sidebar.expander( 'Synthetic Data Generator', expanded=False ):
+			st.caption( 'Generate or clear fictional local demo files under samples/manifests and '
+				'samples/labels.' )
 			
-			overwrite_demo_pack = st.checkbox(
-				'Overwrite existing demo pack',
-				value=False,
+			overwrite_demo_pack = st.checkbox( 'Overwrite existing demo pack', value=False,
 				key='synthetic_generator_overwrite_checkbox',
-				help='Replace existing generated fiddy_v2 demo files when they already exist.'
-			)
+				help='Replace existing generated fiddy_v2 demo files when they already exist.' )
 			
-			generate_button = st.button(
-				'Generate Standard Demo Pack',
+			generate_button = st.button( 'Create Synthetic Data',
 				key='synthetic_generator_generate_button',
 				use_container_width=True
 			)
 			
-			clear_button = st.button(
-				'Clear Generated Demo Pack',
+			clear_button = st.button( 'Clear Synthetic Data',
 				key='synthetic_generator_clear_button',
-				use_container_width=True
-			)
+				use_container_width=True )
 			
 			if generate_button:
 				generator = SyntheticDataGenerator( )
-				result = generator.generate_standard_demo_pack(
-					overwrite=overwrite_demo_pack
-				)
+				result = generator.generate_standard_demo_pack( overwrite=overwrite_demo_pack )
 				
+				st.session_state[ 'synthetic_generator_last_action' ] = 'generated'
 				st.session_state[ 'synthetic_generator_manifest_path' ] = result.manifest_path
 				st.session_state[ 'synthetic_generator_label_directory' ] = result.label_directory
-				st.session_state[ 'synthetic_generator_generated_count' ] = len(
-					result.generated_files
-				)
+				st.session_state[ 'synthetic_generator_generated_count' ] = len( result.generated_files )
+				st.session_state[ 'synthetic_generator_deleted_count' ] = 0
 				st.session_state[ 'synthetic_generator_record_count' ] = result.record_count
 				st.session_state[ 'synthetic_generator_last_message' ] = result.message
 				st.session_state[ 'synthetic_generator_last_success' ] = result.success
@@ -1171,9 +1158,11 @@ def display_synthetic_generator_expander( ) -> None:
 				generator = SyntheticDataGenerator( )
 				result = generator.clear_demo_pack( )
 				
-				st.session_state[ 'synthetic_generator_manifest_path' ] = result.manifest_path
-				st.session_state[ 'synthetic_generator_label_directory' ] = result.label_directory
+				st.session_state[ 'synthetic_generator_last_action' ] = 'cleared'
+				st.session_state[ 'synthetic_generator_manifest_path' ] = ''
+				st.session_state[ 'synthetic_generator_label_directory' ] = ''
 				st.session_state[ 'synthetic_generator_generated_count' ] = 0
+				st.session_state[ 'synthetic_generator_deleted_count' ] = len( result.deleted_files )
 				st.session_state[ 'synthetic_generator_record_count' ] = 0
 				st.session_state[ 'synthetic_generator_last_message' ] = result.message
 				st.session_state[ 'synthetic_generator_last_success' ] = result.success
@@ -1183,11 +1172,27 @@ def display_synthetic_generator_expander( ) -> None:
 				else:
 					st.warning( result.message )
 			
-			last_message = st.session_state.get( 'synthetic_generator_last_message', '' )
-			manifest_path = st.session_state.get( 'synthetic_generator_manifest_path', '' )
-			label_directory = st.session_state.get( 'synthetic_generator_label_directory', '' )
+			last_action = st.session_state.get(
+				'synthetic_generator_last_action',
+				''
+			)
+			last_message = st.session_state.get(
+				'synthetic_generator_last_message',
+				''
+			)
+			manifest_path = st.session_state.get(
+				'synthetic_generator_manifest_path',
+				''
+			)
+			label_directory = st.session_state.get(
+				'synthetic_generator_label_directory',
+				''
+			)
 			generated_count = int(
 				st.session_state.get( 'synthetic_generator_generated_count', 0 )
+			)
+			deleted_count = int(
+				st.session_state.get( 'synthetic_generator_deleted_count', 0 )
 			)
 			record_count = int(
 				st.session_state.get( 'synthetic_generator_record_count', 0 )
@@ -1196,21 +1201,31 @@ def display_synthetic_generator_expander( ) -> None:
 			if last_message:
 				st.caption( last_message )
 			
-			if manifest_path:
-				st.caption( f'Manifest: {manifest_path}' )
-			
-			if label_directory:
-				st.caption( f'Labels: {label_directory}' )
-			
-			if generated_count or record_count:
+			if last_action == 'generated':
+				if manifest_path:
+					st.caption( f'Manifest: {manifest_path}' )
+				
+				if label_directory:
+					st.caption( f'Labels: {label_directory}' )
+				
 				st.caption(
 					f'Generated files: {generated_count} | Manifest records: {record_count}'
 				)
+				
+				st.caption(
+					'Upload the generated manifest and labels using the normal application '
+					'upload controls.'
+				)
 			
-			st.caption(
-				'After generation, upload the generated manifest and labels using the normal '
-				'application upload controls.'
-			)
+			if last_action == 'cleared':
+				st.caption(
+					f'Deleted files: {deleted_count}'
+				)
+				
+				st.caption(
+					'Generated synthetic demo files have been removed. Generate a new demo pack '
+					'to create fresh manifest and label files.'
+				)
 	except Exception as e:
 		error = Error( e )
 		error.cause = 'Application'
@@ -1224,9 +1239,10 @@ def display_sidebar_header( ) -> None:
 	"""Display the application logo and reviewer controls in the sidebar.
 
 	Purpose:
-		Render the configured Fiddy logo, reviewer controls, demo asset guidance, and local
-		synthetic generator controls. Session-state values are updated immediately so the main
-		workflow can hide technical controls and apply accessibility CSS consistently.
+		Render the configured Fiddy logo, reviewer controls, reset control, demo asset guidance,
+		and local synthetic generator controls. Session-state values are updated immediately so
+		the main workflow can hide technical controls, apply accessibility CSS consistently, and
+		reset the application to its initial state when requested.
 
 	Returns:
 		None.
@@ -1278,22 +1294,287 @@ def display_sidebar_header( ) -> None:
 			help='Show keyboard navigation guidance in the reviewer workflow.'
 		)
 	
-	with st.sidebar.expander( 'Demo Assets', expanded=False ):
-		st.caption( 'Place demonstration label artwork in samples/labels.' )
-		st.caption( 'Place demonstration CSV manifests in samples/manifests.' )
-	
 	display_synthetic_generator_expander( )
+	
+	with st.sidebar.expander( 'Application State', expanded=False ):
+		st.caption(
+			'Reset clears uploaded widget state, manifest records, CAV values, verification '
+			'results, generated reports, and display tables.'
+		)
+		
+		if st.button(
+				'Reset Application',
+				key='reset_application_button',
+				use_container_width=True,
+				help='Return Fiddy to its initial startup state.'
+		):
+			reset_application_state( )
+			st.rerun( )
 
-def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
-	"""Create application data for Simple Mode manual artwork verification.
+def is_previewable_artwork_name( file_name: str ) -> bool:
+	"""Determine whether a file name can be previewed in the reviewer artwork panel.
+
+	Args:
+		file_name (str): File name to inspect.
+
+	Returns:
+		bool: ``True`` when the file extension is supported by the preview panel; otherwise,
+		``False``.
+	"""
+	try:
+		cfg.throw_if( 'file_name', file_name )
+		
+		file_extension = Path( file_name ).suffix.lower( )
+		
+		return file_extension in (
+				'.png',
+				'.jpg',
+				'.jpeg',
+				'.webp',
+				'.bmp',
+				'.tif',
+				'.tiff',
+				'.pdf'
+		)
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_previewable_artwork_name( file_name: str ) -> bool'
+		Logger( ).write( error )
+		return False
+
+def is_previewable_image_name( file_name: str ) -> bool:
+	"""Determine whether a file name can be previewed directly as an image.
+
+	Args:
+		file_name (str): File name to inspect.
+
+	Returns:
+		bool: ``True`` when the file extension is supported by ``st.image``; otherwise,
+		``False``.
+	"""
+	try:
+		cfg.throw_if( 'file_name', file_name )
+		
+		file_extension = Path( file_name ).suffix.lower( )
+		
+		return file_extension in (
+				'.png',
+				'.jpg',
+				'.jpeg',
+				'.webp',
+				'.bmp',
+				'.tif',
+				'.tiff'
+		)
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_previewable_image_name( file_name: str ) -> bool'
+		Logger( ).write( error )
+		return False
+
+def is_previewable_pdf_name( file_name: str ) -> bool:
+	"""Determine whether a file name can be previewed as a PDF.
+
+	Args:
+		file_name (str): File name to inspect.
+
+	Returns:
+		bool: ``True`` when the file extension is ``.pdf``; otherwise, ``False``.
+	"""
+	try:
+		cfg.throw_if( 'file_name', file_name )
+		
+		return Path( file_name ).suffix.lower( ) == '.pdf'
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'is_previewable_pdf_name( file_name: str ) -> bool'
+		Logger( ).write( error )
+		return False
+
+def get_uploaded_artwork_bytes_by_name( uploaded_files: List[ object ],
+		target_file_name: str ) -> bytes:
+	"""Return uploaded artwork bytes matching a target file name.
 
 	Purpose:
-		When a manifest is uploaded, this function returns an empty ``LabelApplication`` because
-		the manifest records supply expected values. When no manifest is present, it displays a
-		compact manual CAV form and builds a ``LabelApplication`` from session-state values.
+		Locate an uploaded image or PDF by file name. The function checks direct uploads first
+		and then supported artwork members inside uploaded ZIP archives. It is used only by the
+		reviewer preview panel and does not alter the verification workflow.
+
+	Args:
+		uploaded_files (List[object]): Uploaded artwork files from Streamlit.
+		target_file_name (str): Manifest or CAV file name to locate.
+
+	Returns:
+		bytes: Matching artwork bytes, or empty bytes when no previewable match is available.
+	"""
+	try:
+		cfg.throw_if( 'uploaded_files', uploaded_files )
+		cfg.throw_if( 'target_file_name', target_file_name )
+		
+		target_name = Path( target_file_name ).name
+		
+		if not is_previewable_artwork_name( target_name ):
+			return b''
+		
+		for uploaded_file in uploaded_files:
+			uploaded_name = Path( getattr( uploaded_file, 'name', '' ) ).name
+			
+			if not is_zip_upload( uploaded_file ):
+				if uploaded_name == target_name and is_previewable_artwork_name( uploaded_name ):
+					return bytes( uploaded_file.getbuffer( ) )
+				
+				continue
+			
+			file_bytes = bytes( uploaded_file.getbuffer( ) )
+			
+			with zipfile.ZipFile( BytesIO( file_bytes ) ) as archive:
+				for info in archive.infolist( ):
+					member_name = info.filename
+					
+					if not is_safe_archive_member_name( member_name ):
+						continue
+					
+					member_file_name = Path( member_name ).name
+					
+					if member_file_name != target_name:
+						continue
+					
+					if not is_previewable_artwork_name( member_file_name ):
+						continue
+					
+					return archive.read( info )
+		
+		return b''
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'get_uploaded_artwork_bytes_by_name( self, *args ) -> bytes'
+		Logger( ).write( error )
+		return b''
+
+def display_pdf_preview( pdf_bytes: bytes, file_name: str ) -> None:
+	"""Display a PDF preview with a safe fallback when PDF viewing is unavailable.
+
+	Purpose:
+		Render a PDF in the reviewer preview panel using Streamlit's PDF viewer when available.
+		If the runtime does not expose ``st.pdf``, the function displays a clear fallback message
+		and offers the PDF as a download instead of interrupting the workflow.
+
+	Args:
+		pdf_bytes (bytes): PDF bytes to display.
+		file_name (str): PDF file name.
+
+	Returns:
+		None.
+	"""
+	try:
+		cfg.throw_if( 'pdf_bytes', pdf_bytes )
+		cfg.throw_if( 'file_name', file_name )
+		
+		if hasattr( st, 'pdf' ):
+			st.pdf( pdf_bytes )
+			st.caption( file_name )
+			return
+		
+		st.info(
+			'PDF preview is unavailable in this Streamlit runtime. The PDF will still be '
+			'processed during verification.'
+		)
+		st.download_button(
+			label='Download PDF Preview File',
+			data=pdf_bytes,
+			file_name=Path( file_name ).name,
+			mime='application/pdf',
+			use_container_width=True,
+			key=f'pdf_preview_download_{Path( file_name ).stem}'
+		)
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_pdf_preview( pdf_bytes: bytes, file_name: str ) -> None'
+		Logger( ).write( error )
+		st.warning( f'Unable to display PDF preview: {e}' )
+
+def display_label_artwork_preview( uploaded_files: List[ object ], file_name: str ) -> None:
+	"""Display a synchronized label artwork preview for the active CAV or manifest record.
+
+	Purpose:
+		Show the uploaded label artwork that matches the active manifest/CAV file name. The
+		preview supports common image formats and PDF files from direct uploads and ZIP archive
+		members. The preview does not alter the verification workflow.
+
+	Args:
+		uploaded_files (List[object]): Uploaded artwork files from Streamlit.
+		file_name (str): Active manifest/CAV file name.
+
+	Returns:
+		None.
+	"""
+	try:
+		if not file_name:
+			st.info( 'No manifest file name is selected.' )
+			return
+		
+		if not uploaded_files:
+			st.info( 'Upload label artwork to display the matching preview.' )
+			return
+		
+		if not is_previewable_artwork_name( file_name ):
+			st.info( 'Preview is available for image and PDF artwork files.' )
+			st.caption( f'Selected file: {file_name}' )
+			return
+		
+		artwork_bytes = get_uploaded_artwork_bytes_by_name( uploaded_files, file_name )
+		
+		if not artwork_bytes:
+			st.warning( f'No uploaded preview file matches: {file_name}' )
+			return
+		
+		if is_previewable_pdf_name( file_name ):
+			display_pdf_preview( artwork_bytes, file_name )
+			return
+		
+		if is_previewable_image_name( file_name ):
+			image = Image.open( BytesIO( artwork_bytes ) )
+			st.image(
+				image,
+				caption=file_name,
+				use_container_width=True
+			)
+			return
+		
+		st.info( 'No preview renderer is available for the selected file.' )
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_label_artwork_preview( uploaded_files: List[object], file_name: str ) -> None'
+		Logger( ).write( error )
+		st.warning( f'Unable to display label preview: {e}' )
+
+def create_simple_label_application( uploaded_manifest: object,
+		uploaded_files: List[ object ] ) -> LabelApplication:
+	"""Create application data and display the Simple Mode CAV/artwork preview panel.
+
+	Purpose:
+		Display expected CAV or manifest values and a synchronized label artwork preview inside
+		one expander. The top row contains manifest navigation controls. The middle area places
+		the six primary fields in the left two-thirds using a three-row by two-column layout and
+		the matching image/PDF preview in the right one-third. The government warning occupies a
+		full-width bottom row. When a manifest is uploaded, the active manifest record controls
+		both the form values and the previewed artwork.
 
 	Args:
 		uploaded_manifest (object): Streamlit uploaded manifest file.
+		uploaded_files (List[object]): Uploaded label artwork files.
 
 	Returns:
 		LabelApplication: Expected label application values for manual review, or an empty
@@ -1301,58 +1582,93 @@ def create_simple_label_application( uploaded_manifest: object ) -> LabelApplica
 	"""
 	initialize_cav_form_state( )
 	
-	if uploaded_manifest:
-		return LabelApplication( )
-	
-	with st.expander( 'Manual CAV Values', expanded=True ):
-		st.caption( 'Complete these fields only when reviewing artwork without a manifest CSV.' )
-		
-		left_column, right_column = st.columns( [ 0.50, 0.50 ] )
-		
-		with left_column:
-			st.text_input(
-				'Brand Name',
-				key='cav_brand_name',
-				help='Used for fuzzy matching against the brand name extracted from the label.'
+	with st.expander( 'Application / Manifest Data and Label Preview', expanded=True ):
+		if uploaded_manifest:
+			st.caption(
+				'Review the active manifest record. Use the navigation controls to move through '
+				'the manifest.'
 			)
-			
-			st.text_input(
-				'Class / Type',
-				key='cav_class_type',
-				help='Product class/type designation.'
-			)
-			
-			st.text_input(
-				'ABV',
-				key='cav_abv',
-				help='Alcohol by volume value used for numeric comparison.'
+			display_manifest_record_navigation( key_prefix='simple_cav_form' )
+		else:
+			st.caption(
+				'Complete these fields only when reviewing artwork without a manifest CSV.'
 			)
 		
-		with right_column:
-			st.text_input(
-				'Net Contents',
-				key='cav_net_contents',
-				help='Container volume used for comparison.'
-			)
+		form_column, preview_column = st.columns( [ 0.67, 0.33 ] )
+		
+		with form_column:
+			row_1_left, row_1_right = st.columns( 2 )
 			
-			st.text_input(
-				'Producer / Bottler',
-				key='cav_producer_bottler',
-				help='Producer, bottler, brewer, vintner, importer, or responsible party text.'
-			)
+			with row_1_left:
+				st.text_input(
+					'Brand Name',
+					key='cav_brand_name',
+					help='Used for fuzzy matching against the brand name extracted from the label.'
+				)
 			
-			st.text_input(
-				'Country of Origin',
-				key='cav_country_of_origin',
-				help='Country of origin value when applicable.'
-			)
+			with row_1_right:
+				st.text_input(
+					'Class / Type',
+					key='cav_class_type',
+					help='Product class/type designation.'
+				)
+			
+			row_2_left, row_2_right = st.columns( 2 )
+			
+			with row_2_left:
+				st.text_input(
+					'ABV',
+					key='cav_abv',
+					help='Alcohol by volume value used for numeric comparison.'
+				)
+			
+			with row_2_right:
+				st.text_input(
+					'Net Contents',
+					key='cav_net_contents',
+					help='Container volume used for comparison.'
+				)
+			
+			row_3_left, row_3_right = st.columns( 2 )
+			
+			with row_3_left:
+				st.text_input(
+					'Producer / Bottler',
+					key='cav_producer_bottler',
+					help='Producer, bottler, brewer, vintner, importer, or responsible party text.'
+				)
+			
+			with row_3_right:
+				st.text_input(
+					'Country of Origin',
+					key='cav_country_of_origin',
+					help='Country of origin value when applicable.'
+				)
+		
+		with preview_column:
+			st.markdown( '**Label Preview**' )
+			
+			active_file_name = str( st.session_state.get( 'cav_file_name', '' ) ).strip( )
+			
+			if uploaded_manifest:
+				current_record = get_current_manifest_record( )
+				
+				if current_record:
+					active_file_name = str(
+						get_record_value( current_record, 'file_name', active_file_name )
+					).strip( )
+			
+			display_label_artwork_preview( uploaded_files, active_file_name )
 		
 		st.text_area(
 			'Government Warning',
 			key='cav_government_warning',
-			height=95,
+			height=120,
 			help='Expected government warning text. Exact-match review is required.'
 		)
+	
+	if uploaded_manifest:
+		return LabelApplication( )
 	
 	alcohol_content = parse_optional_float( st.session_state.get( 'cav_abv', '' ) )
 	proof = alcohol_content * 2.0 if alcohol_content is not None else None
@@ -1607,7 +1923,7 @@ def get_batch_metrics( batch_report: BatchVerificationReport,
 		error = Error( e )
 		error.cause = 'Application'
 		error.module = __name__
-		error.method = 'get_batch_metrics( batch_report: BatchVerificationReport, batch_result: BatchProcessingResult ) -> Tuple[int, int, int, int, int]'
+		error.method = 'get_batch_metrics( self, *args ) -> Tuple[int, int, int, int, int]'
 		Logger( ).write( error )
 		return 0, 0, 0, 0, 0
 
@@ -2547,9 +2863,10 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 	"""Display manifest and label artwork upload controls.
 
 	Purpose:
-		This function renders the first workflow panel and returns the uploaded manifest CSV plus
-		the uploaded artwork files. The artwork uploader accepts individual supported image/PDF
-		files and ZIP archives.
+		Render the first workflow panel and return the uploaded manifest CSV plus the uploaded
+		artwork files. The artwork uploader accepts individual supported image/PDF files and ZIP
+		archives. Upload widget keys include the application reset token so the Reset Application
+		control can clear uploaded files on rerun.
 
 	Returns:
 		Tuple[object, List[object]]: Uploaded manifest and uploaded label files.
@@ -2567,6 +2884,7 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 		unsafe_allow_html=True
 	)
 	
+	reset_token = int( st.session_state.get( 'app_reset_token', 0 ) )
 	left_column, right_column = st.columns( [ 0.45, 0.55 ] )
 	
 	with left_column:
@@ -2574,6 +2892,7 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 			'Application Manifest CSV',
 			type=[ 'csv' ],
 			accept_multiple_files=False,
+			key=f'application_manifest_csv_upload_{reset_token}',
 			help='CSV should include file_name, brand_name, class_type, beverage_type, '
 			     'alcohol_content, net_contents, producer_bottler, and optional fields.'
 		)
@@ -2583,6 +2902,7 @@ def display_upload_panel( ) -> Tuple[ object, List[ object ] ]:
 			'Label Artwork Files or ZIP Archive',
 			type=get_supported_upload_type_values( ),
 			accept_multiple_files=True,
+			key=f'label_artwork_files_upload_{reset_token}',
 			help='Upload individual image/PDF files or a ZIP archive containing image/PDF labels.'
 		)
 	
@@ -2670,7 +2990,7 @@ def display_processing_controls( uploaded_manifest: object, uploaded_files: List
 	sla_seconds = float( getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 ) )
 	
 	if simple_mode:
-		left_column, right_column = st.columns( [ 0.55, 0.45 ] )
+		left_column, right_column = st.columns( [ 0.50, 0.50 ] )
 		
 		with left_column:
 			run_button = st.button(
@@ -3869,9 +4189,10 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 	"""Display the streamlined reviewer workflow for Simple Mode.
 
 	Purpose:
-		Render the low-navigation reviewer workflow consisting of upload, run verification, and
-		review results. Technical processing controls, manifest previews, diagnostics, methodology,
-		and raw rule tables remain hidden unless Advanced Mode is selected.
+		Render the low-navigation reviewer workflow consisting of upload, application/manifest
+		data review, synchronized label artwork preview, run verification, and review results.
+		Technical processing controls, manifest previews, diagnostics, methodology, and raw rule
+		tables remain hidden unless Advanced Mode is selected.
 
 	Args:
 		uploaded_manifest (object): Uploaded manifest file.
@@ -3881,7 +4202,7 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 		None.
 	"""
 	display_keyboard_accessibility_notes( )
-	application = create_simple_label_application( uploaded_manifest )
+	application = create_simple_label_application( uploaded_manifest, uploaded_files )
 	display_processing_controls( uploaded_manifest, uploaded_files, application )
 	
 	if st.session_state[ 'verification_complete' ]:

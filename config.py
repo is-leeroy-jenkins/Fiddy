@@ -8,33 +8,7 @@
       Last Modified By:        Terry D. Eppler
       Last Modified On:        06-07-2026
     ******************************************************************************************
-    <copyright file="config.py" company="Terry D. Eppler">
-
-         Fiddy: AI-Powered Alcohol Label Verification App
-
-     Permission is hereby granted, free of charge, to any person obtaining a copy
-     of this software and associated documentation files (the “Software”),
-     to deal in the Software without restriction,
-     including without limitation the rights to use,
-     copy, modify, merge, publish, distribute, sublicense,
-     and/or sell copies of the Software,
-     and to permit persons to whom the Software is furnished to do so,
-     subject to the following conditions:
-
-     The above copyright notice and this permission notice shall be included in all
-     copies or substantial portions of the Software.
-
-     THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-     INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-     FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-     IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-     DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-     ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-     DEALINGS IN THE SOFTWARE.
-
-     You can contact me at:  terryeppler@gmail.com
-
-    </copyright>
+    
     <summary>
         Centralizes Fiddy configuration for local development, prototype acceptance testing,
         no-persistence data handling, and Azure-ready deployment.
@@ -227,19 +201,17 @@ SYNTHETIC_DEMO_ENABLED: bool = get_bool( 'SYNTHETIC_DEMO_ENABLED', True )
 SYNTHETIC_DEMO_LABEL_WIDTH: int = get_int( 'SYNTHETIC_DEMO_LABEL_WIDTH', 1200 )
 SYNTHETIC_DEMO_LABEL_HEIGHT: int = get_int( 'SYNTHETIC_DEMO_LABEL_HEIGHT', 800 )
 SYNTHETIC_DEMO_PREFIX: str = get_text( 'SYNTHETIC_DEMO_PREFIX', 'fiddy_v2' )
-SYNTHETIC_DEMO_MANIFEST_NAME: str = get_text(
-	'SYNTHETIC_DEMO_MANIFEST_NAME',
-	'fiddy_v2_demo_manifest.csv'
-)
+SYNTHETIC_DEMO_MANIFEST_NAME: str = get_text( 'SYNTHETIC_DEMO_MANIFEST_NAME',
+	'fiddy_v2_demo_manifest.csv' )
+
 # ==========================================================================================
 # Application Settings
 # ==========================================================================================
 
-APP_NAME: str = get_text( 'APP_NAME', 'Label Verification' )
-APP_TITLE: str = get_text( 'APP_TITLE', 'Fiddy' )
+APP_NAME: str = get_text( 'APP_NAME', 'Label Review & Verification' )
+APP_TITLE: str = get_text( 'APP_TITLE', 'Label Reviewer' )
 
-APP_DESCRIPTION: str = get_text(
-	'APP_DESCRIPTION',
+APP_DESCRIPTION: str = get_text( 'APP_DESCRIPTION',
 	'A local-first prototype for alcohol label verification using OCR, deterministic rules, '
 	'fuzzy matching, and human-review flags.' )
 
@@ -278,23 +250,15 @@ SUPPORTED_IMAGE_EXTENSIONS: tuple[ str, ... ] = (
 		'.tiff'
 )
 
-SUPPORTED_PDF_EXTENSIONS: tuple[ str, ... ] = (
-		'.pdf',
-)
+SUPPORTED_PDF_EXTENSIONS: tuple[ str, ... ] = ( '.pdf', )
 
-SUPPORTED_ARCHIVE_EXTENSIONS: tuple[ str, ... ] = (
-		'.zip',
-)
+SUPPORTED_ARCHIVE_EXTENSIONS: tuple[ str, ... ] = ( '.zip', )
 
-SUPPORTED_UPLOAD_EXTENSIONS: tuple[ str, ... ] = (
-		*SUPPORTED_IMAGE_EXTENSIONS,
-		*SUPPORTED_PDF_EXTENSIONS
-)
+SUPPORTED_UPLOAD_EXTENSIONS: tuple[ str, ... ] = ( *SUPPORTED_IMAGE_EXTENSIONS, *SUPPORTED_PDF_EXTENSIONS )
 
 SUPPORTED_BATCH_UPLOAD_EXTENSIONS: tuple[ str, ... ] = (
 		*SUPPORTED_UPLOAD_EXTENSIONS,
-		*SUPPORTED_ARCHIVE_EXTENSIONS
-)
+		*SUPPORTED_ARCHIVE_EXTENSIONS )
 
 # ==========================================================================================
 # OCR Settings
@@ -320,21 +284,14 @@ AZURE_VISION_KEY: Optional[ str ] = os.getenv( 'AZURE_VISION_KEY' )
 # Verification Settings
 # ==========================================================================================
 
-BRAND_MATCH_THRESHOLD: float = get_float( 'BRAND_MATCH_THRESHOLD', 90.0 )
-CLASS_TYPE_MATCH_THRESHOLD: float = get_float( 'CLASS_TYPE_MATCH_THRESHOLD', 85.0 )
-LOW_CONFIDENCE_THRESHOLD: float = get_float( 'LOW_CONFIDENCE_THRESHOLD', 70.0 )
-ABV_TOLERANCE: float = get_float( 'ABV_TOLERANCE', 0.3 )
-PROOF_TOLERANCE: float = get_float( 'PROOF_TOLERANCE', 0.6 )
-NET_CONTENTS_MATCH_THRESHOLD: float = get_float( 'NET_CONTENTS_MATCH_THRESHOLD', 90.0 )
-PRODUCER_BOTTLER_MATCH_THRESHOLD: float = get_float(
-	'PRODUCER_BOTTLER_MATCH_THRESHOLD',
-	85.0
-)
-COUNTRY_OF_ORIGIN_MATCH_THRESHOLD: float = get_float(
-	'COUNTRY_OF_ORIGIN_MATCH_THRESHOLD',
-	90.0
-)
-
+BRAND_MATCH_THRESHOLD = get_float( 'BRAND_MATCH_THRESHOLD', 90.0 )
+CLASS_TYPE_MATCH_THRESHOLD = get_float( 'CLASS_TYPE_MATCH_THRESHOLD', 85.0 )
+LOW_CONFIDENCE_THRESHOLD = get_float( 'LOW_CONFIDENCE_THRESHOLD', 70.0 )
+ABV_TOLERANCE = get_float( 'ABV_TOLERANCE', 0.3 )
+PROOF_TOLERANCE = get_float( 'PROOF_TOLERANCE', 0.6 )
+NET_CONTENTS_MATCH_THRESHOLD = get_float( 'NET_CONTENTS_MATCH_THRESHOLD', 90.0 )
+PRODUCER_BOTTLER_MATCH_THRESHOLD = get_float( 'PRODUCER_BOTTLER_MATCH_THRESHOLD', 85.0 )
+COUNTRY_OF_ORIGIN_MATCH_THRESHOLD = get_float( 'COUNTRY_OF_ORIGIN_MATCH_THRESHOLD', 90.0 )
 DEFAULT_STATUS_PASS: str = 'Pass'
 DEFAULT_STATUS_WARNING: str = 'Warning'
 DEFAULT_STATUS_FAIL: str = 'Fail'
@@ -344,55 +301,28 @@ DEFAULT_STATUS_REVIEW: str = 'Needs Review'
 # Acceptance and SLA Settings
 # ==========================================================================================
 
-LABEL_PROCESSING_SLA_SECONDS: float = get_float( 'LABEL_PROCESSING_SLA_SECONDS', 5.0 )
-BATCH_ACCEPTANCE_MIN_FILES: int = get_int( 'BATCH_ACCEPTANCE_MIN_FILES', 20 )
-BATCH_ACCEPTANCE_MAX_FILES: int = get_int( 'BATCH_ACCEPTANCE_MAX_FILES', 50 )
-BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS: float = get_float(
-	'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS',
-	5.0
-)
-BATCH_ACCEPTANCE_MAX_P95_SECONDS: float = get_float(
-	'BATCH_ACCEPTANCE_MAX_P95_SECONDS',
-	5.0
-)
-BATCH_ACCEPTANCE_MAX_BREACH_RATE: float = get_float(
-	'BATCH_ACCEPTANCE_MAX_BREACH_RATE',
-	0.0
-)
-ENABLE_ACCEPTANCE_SUMMARY: bool = get_bool( 'ENABLE_ACCEPTANCE_SUMMARY', True )
-ENABLE_PERFORMANCE_WARNINGS: bool = get_bool( 'ENABLE_PERFORMANCE_WARNINGS', True )
+LABEL_PROCESSING_SLA_SECONDS = get_float( 'LABEL_PROCESSING_SLA_SECONDS', 5.0 )
+BATCH_ACCEPTANCE_MIN_FILES = get_int( 'BATCH_ACCEPTANCE_MIN_FILES', 20 )
+BATCH_ACCEPTANCE_MAX_FILES = get_int( 'BATCH_ACCEPTANCE_MAX_FILES', 50 )
+BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS = get_float( 'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS', 5.0 )
+BATCH_ACCEPTANCE_MAX_P95_SECONDS = get_float( 'BATCH_ACCEPTANCE_MAX_P95_SECONDS', 5.0 )
+BATCH_ACCEPTANCE_MAX_BREACH_RATE = get_float( 'BATCH_ACCEPTANCE_MAX_BREACH_RATE', 0.0 )
+ENABLE_ACCEPTANCE_SUMMARY  = get_bool( 'ENABLE_ACCEPTANCE_SUMMARY', True )
+ENABLE_PERFORMANCE_WARNINGS = get_bool( 'ENABLE_PERFORMANCE_WARNINGS', True )
 
 # ==========================================================================================
 # Acceptance Scenario Evidence Flags
 # ==========================================================================================
 
-IMPERFECT_IMAGE_TESTED: bool = get_bool( 'IMPERFECT_IMAGE_TESTED', False )
-LOW_QUALITY_IMAGE_TESTED: bool = get_bool( 'LOW_QUALITY_IMAGE_TESTED', False )
-FALSE_POSITIVE_VARIATION_TESTED: bool = get_bool(
-	'FALSE_POSITIVE_VARIATION_TESTED',
-	False
-)
-LOW_TECH_REVIEWER_WORKFLOW_VALIDATED: bool = get_bool(
-	'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED',
-	False
-)
-MINIMAL_NAVIGATION_VALIDATED: bool = get_bool(
-	'MINIMAL_NAVIGATION_VALIDATED',
-	False
-)
-KEYBOARD_ACCESSIBILITY_PASSED: bool = get_bool(
-	'KEYBOARD_ACCESSIBILITY_PASSED',
-	False
-)
-PROGRESS_INDICATORS_DISPLAYED: bool = get_bool(
-	'PROGRESS_INDICATORS_DISPLAYED',
-	False
-)
-NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED: bool = get_bool(
-	'NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED',
-	True
-)
-LARGE_BUTTONS_PRESENT: bool = get_bool( 'LARGE_BUTTONS_PRESENT', True )
+IMPERFECT_IMAGE_TESTED = get_bool( 'IMPERFECT_IMAGE_TESTED', False )
+LOW_QUALITY_IMAGE_TESTED = get_bool( 'LOW_QUALITY_IMAGE_TESTED', False )
+FALSE_POSITIVE_VARIATION_TESTED = get_bool( 'FALSE_POSITIVE_VARIATION_TESTED', False )
+LOW_TECH_REVIEWER_WORKFLOW_VALIDATED = get_bool( 'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED', False )
+MINIMAL_NAVIGATION_VALIDATED = get_bool( 'MINIMAL_NAVIGATION_VALIDATED', False )
+KEYBOARD_ACCESSIBILITY_PASSED = get_bool( 'KEYBOARD_ACCESSIBILITY_PASSED', False )
+PROGRESS_INDICATORS_DISPLAYED = get_bool( 'PROGRESS_INDICATORS_DISPLAYED', False )
+NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED = get_bool( 'NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED', True )
+LARGE_BUTTONS_PRESENT = get_bool( 'LARGE_BUTTONS_PRESENT', True )
 
 # ==========================================================================================
 # Accessibility Settings
@@ -403,14 +333,8 @@ DEFAULT_HIGH_CONTRAST_MODE: bool = get_bool( 'DEFAULT_HIGH_CONTRAST_MODE', False
 DEFAULT_LARGE_TEXT_MODE: bool = get_bool( 'DEFAULT_LARGE_TEXT_MODE', False )
 HIGH_CONTRAST_AVAILABLE: bool = get_bool( 'HIGH_CONTRAST_AVAILABLE', True )
 LARGE_TEXT_AVAILABLE: bool = get_bool( 'LARGE_TEXT_AVAILABLE', True )
-REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK: bool = get_bool(
-	'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK',
-	True
-)
-SHOW_KEYBOARD_ACCESSIBILITY_NOTES: bool = get_bool(
-	'SHOW_KEYBOARD_ACCESSIBILITY_NOTES',
-	True
-)
+REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK = get_bool( 'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK', True )
+SHOW_KEYBOARD_ACCESSIBILITY_NOTES = get_bool( 'SHOW_KEYBOARD_ACCESSIBILITY_NOTES', True )
 MINIMUM_TOUCH_TARGET_PX: int = get_int( 'MINIMUM_TOUCH_TARGET_PX', 44 )
 
 # ==========================================================================================
@@ -430,14 +354,8 @@ ENABLE_TEMP_CLEANUP: bool = get_bool( 'ENABLE_TEMP_CLEANUP', True )
 
 ENABLE_RAW_OCR_EXPORT: bool = get_bool( 'ENABLE_RAW_OCR_EXPORT', False )
 ENABLE_EXTRACTED_DATA_EXPORT: bool = get_bool( 'ENABLE_EXTRACTED_DATA_EXPORT', False )
-ENABLE_REDACTED_EVIDENCE_EXPORT: bool = get_bool(
-	'ENABLE_REDACTED_EVIDENCE_EXPORT',
-	True
-)
-ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE: bool = get_bool(
-	'ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE',
-	False
-)
+ENABLE_REDACTED_EVIDENCE_EXPORT = get_bool( 'ENABLE_REDACTED_EVIDENCE_EXPORT', True )
+ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE = get_bool( 'ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE', False )
 
 LOG_RETENTION_DAYS: int = get_int( 'LOG_RETENTION_DAYS', 7 )
 MAX_LOG_MESSAGE_CHARS: int = get_int( 'MAX_LOG_MESSAGE_CHARS', 1000 )
@@ -457,13 +375,6 @@ ENABLE_CSV_REPORTS: bool = get_bool( 'ENABLE_CSV_REPORTS', True )
 # Streamlit Settings
 # ==========================================================================================
 
-STREAMLIT_SERVER_PORT: int = get_int(
-	'PORT',
-	get_int( 'STREAMLIT_SERVER_PORT', 8501 )
-)
-
+STREAMLIT_SERVER_PORT = get_int( 'PORT', get_int( 'STREAMLIT_SERVER_PORT', 8501 ) )
 STREAMLIT_SERVER_ADDRESS: str = get_text( 'STREAMLIT_SERVER_ADDRESS', '0.0.0.0' )
-STREAMLIT_BROWSER_GATHER_USAGE_STATS: bool = get_bool(
-	'STREAMLIT_BROWSER_GATHER_USAGE_STATS',
-	False
-)
+STREAMLIT_BROWSER_GATHER_USAGE_STATS = get_bool( 'STREAMLIT_BROWSER_GATHER_USAGE_STATS', False )
