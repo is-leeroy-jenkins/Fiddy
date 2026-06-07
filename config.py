@@ -220,6 +220,18 @@ TITLE: str = get_text( 'TITLE', r'assets/images/title.png' )
 BLUE_DIVIDER: str = "<div style='height:2px;align:left;background:#0078FC;margin:0px 30px 30px 0px;'></div>"
 
 # ==========================================================================================
+# Synthetic Demonstration Data Settings
+# ==========================================================================================
+
+SYNTHETIC_DEMO_ENABLED: bool = get_bool( 'SYNTHETIC_DEMO_ENABLED', True )
+SYNTHETIC_DEMO_LABEL_WIDTH: int = get_int( 'SYNTHETIC_DEMO_LABEL_WIDTH', 1200 )
+SYNTHETIC_DEMO_LABEL_HEIGHT: int = get_int( 'SYNTHETIC_DEMO_LABEL_HEIGHT', 800 )
+SYNTHETIC_DEMO_PREFIX: str = get_text( 'SYNTHETIC_DEMO_PREFIX', 'fiddy_v2' )
+SYNTHETIC_DEMO_MANIFEST_NAME: str = get_text(
+	'SYNTHETIC_DEMO_MANIFEST_NAME',
+	'fiddy_v2_demo_manifest.csv'
+)
+# ==========================================================================================
 # Application Settings
 # ==========================================================================================
 

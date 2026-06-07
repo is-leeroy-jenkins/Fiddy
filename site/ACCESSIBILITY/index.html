@@ -1,0 +1,1203 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="AI-Powered Alcohol Label Verification App">
+      
+      
+        <meta name="author" content="Terry D. Eppler">
+      
+      
+      
+        <link rel="prev" href="../ACCEPTANCE/">
+      
+      
+        <link rel="next" href="../AZURE_DEPLOYMENT/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Accessibility - Fiddy</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#accessibility" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Fiddy" class="md-header__button md-logo" aria-label="Fiddy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Fiddy
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Accessibility
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Fiddy" class="md-nav__button md-logo" aria-label="Fiddy" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Fiddy
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../INSTALLATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../USER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ARCHITECTURE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../API/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ACCEPTANCE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Acceptance
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accessibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewer-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewer Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyboard-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyboard Controls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-accessibility-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Accessibility Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-status-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Status Values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-browser-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Browser Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simple-mode-expectations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simple Mode Expectations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-mode-expectations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Mode Expectations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-demonstration-accessibility-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-Demonstration Accessibility Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../AZURE_DEPLOYMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Azure Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PATH-POPPLER/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Poppler Setup
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../DEVELOPMENT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Scope
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewer-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewer Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#keyboard-controls" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keyboard Controls
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manual-accessibility-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Accessibility Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-status-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation Status Values
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#accessibility-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Accessibility Evidence
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommended-browser-validation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended Browser Validation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#simple-mode-expectations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simple Mode Expectations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-mode-expectations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Mode Expectations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#known-limitations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Known Limitations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pre-demonstration-accessibility-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pre-Demonstration Accessibility Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="accessibility">Accessibility<a class="headerlink" href="#accessibility" title="Permanent link">&para;</a></h1>
+<p>This page describes the accessibility posture and manual validation checklist for the Fiddy
+prototype.</p>
+<p>Fiddy supports reviewer accessibility through Simple Mode, high-contrast mode, large-text mode,
+keyboard-oriented workflow guidance, visible reviewer actions, and non-hover mismatch explanations.</p>
+<p>Accessibility validation should be performed in the browser because Streamlit renders the final
+interactive controls at runtime.</p>
+<h2 id="accessibility-scope">Accessibility Scope<a class="headerlink" href="#accessibility-scope" title="Permanent link">&para;</a></h2>
+<p>The Fiddy prototype should support:</p>
+<ul>
+<li>Simple reviewer workflow.</li>
+<li>High-contrast display mode.</li>
+<li>Large-text display mode.</li>
+<li>Keyboard navigation.</li>
+<li>Visible focus indicators.</li>
+<li>Keyboard activation of primary controls.</li>
+<li>Reviewer guidance that does not depend only on mouse hover.</li>
+<li>Download controls reachable by keyboard.</li>
+<li>Results that remain readable in high-contrast and large-text modes.</li>
+</ul>
+<h2 id="reviewer-workflow">Reviewer Workflow<a class="headerlink" href="#reviewer-workflow" title="Permanent link">&para;</a></h2>
+<p>The Simple Mode workflow should remain short and predictable:</p>
+<div class="codehilite"><pre><span></span><code>Upload application data and label artwork
+        ↓
+Run verification
+        ↓
+Review results and download outputs
+</code></pre></div>
+
+<p>Simple Mode should hide technical controls such as worker count and SLA tuning.</p>
+<p>Advanced Mode may expose technical details for diagnostics, testing, and acceptance review.</p>
+<h2 id="accessibility-features">Accessibility Features<a class="headerlink" href="#accessibility-features" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Simple Mode</td>
+<td>Reduces screen complexity for routine review.</td>
+</tr>
+<tr>
+<td>Advanced Mode</td>
+<td>Preserves diagnostic access for technical users.</td>
+</tr>
+<tr>
+<td>High Contrast</td>
+<td>Improves readability for users who need stronger visual contrast.</td>
+</tr>
+<tr>
+<td>Large Text</td>
+<td>Increases text and control size.</td>
+</tr>
+<tr>
+<td>Keyboard Guidance</td>
+<td>Explains how to move through the interface without a mouse.</td>
+</tr>
+<tr>
+<td>Reviewer Action Text</td>
+<td>Makes mismatch guidance visible without requiring hover.</td>
+</tr>
+<tr>
+<td>Download Buttons</td>
+<td>Provides keyboard-reachable report export controls.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="keyboard-controls">Keyboard Controls<a class="headerlink" href="#keyboard-controls" title="Permanent link">&para;</a></h2>
+<p>Users should be able to operate the primary workflow with standard keyboard controls.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Expected Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Tab</code></td>
+<td>Move forward through controls.</td>
+</tr>
+<tr>
+<td><code>Shift + Tab</code></td>
+<td>Move backward through controls.</td>
+</tr>
+<tr>
+<td><code>Enter</code></td>
+<td>Activate focused buttons or selected controls.</td>
+</tr>
+<tr>
+<td><code>Space</code></td>
+<td>Activate focused buttons or toggles where supported.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="manual-accessibility-checklist">Manual Accessibility Checklist<a class="headerlink" href="#manual-accessibility-checklist" title="Permanent link">&para;</a></h2>
+<p>The checklist below should be validated in a browser before stakeholder demonstration.</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Check</th>
+<th>Expected Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A11Y-001</td>
+<td>High Contrast Mode Available</td>
+<td>Controls and text remain readable with strong contrast.</td>
+</tr>
+<tr>
+<td>A11Y-002</td>
+<td>Large Text Mode Available</td>
+<td>Text and controls are larger without hiding required workflow controls.</td>
+</tr>
+<tr>
+<td>A11Y-003</td>
+<td>Keyboard Focus Visible</td>
+<td>A visible focus outline appears on active controls.</td>
+</tr>
+<tr>
+<td>A11Y-004</td>
+<td>Upload Controls Reachable by Keyboard</td>
+<td>Manifest and artwork upload controls can be reached without a mouse.</td>
+</tr>
+<tr>
+<td>A11Y-005</td>
+<td>Run Verification Button Reachable by Keyboard</td>
+<td>The Run Verification button can be reached without a mouse.</td>
+</tr>
+<tr>
+<td>A11Y-006</td>
+<td>Run Verification Button Activates by Keyboard</td>
+<td>Verification starts by pressing Enter or Space when the button is focused.</td>
+</tr>
+<tr>
+<td>A11Y-007</td>
+<td>Backward Keyboard Navigation Works</td>
+<td>Shift + Tab moves focus backward through prior controls.</td>
+</tr>
+<tr>
+<td>A11Y-008</td>
+<td>Simple Mode Uses Short Workflow</td>
+<td>The reviewer can complete upload, run, review/download.</td>
+</tr>
+<tr>
+<td>A11Y-009</td>
+<td>Simple Mode Hides Technical Controls</td>
+<td>Worker count and SLA tuning controls are not visible in Simple Mode.</td>
+</tr>
+<tr>
+<td>A11Y-010</td>
+<td>Result Selector Reachable by Keyboard</td>
+<td>The result selector can be reached without a mouse.</td>
+</tr>
+<tr>
+<td>A11Y-011</td>
+<td>Mismatch Guidance Does Not Require Hover</td>
+<td>Explanation and reviewer action text are visible without mouse-only hover.</td>
+</tr>
+<tr>
+<td>A11Y-012</td>
+<td>Comparison Table Readable</td>
+<td>Application value, extracted value, status, severity, confidence, explanation, and reviewer action remain readable.</td>
+</tr>
+<tr>
+<td>A11Y-013</td>
+<td>Download Buttons Reachable by Keyboard</td>
+<td>Download controls can be reached without a mouse.</td>
+</tr>
+<tr>
+<td>A11Y-014</td>
+<td>Download Buttons Activate by Keyboard</td>
+<td>Download controls activate with Enter or Space where supported by the browser.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="validation-status-values">Validation Status Values<a class="headerlink" href="#validation-status-values" title="Permanent link">&para;</a></h2>
+<p>Use the following values when recording manual accessibility results:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Pass</code></td>
+<td>The item was tested and worked as expected.</td>
+</tr>
+<tr>
+<td><code>Fail</code></td>
+<td>The item was tested and did not work as expected.</td>
+</tr>
+<tr>
+<td><code>Not Tested</code></td>
+<td>The item has not yet been tested.</td>
+</tr>
+<tr>
+<td><code>Not Applicable</code></td>
+<td>The item does not apply to the current workflow or browser context.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="accessibility-evidence">Accessibility Evidence<a class="headerlink" href="#accessibility-evidence" title="Permanent link">&para;</a></h2>
+<p>Fiddy includes a reusable checklist model in:</p>
+<div class="codehilite"><pre><span></span><code>src/accessibility_checklist.py
+</code></pre></div>
+
+<p>That module can generate checklist records suitable for display, documentation, or export.</p>
+<p>The checklist supports:</p>
+<ul>
+<li>Item identifiers.</li>
+<li>Categories.</li>
+<li>Test names.</li>
+<li>Test procedures.</li>
+<li>Expected results.</li>
+<li>Status values.</li>
+<li>Tester notes.</li>
+<li>Evaluation timestamps.</li>
+</ul>
+<h2 id="recommended-browser-validation">Recommended Browser Validation<a class="headerlink" href="#recommended-browser-validation" title="Permanent link">&para;</a></h2>
+<p>Perform accessibility validation in the same browser and deployment mode expected for demonstration.</p>
+<p>Recommended validation environments:</p>
+<ul>
+<li>Local Streamlit run.</li>
+<li>Local Docker container.</li>
+<li>Azure-hosted container.</li>
+</ul>
+<p>At minimum, validate:</p>
+<ol>
+<li>Normal display mode.</li>
+<li>High Contrast mode.</li>
+<li>Large Text mode.</li>
+<li>Simple Mode.</li>
+<li>Advanced Mode.</li>
+<li>Keyboard-only navigation.</li>
+<li>Result review.</li>
+<li>Report download controls.</li>
+</ol>
+<h2 id="simple-mode-expectations">Simple Mode Expectations<a class="headerlink" href="#simple-mode-expectations" title="Permanent link">&para;</a></h2>
+<p>Simple Mode should show only the controls necessary for routine review.</p>
+<p>Expected Simple Mode behavior:</p>
+<ul>
+<li>Manifest upload is visible.</li>
+<li>Label artwork upload is visible.</li>
+<li>Run Verification is visible.</li>
+<li>Clear Results is visible.</li>
+<li>Results and downloads are visible after processing.</li>
+<li>Worker controls are hidden.</li>
+<li>SLA tuning controls are hidden.</li>
+<li>Advanced OCR diagnostics are hidden.</li>
+<li>Methodology and technical safeguards are hidden unless explicitly expanded or shown in Advanced
+  Mode.</li>
+</ul>
+<h2 id="advanced-mode-expectations">Advanced Mode Expectations<a class="headerlink" href="#advanced-mode-expectations" title="Permanent link">&para;</a></h2>
+<p>Advanced Mode may show:</p>
+<ul>
+<li>Manifest preview.</li>
+<li>Uploaded-file preview.</li>
+<li>Match diagnostics.</li>
+<li>Worker controls.</li>
+<li>SLA seconds.</li>
+<li>OCR diagnostics.</li>
+<li>Image-quality diagnostics.</li>
+<li>Rule details.</li>
+<li>Performance timing.</li>
+<li>Downloadable outputs.</li>
+</ul>
+<h2 id="known-limitations">Known Limitations<a class="headerlink" href="#known-limitations" title="Permanent link">&para;</a></h2>
+<p>Accessibility depends partly on Streamlit and browser-rendered controls. Fiddy can improve styling,
+guidance, layout, visible text, and workflow design, but keyboard behavior should still be validated
+in the target browser.</p>
+<p>Mouse-hover-only content should not be the only way to understand a mismatch. Fiddy should show
+mismatch explanations and reviewer actions in visible table columns or detail panels.</p>
+<h2 id="pre-demonstration-accessibility-checklist">Pre-Demonstration Accessibility Checklist<a class="headerlink" href="#pre-demonstration-accessibility-checklist" title="Permanent link">&para;</a></h2>
+<p>Before demonstration:</p>
+<ul>
+<li>Enable Simple Mode and complete a review.</li>
+<li>Enable High Contrast and inspect upload, results, and downloads.</li>
+<li>Enable Large Text and inspect upload, results, and downloads.</li>
+<li>Navigate the main workflow using Tab and Shift + Tab.</li>
+<li>Activate Run Verification using keyboard controls.</li>
+<li>Confirm mismatch explanation and reviewer action are visible.</li>
+<li>Confirm download controls can be reached by keyboard.</li>
+<li>Confirm the page remains readable after results are generated.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

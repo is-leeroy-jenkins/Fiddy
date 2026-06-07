@@ -312,14 +312,18 @@ Review:
 Download any available CSV, JSON, or Markdown outputs if needed for review, demonstration, or
 evidence.
 
-## 🧪 Synthetic Data
+## 🧪 Synthetic Demonstration Data
 
-Fiddy is planned to include a sidebar control for generating synthetic demonstration data.
+Fiddy includes a local **Synthetic Generator** in the sidebar. The generator creates fictional
+demonstration data that can be used to test the prototype without using real application data,
+production label submissions, official COLA records, or personally identifiable information.
 
-The purpose of synthetic data is to allow reviewers and evaluators to test the prototype without
-using real application data or real alcohol label submissions.
+The generator writes files under:
 
-Generated files are expected to be written under:
+```text
+samples/
+├── labels/
+└── manifests/
 
 ```text
 samples/
@@ -329,48 +333,189 @@ samples/
 
 Synthetic data should be treated as fictional demonstration content only.
 
+## 🧪 Synthetic Demonstration Data
 
+Fiddy includes a local **Synthetic Generator** in the sidebar. The generator creates fictional
+demonstration data that can be used to test the prototype without using real application data,
+production label submissions, official COLA records, or personally identifiable information.
 
-## Generating Synthetic Demo Data
-
-When the synthetic data feature is available, use the sidebar expander labeled something similar to:
-
-```text
-Generate Synthetic Demo Data
-```
-
-Expected controls may include:
-
-* Number of labels.
-* Scenario mix.
-* Random seed.
-* Generate button.
-* Optional clear generated samples button.
-
-Possible scenario types may include:
-
-* Clean passing labels.
-* Fuzzy brand variations.
-* ABV mismatches.
-* Missing government warning.
-* Altered government warning.
-* Low-contrast label.
-* Skewed label.
-* Glare-like image.
-* Missing net contents.
-* Imported-product case.
-
-After generation, upload the generated manifest from:
+The generator writes files under:
 
 ```text
-samples/manifests/
+samples/
+├── labels/
+└── manifests/
 ```
 
-Then upload generated labels from:
+The generated demo pack contains:
+
+- One manifest CSV.
+- Eight fictional label images.
+- Clean, fuzzy-match, mismatch, missing-field, imported-product, and image-quality scenarios.
+
+Generated files are intended for demonstration, local testing, and release validation only.
+
+---
+
+## 🧬 Generating Synthetic Demo Data
+
+Use the sidebar expander named:
+
+```text
+Synthetic Generator
+```
+
+### Step 1 — Open the Sidebar
+
+Open the Fiddy application and locate the sidebar.
+
+The sidebar includes:
+
+- Reviewer Controls.
+- Demo Assets.
+- Synthetic Generator.
+
+### Step 2 — Expand Synthetic Generator
+
+Open the **Synthetic Generator** expander.
+
+The expander includes:
+
+- `Overwrite existing demo pack`
+- `Generate Standard Demo Pack`
+- `Clear Generated Demo Pack`
+
+### Step 3 — Generate the Standard Demo Pack
+
+Click:
+
+```text
+Generate Standard Demo Pack
+```
+
+Fiddy writes the generated manifest to:
+
+```text
+samples/manifests/fiddy_v2_demo_manifest.csv
+```
+
+Fiddy writes the generated label images to:
 
 ```text
 samples/labels/
 ```
+
+The standard generated labels are:
+
+```text
+fiddy_v2_001_clean_pass.png
+fiddy_v2_002_fuzzy_brand.png
+fiddy_v2_003_abv_mismatch.png
+fiddy_v2_004_missing_warning.png
+fiddy_v2_005_low_contrast.png
+fiddy_v2_006_skewed_label.png
+fiddy_v2_007_imported_product.png
+fiddy_v2_008_missing_net_contents.png
+```
+
+### Step 4 — Use Overwrite When Needed
+
+If the standard demo pack already exists, Fiddy preserves the existing files unless overwrite is
+selected.
+
+To replace the existing generated pack:
+
+1. Select:
+
+```text
+Overwrite existing demo pack
+```
+
+2. Click:
+
+```text
+Generate Standard Demo Pack
+```
+
+This refreshes only the generated `fiddy_v2` demo files.
+
+### Step 5 — Upload the Generated Manifest
+
+Use the normal application upload panel.
+
+Upload:
+
+```text
+samples/manifests/fiddy_v2_demo_manifest.csv
+```
+
+Do not bypass the normal upload workflow. The generated manifest is intentionally used the same way
+as any other manifest.
+
+### Step 6 — Upload the Generated Labels
+
+Upload the generated label images from:
+
+```text
+samples/labels/
+```
+
+The generated label filenames match the manifest `file_name` values.
+
+### Step 7 — Run Verification
+
+Click:
+
+```text
+Run Verification
+```
+
+Fiddy processes the generated manifest and label images through the normal workflow:
+
+```text
+Manifest upload
+        ↓
+Artwork upload
+        ↓
+Readiness check
+        ↓
+Local OCR
+        ↓
+Field extraction
+        ↓
+Rule comparison
+        ↓
+Dashboard and side-by-side results
+        ↓
+Downloads
+```
+
+### Step 8 — Review the Scenario Results
+
+The standard demo pack exercises the following review scenarios:
+
+| File | Scenario | Review Purpose |
+|---|---|---|
+| `fiddy_v2_001_clean_pass.png` | Clean pass | Baseline label where manifest and artwork align. |
+| `fiddy_v2_002_fuzzy_brand.png` | Fuzzy brand | Brand punctuation variation for fuzzy matching review. |
+| `fiddy_v2_003_abv_mismatch.png` | ABV mismatch | Label ABV differs from manifest ABV. |
+| `fiddy_v2_004_missing_warning.png` | Missing warning | Label omits the government warning text. |
+| `fiddy_v2_005_low_contrast.png` | Low contrast | Artwork is intentionally low contrast. |
+| `fiddy_v2_006_skewed_label.png` | Skewed label | Artwork is intentionally rotated. |
+| `fiddy_v2_007_imported_product.png` | Imported product | Importer and country-of-origin fields are exercised. |
+| `fiddy_v2_008_missing_net_contents.png` | Missing net contents | Manifest includes net contents but the label omits them. |
+
+### Step 9 — Clear Generated Demo Data
+
+To remove generated demo files, open the **Synthetic Generator** expander and click:
+
+```text
+Clear Generated Demo Pack
+```
+
+The clear action removes only generated Fiddy demo files that use the configured `fiddy_v2` prefix.
+It does not delete unrelated sample files.
+
 
 ## 🚦 Understanding Result Status
 

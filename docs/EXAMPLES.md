@@ -21,7 +21,7 @@ These examples support:
 * Government-warning validation.
 * Local exception logging.
 
----
+
 
 ## 🧭 Example Assumptions
 
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 Run examples from the project root so Python can resolve the `src` package correctly.
 
----
+
 
 ## ✅ Verify One Label File
 
@@ -97,7 +97,7 @@ for result in report.results:
 	)
 ```
 
----
+
 
 ## 📄 Parse a Manifest
 
@@ -121,7 +121,7 @@ for record in records:
 	)
 ```
 
----
+
 
 ## 🔁 Convert a Manifest Row to Application Data
 
@@ -144,7 +144,7 @@ print( application.class_type )
 print( application.alcohol_content )
 ```
 
----
+
 
 ## 📦 Process a Batch
 
@@ -195,7 +195,7 @@ for report in batch_result.batch_report.reports:
 	)
 ```
 
----
+
 
 ## 📊 Generate Review Tables
 
@@ -218,7 +218,7 @@ print( df_summary.head( ) )
 print( df_details.head( ) )
 ```
 
----
+
 
 ## 📥 Export Results to CSV
 
@@ -256,7 +256,7 @@ df_details.to_csv(
 )
 ```
 
----
+
 
 ## 🔍 Inspect OCR Output
 
@@ -284,7 +284,79 @@ for note in extracted.image_quality_notes:
 	print( '-', note )
 ```
 
----
+## 🧪 Generate Synthetic Demo Data
+
+This example generates the standard fictional Fiddy demo pack from Python.
+
+The generator writes one manifest CSV and eight label images under:
+
+```text
+samples/
+├── labels/
+└── manifests/
+```
+
+```python
+from src.synthetic_data_generator import SyntheticDataGenerator
+
+generator = SyntheticDataGenerator( )
+result = generator.generate_standard_demo_pack(
+	overwrite=True
+)
+
+print( result.success )
+print( result.message )
+print( result.manifest_path )
+print( result.label_directory )
+print( result.record_count )
+```
+
+The generated manifest path is:
+
+```text
+samples/manifests/fiddy_v2_demo_manifest.csv
+```
+
+The generated label files are written to:
+
+```text
+samples/labels/
+```
+
+The standard demo pack includes these files:
+
+```text
+fiddy_v2_001_clean_pass.png
+fiddy_v2_002_fuzzy_brand.png
+fiddy_v2_003_abv_mismatch.png
+fiddy_v2_004_missing_warning.png
+fiddy_v2_005_low_contrast.png
+fiddy_v2_006_skewed_label.png
+fiddy_v2_007_imported_product.png
+fiddy_v2_008_missing_net_contents.png
+```
+
+Use the generated manifest and label files through the normal Fiddy upload controls.
+
+## 🧹 Clear Synthetic Demo Data
+
+This example removes the generated Fiddy demo pack.
+
+Only generated files with the configured `fiddy_v2` prefix are removed.
+
+```python
+from src.synthetic_data_generator import SyntheticDataGenerator
+
+generator = SyntheticDataGenerator( )
+result = generator.clear_demo_pack( )
+
+print( result.success )
+print( result.message )
+print( result.deleted_files )
+```
+
+This cleanup operation does not delete unrelated files in `samples/labels` or `samples/manifests`.
+
 
 ## ⚠️ Validate Government Warning Text
 
@@ -318,7 +390,7 @@ for result in results:
 	)
 ```
 
----
+
 
 ## 🧪 Run Acceptance Evidence Components
 
@@ -354,7 +426,7 @@ print( result.message )
 print( result.package.to_json( ) )
 ```
 
----
+
 
 ## ♿ Generate Accessibility Checklist Evidence
 
@@ -376,7 +448,7 @@ print( df_accessibility.head( ) )
 Accessibility should still be manually validated in the target browser because Streamlit renders
 final interactive controls at runtime.
 
----
+
 
 ## ☁️ Generate Deployment Evidence
 
@@ -398,7 +470,7 @@ print( evidence.overall_status( ) )
 print( df_deployment.head( ) )
 ```
 
----
+
 
 ## 🧾 Log an Exception Locally
 
@@ -419,7 +491,7 @@ except Exception as e:
 	print( 'Logged row:', row_id )
 ```
 
----
+
 
 ## 🛠️ Troubleshooting Examples
 
@@ -437,7 +509,7 @@ src/
 
 Then run your script from that folder.
 
----
+
 
 ### Tesseract Not Found
 
@@ -451,7 +523,7 @@ TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
 
 Restart the terminal or IDE after changing environment variables.
 
----
+
 
 ### PDF Conversion Fails
 
@@ -471,7 +543,7 @@ See:
 docs/PATH-POPPLER.md
 ```
 
----
+
 
 ## ⚖️ Example Limitations
 
@@ -488,7 +560,7 @@ Important limitations:
 * Generated outputs should not include real sensitive application data unless appropriate controls
   are established.
 
----
+
 
 ## 🧠 Final Note
 

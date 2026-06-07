@@ -24,6 +24,10 @@ This page is generated from Fiddy source-code docstrings using MkDocs and mkdocs
 
 ::: src.acceptance_checker
 
+## Acceptance Test Harness
+
+::: src.acceptance_test_harness
+
 ## Accessibility Checklist
 
 ::: src.accessibility_checklist
@@ -39,6 +43,14 @@ This page is generated from Fiddy source-code docstrings using MkDocs and mkdocs
 ## Constants
 
 ::: src.constants
+
+## Data Retention
+
+::: src.data_retention
+
+## Deployment Evidence
+
+::: src.deployment_evidence
 
 ## Image Processor
 
@@ -75,6 +87,10 @@ This page is generated from Fiddy source-code docstrings using MkDocs and mkdocs
 ## Report Writer
 
 ::: src.report_writer
+
+## Synthetic Data Generator
+
+::: src.synthetic_data_generator
 
 ## Visual Quality
 

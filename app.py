@@ -77,6 +77,7 @@ from src.data_retention import DataRetentionPolicy
 from src.label_verifier import AlcoholLabelVerifier
 from src.models import BatchVerificationReport, LabelApplication, LabelVerificationReport
 from src.report_writer import ReportWriter
+from src.synthetic_data_generator import SyntheticDataGenerator
 
 # ==========================================================================================
 # Session State
@@ -1103,14 +1104,129 @@ def configure_page( ) -> None:
 # Sidebar / Manual Input
 # ==========================================================================================
 
+def display_synthetic_generator_expander( ) -> None:
+	"""Display sidebar controls for the local synthetic demonstration data generator.
+
+	Purpose:
+		Render a Streamlit sidebar expander named ``Synthetic Generator``. The controls create or
+		clear the standard fictional Fiddy demonstration pack under ``samples/manifests`` and
+		``samples/labels``. The generated files are not automatically loaded into Streamlit upload
+		widgets; reviewers use the normal manifest and artwork upload controls after generation.
+
+	Returns:
+		None.
+	"""
+	try:
+		if not bool( getattr( cfg, 'SYNTHETIC_DEMO_ENABLED', True ) ):
+			with st.sidebar.expander( 'Synthetic Generator', expanded=False ):
+				st.caption( 'Synthetic generator is disabled by configuration.' )
+			
+			return None
+		
+		with st.sidebar.expander( 'Synthetic Generator', expanded=False ):
+			st.caption(
+				'Generate fictional local demo files under samples/manifests and samples/labels.'
+			)
+			
+			overwrite_demo_pack = st.checkbox(
+				'Overwrite existing demo pack',
+				value=False,
+				key='synthetic_generator_overwrite_checkbox',
+				help='Replace existing generated fiddy_v2 demo files when they already exist.'
+			)
+			
+			generate_button = st.button(
+				'Generate Standard Demo Pack',
+				key='synthetic_generator_generate_button',
+				use_container_width=True
+			)
+			
+			clear_button = st.button(
+				'Clear Generated Demo Pack',
+				key='synthetic_generator_clear_button',
+				use_container_width=True
+			)
+			
+			if generate_button:
+				generator = SyntheticDataGenerator( )
+				result = generator.generate_standard_demo_pack(
+					overwrite=overwrite_demo_pack
+				)
+				
+				st.session_state[ 'synthetic_generator_manifest_path' ] = result.manifest_path
+				st.session_state[ 'synthetic_generator_label_directory' ] = result.label_directory
+				st.session_state[ 'synthetic_generator_generated_count' ] = len(
+					result.generated_files
+				)
+				st.session_state[ 'synthetic_generator_record_count' ] = result.record_count
+				st.session_state[ 'synthetic_generator_last_message' ] = result.message
+				st.session_state[ 'synthetic_generator_last_success' ] = result.success
+				
+				if result.success:
+					st.success( result.message )
+				else:
+					st.warning( result.message )
+			
+			if clear_button:
+				generator = SyntheticDataGenerator( )
+				result = generator.clear_demo_pack( )
+				
+				st.session_state[ 'synthetic_generator_manifest_path' ] = result.manifest_path
+				st.session_state[ 'synthetic_generator_label_directory' ] = result.label_directory
+				st.session_state[ 'synthetic_generator_generated_count' ] = 0
+				st.session_state[ 'synthetic_generator_record_count' ] = 0
+				st.session_state[ 'synthetic_generator_last_message' ] = result.message
+				st.session_state[ 'synthetic_generator_last_success' ] = result.success
+				
+				if result.success:
+					st.success( result.message )
+				else:
+					st.warning( result.message )
+			
+			last_message = st.session_state.get( 'synthetic_generator_last_message', '' )
+			manifest_path = st.session_state.get( 'synthetic_generator_manifest_path', '' )
+			label_directory = st.session_state.get( 'synthetic_generator_label_directory', '' )
+			generated_count = int(
+				st.session_state.get( 'synthetic_generator_generated_count', 0 )
+			)
+			record_count = int(
+				st.session_state.get( 'synthetic_generator_record_count', 0 )
+			)
+			
+			if last_message:
+				st.caption( last_message )
+			
+			if manifest_path:
+				st.caption( f'Manifest: {manifest_path}' )
+			
+			if label_directory:
+				st.caption( f'Labels: {label_directory}' )
+			
+			if generated_count or record_count:
+				st.caption(
+					f'Generated files: {generated_count} | Manifest records: {record_count}'
+				)
+			
+			st.caption(
+				'After generation, upload the generated manifest and labels using the normal '
+				'application upload controls.'
+			)
+	except Exception as e:
+		error = Error( e )
+		error.cause = 'Application'
+		error.module = __name__
+		error.method = 'display_synthetic_generator_expander( ) -> None'
+		Logger( ).write( error )
+		st.sidebar.warning( f'Synthetic Generator could not be displayed: {e}' )
+		return None
+
 def display_sidebar_header( ) -> None:
 	"""Display the application logo and reviewer controls in the sidebar.
 
 	Purpose:
-		Render the configured Fiddy logo and reviewer controls for Simple or Advanced mode, high
-		contrast mode, large text mode, and keyboard guidance notes. Session-state values are
-		updated immediately so the main workflow can hide technical controls and apply
-		accessibility CSS consistently.
+		Render the configured Fiddy logo, reviewer controls, demo asset guidance, and local
+		synthetic generator controls. Session-state values are updated immediately so the main
+		workflow can hide technical controls and apply accessibility CSS consistently.
 
 	Returns:
 		None.
@@ -1165,6 +1281,8 @@ def display_sidebar_header( ) -> None:
 	with st.sidebar.expander( 'Demo Assets', expanded=False ):
 		st.caption( 'Place demonstration label artwork in samples/labels.' )
 		st.caption( 'Place demonstration CSV manifests in samples/manifests.' )
+	
+	display_synthetic_generator_expander( )
 
 def create_simple_label_application( uploaded_manifest: object ) -> LabelApplication:
 	"""Create application data for Simple Mode manual artwork verification.
@@ -2826,8 +2944,7 @@ def get_tooltip_text( field_name: str, expected: object, observed: object, messa
 		Logger( ).write( error )
 		return 'Reviewer should inspect this field manually.'
 
-def get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[
-	str, object ]:
+def get_result_explanation_record( report: LabelVerificationReport, result: object ) -> Dict[ str, object ]:
 	"""Create one enriched side-by-side comparison record.
 
 

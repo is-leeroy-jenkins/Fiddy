@@ -361,6 +361,50 @@ demonstrations. Generated files should represent fictional alcohol-label scenari
 Synthetic data is for demonstration and testing only. It should not be treated as production data,
 official TTB records, or real COLA application data.
 
+## 🧪 Demo Assets
+
+Fiddy includes a local **Synthetic Generator** in the sidebar for creating fictional demonstration
+data.
+
+The generator writes one manifest CSV and eight label images under:
+
+```text
+samples/
+├── labels/
+└── manifests/
+```
+
+The generated manifest is written to:
+
+```text
+samples/manifests/fiddy_v2_demo_manifest.csv
+```
+
+The generated labels are written to:
+
+```text
+samples/labels/
+```
+
+The standard demo pack includes:
+
+```text
+fiddy_v2_001_clean_pass.png
+fiddy_v2_002_fuzzy_brand.png
+fiddy_v2_003_abv_mismatch.png
+fiddy_v2_004_missing_warning.png
+fiddy_v2_005_low_contrast.png
+fiddy_v2_006_skewed_label.png
+fiddy_v2_007_imported_product.png
+fiddy_v2_008_missing_net_contents.png
+```
+
+Use the generated manifest and label files through the normal upload controls. The generator does
+not bypass the application workflow and does not automatically load files into Streamlit upload
+widgets.
+
+Generated data is fictional and is intended only for local demonstration, testing, and release
+validation.
 
 ## 🔐 Security & Data Handling
 
