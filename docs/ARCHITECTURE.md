@@ -17,14 +17,14 @@ Fiddy runs inside a local or Azure-compatible runtime boundary. The prototype ke
 execution, temporary upload handling, and reviewer-initiated reporting inside the application
 boundary.
 
-| Boundary Control | Implementation |
-|---|---|
-| Local OCR execution | Label text extraction runs through local OCR tooling rather than an external OCR endpoint. |
-| Deterministic rule execution | Field comparison, fuzzy matching, warning validation, and review routing run inside the application. |
-| No external ML endpoint dependency | The prototype does not require an external machine-learning endpoint for core operation. |
-| No direct COLA writeback | Fiddy accepts manifest or manual CAV-style input and does not write results back to COLA. |
-| Temporary upload handling | Uploaded files are handled during the active review workflow rather than stored as long-term records. |
-| Reviewer-initiated reports | Reports are generated through explicit reviewer download actions. |
+| Boundary Control                   | Implementation                                                                                        |
+|------------------------------------|-------------------------------------------------------------------------------------------------------|
+| Local OCR execution                | Label text extraction runs through local OCR tooling rather than an external OCR endpoint.            |
+| Deterministic rule execution       | Field comparison, fuzzy matching, warning validation, and review routing run inside the application.  |
+| No external ML endpoint dependency | The prototype does not require an external machine-learning endpoint for core operation.              |
+| No direct COLA writeback           | Fiddy accepts manifest or manual CAV-style input and does not write results back to COLA.             |
+| Temporary upload handling          | Uploaded files are handled during the active review workflow rather than stored as long-term records. |
+| Reviewer-initiated reports         | Reports are generated through explicit reviewer download actions.                                     |
 
 
 ## Major Components
