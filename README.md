@@ -66,8 +66,8 @@ Fiddy addresses this problem by creating a reviewer-assist workflow that:
 
 Fiddy provides a clear and practical approach to automating
 alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
-workflows. The application is intentionally transparent. If OCR is weak, if an image is difficult to read, or if a visual condition requires judgment, Fiddy
-marks the item for review and explains why.
+workflows. The application is intentionally transparent. If OCR is weak, if an image is difficult 
+to read, or if a visual condition requires judgment, Fiddy marks the item for review and explains why.
 
 - **Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
   visual cues directly from label artwork to support reliable field‑level comparison.
@@ -189,19 +189,19 @@ over-engineer the prototype, but to show how a working AI-assisted application c
 that the workflow remains understandable to reviewers, maintainable for developers, and defensible
 in a federal environment.
 
-| Pattern                          | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
-|----------------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Pipeline Pattern**             | Upload → normalize → preprocess → OCR → extract → compare → report                                             | Organizes the review process as a clear sequence of independently testable steps. This mirrors the reviewer workflow and makes failures easier to isolate.                   |
-| **Facade Pattern**               | `AlcoholLabelVerifier`                                                                                         | Provides a single high-level verification interface while hiding the internal coordination of OCR, field extraction, rule execution, and report construction.                |
-| **Strategy Pattern**             | `AlcoholLabelRules`, `GovernmentWarningValidator`                                                              | Keeps field-specific validation logic separated so brand matching, ABV checks, net-contents checks, importer checks, and government-warning checks can evolve independently. |
-| **Adapter Pattern**              | `BatchManifestRecord.to_label_application()`                                                                   | Converts CSV manifest rows into the `LabelApplication` model expected by the verification engine. This keeps spreadsheet intake separate from rule execution.                |
-| **DTO / Pydantic Model Pattern** | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`, `LabelVerificationReport`, `BatchVerificationReport` | Uses explicit structured models to move data between layers safely and predictably. This supports validation, serialization, exports, and testability.                       |
-| **Policy Object Pattern**        | `DataRetentionPolicy`                                                                                          | Centralizes redaction, export, and no-persistence decisions so sensitive-data handling is consistent across reports, acceptance evidence, and generated outputs.             |
-| **Service Object Pattern**       | `OcrEngine`, `ImageProcessor`, `VisualQualityAnalyzer`, `ReportWriter`, `PerformanceMonitor`                   | Encapsulates focused business or infrastructure operations in dedicated classes instead of concentrating logic in the Streamlit UI.                                          |
-| **Observer / Callback Pattern**  | OCR and batch progress callbacks                                                                               | Allows processing services to report progress without depending directly on Streamlit. This keeps UI concerns separate from processing logic.                                |
-| **Evidence Package Pattern**     | `AcceptanceChecker`, `AcceptanceTestHarness`, `DeploymentEvidenceChecker`, `AccessibilityChecklist`            | Converts runtime behavior into reviewable evidence for stakeholder acceptance, performance validation, deployment readiness, and accessibility review.                       |
-| **Defensive Boundary Pattern**   | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
-| **Human-in-the-Loop Pattern**    | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
+| Pattern                        | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Pipeline Pattern**           | Upload → normalize → preprocess → OCR → extract → compare → report                                             | Organizes the review process as a clear sequence of independently testable steps. This mirrors the reviewer workflow and makes failures easier to isolate.                   |
+| **Facade Pattern**             | `AlcoholLabelVerifier`                                                                                         | Provides a single high-level verification interface while hiding the internal coordination of OCR, field extraction, rule execution, and report construction.                |
+| **Strategy Pattern**           | `AlcoholLabelRules`, `GovernmentWarningValidator`                                                              | Keeps field-specific validation logic separated so brand matching, ABV checks, net-contents checks, importer checks, and government-warning checks can evolve independently. |
+| **Adapter Pattern**            | `BatchManifestRecord.to_label_application()`                                                                   | Converts CSV manifest rows into the `LabelApplication` model expected by the verification engine. This keeps spreadsheet intake separate from rule execution.                |
+| **DTO Pattern**                | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`, `LabelVerificationReport`, `BatchVerificationReport` | Uses explicit structured models to move data between layers safely and predictably. This supports validation, serialization, exports, and testability.                       |
+| **Policy Object Pattern**      | `DataRetentionPolicy`                                                                                          | Centralizes redaction, export, and no-persistence decisions so sensitive-data handling is consistent across reports, acceptance evidence, and generated outputs.             |
+| **Service Object Pattern**     | `OcrEngine`, `ImageProcessor`, `VisualQualityAnalyzer`, `ReportWriter`, `PerformanceMonitor`                   | Encapsulates focused business or infrastructure operations in dedicated classes instead of concentrating logic in the Streamlit UI.                                          |
+| **Observer-Callback Pattern**  | OCR and batch progress callbacks                                                                               | Allows processing services to report progress without depending directly on Streamlit. This keeps UI concerns separate from processing logic.                                |
+| **Evidence Package Pattern**   | `AcceptanceChecker`, `AcceptanceTestHarness`, `DeploymentEvidenceChecker`, `AccessibilityChecklist`            | Converts runtime behavior into reviewable evidence for stakeholder acceptance, performance validation, deployment readiness, and accessibility review.                       |
+| **Defensive Boundary Pattern** | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
+| **Human-in-the-Loop Pattern**  | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
 
 These patterns support the central engineering posture of Fiddy: **use AI where it helps extract
 evidence, use deterministic rules where explainability matters, and route uncertainty back to the
@@ -295,7 +295,6 @@ The validator distinguishes between:
 Fiddy deliberately does **not** claim that OCR text alone can prove visual properties such as
 boldness, font size, prominence, contrast, or whether the warning is hidden. Those conditions are
 surfaced as reviewer-confirmation items.
-
 
 
 ## ⏱️ Performance & Acceptance Evidence
