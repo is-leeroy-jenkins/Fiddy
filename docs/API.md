@@ -5,7 +5,7 @@ This page is generated from Fiddy source-code docstrings using MkDocs and mkdocs
 ## Component Map
 
 <p align="center">
-  <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
+  <img src="../assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
 </p>
 
 ## Application Entry Point
