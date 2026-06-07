@@ -442,6 +442,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generate-synthetic-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🧪 Generate Synthetic Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clear-synthetic-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🧹 Clear Synthetic Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#validate-government-warning-text" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -891,6 +913,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#generate-synthetic-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🧪 Generate Synthetic Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clear-synthetic-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        🧹 Clear Synthetic Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#validate-government-warning-text" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1053,7 +1097,6 @@ invoked outside the UI.</p>
 <li>Government-warning validation.</li>
 <li>Local exception logging.</li>
 </ul>
-<hr />
 <h2 id="example-assumptions">🧭 Example Assumptions<a class="headerlink" href="#example-assumptions" title="Permanent link">&para;</a></h2>
 <p>The examples assume they are run from the project root.</p>
 <p>Expected project structure:</p>
@@ -1073,7 +1116,6 @@ invoked outside the UI.</p>
 </code></pre></div>
 
 <p>Run examples from the project root so Python can resolve the <code>src</code> package correctly.</p>
-<hr />
 <h2 id="verify-one-label-file">✅ Verify One Label File<a class="headerlink" href="#verify-one-label-file" title="Permanent link">&para;</a></h2>
 <p>This example verifies one label file against manually supplied expected application data.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1117,7 +1159,6 @@ invoked outside the UI.</p>
     <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="parse-a-manifest">📄 Parse a Manifest<a class="headerlink" href="#parse-a-manifest" title="Permanent link">&para;</a></h2>
 <p>This example loads a manifest CSV and prints key application fields from each row.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1137,7 +1178,6 @@ invoked outside the UI.</p>
     <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="convert-a-manifest-row-to-application-data">🔁 Convert a Manifest Row to Application Data<a class="headerlink" href="#convert-a-manifest-row-to-application-data" title="Permanent link">&para;</a></h2>
 <p>This example converts the first manifest row into a <code>LabelApplication</code> object.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1156,7 +1196,6 @@ invoked outside the UI.</p>
 <span class="nb">print</span><span class="p">(</span> <span class="n">application</span><span class="o">.</span><span class="n">alcohol_content</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="process-a-batch">📦 Process a Batch<a class="headerlink" href="#process-a-batch" title="Permanent link">&para;</a></h2>
 <p>This example loads manifest records, scans a folder for supported label files, and processes the
 batch.</p>
@@ -1203,7 +1242,6 @@ batch.</p>
     <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="generate-review-tables">📊 Generate Review Tables<a class="headerlink" href="#generate-review-tables" title="Permanent link">&para;</a></h2>
 <p>This example converts a batch report into pandas DataFrames for summary and detail review.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.report_writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReportWriter</span>
@@ -1222,7 +1260,6 @@ batch.</p>
 <span class="nb">print</span><span class="p">(</span> <span class="n">df_details</span><span class="o">.</span><span class="n">head</span><span class="p">(</span> <span class="p">)</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="export-results-to-csv">📥 Export Results to CSV<a class="headerlink" href="#export-results-to-csv" title="Permanent link">&para;</a></h2>
 <p>This example writes summary and detail CSV files to an output folder.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1256,7 +1293,6 @@ batch.</p>
 <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="inspect-ocr-output">🔍 Inspect OCR Output<a class="headerlink" href="#inspect-ocr-output" title="Permanent link">&para;</a></h2>
 <p>This example runs OCR on one label file and prints raw OCR text and image-quality notes.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1280,7 +1316,62 @@ batch.</p>
     <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;-&#39;</span><span class="p">,</span> <span class="n">note</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
+<h2 id="generate-synthetic-demo-data">🧪 Generate Synthetic Demo Data<a class="headerlink" href="#generate-synthetic-demo-data" title="Permanent link">&para;</a></h2>
+<p>This example generates the standard fictional Fiddy demo pack from Python.</p>
+<p>The generator writes one manifest CSV and eight label images under:</p>
+<div class="codehilite"><pre><span></span><code>samples/
+├── labels/
+└── manifests/
+</code></pre></div>
+
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.synthetic_data_generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyntheticDataGenerator</span>
+
+<span class="n">generator</span> <span class="o">=</span> <span class="n">SyntheticDataGenerator</span><span class="p">(</span> <span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">generate_standard_demo_pack</span><span class="p">(</span>
+    <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">message</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">manifest_path</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">label_directory</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">record_count</span> <span class="p">)</span>
+</code></pre></div>
+
+<p>The generated manifest path is:</p>
+<div class="codehilite"><pre><span></span><code>samples/manifests/fiddy_v2_demo_manifest.csv
+</code></pre></div>
+
+<p>The generated label files are written to:</p>
+<div class="codehilite"><pre><span></span><code>samples/labels/
+</code></pre></div>
+
+<p>The standard demo pack includes these files:</p>
+<div class="codehilite"><pre><span></span><code>fiddy_v2_001_clean_pass.png
+fiddy_v2_002_fuzzy_brand.png
+fiddy_v2_003_abv_mismatch.png
+fiddy_v2_004_missing_warning.png
+fiddy_v2_005_low_contrast.png
+fiddy_v2_006_skewed_label.png
+fiddy_v2_007_imported_product.png
+fiddy_v2_008_missing_net_contents.png
+</code></pre></div>
+
+<p>Use the generated manifest and label files through the normal Fiddy upload controls.</p>
+<h2 id="clear-synthetic-demo-data">🧹 Clear Synthetic Demo Data<a class="headerlink" href="#clear-synthetic-demo-data" title="Permanent link">&para;</a></h2>
+<p>This example removes the generated Fiddy demo pack.</p>
+<p>Only generated files with the configured <code>fiddy_v2</code> prefix are removed.</p>
+<div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.synthetic_data_generator</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyntheticDataGenerator</span>
+
+<span class="n">generator</span> <span class="o">=</span> <span class="n">SyntheticDataGenerator</span><span class="p">(</span> <span class="p">)</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">clear_demo_pack</span><span class="p">(</span> <span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">success</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">message</span> <span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">deleted_files</span> <span class="p">)</span>
+</code></pre></div>
+
+<p>This cleanup operation does not delete unrelated files in <code>samples/labels</code> or <code>samples/manifests</code>.</p>
 <h2 id="validate-government-warning-text">⚠️ Validate Government Warning Text<a class="headerlink" href="#validate-government-warning-text" title="Permanent link">&para;</a></h2>
 <p>This example validates government-warning text directly.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.warning_validator</span><span class="w"> </span><span class="kn">import</span> <span class="n">GovernmentWarningValidator</span>
@@ -1310,7 +1401,6 @@ batch.</p>
     <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="run-acceptance-evidence-components">🧪 Run Acceptance Evidence Components<a class="headerlink" href="#run-acceptance-evidence-components" title="Permanent link">&para;</a></h2>
 <p>This example shows the intended pattern for running acceptance evidence generation from code.</p>
 <p>The exact inputs should point to local demonstration assets.</p>
@@ -1341,7 +1431,6 @@ batch.</p>
 <span class="nb">print</span><span class="p">(</span> <span class="n">result</span><span class="o">.</span><span class="n">package</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span> <span class="p">)</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="generate-accessibility-checklist-evidence">♿ Generate Accessibility Checklist Evidence<a class="headerlink" href="#generate-accessibility-checklist-evidence" title="Permanent link">&para;</a></h2>
 <p>This example creates the accessibility checklist model and exports records.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">src.accessibility_checklist</span><span class="w"> </span><span class="kn">import</span> <span class="n">AccessibilityChecklist</span>
@@ -1358,7 +1447,6 @@ batch.</p>
 
 <p>Accessibility should still be manually validated in the target browser because Streamlit renders
 final interactive controls at runtime.</p>
-<hr />
 <h2 id="generate-deployment-evidence">☁️ Generate Deployment Evidence<a class="headerlink" href="#generate-deployment-evidence" title="Permanent link">&para;</a></h2>
 <p>This example evaluates local deployment posture and supporting project artifacts.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
@@ -1376,7 +1464,6 @@ final interactive controls at runtime.</p>
 <span class="nb">print</span><span class="p">(</span> <span class="n">df_deployment</span><span class="o">.</span><span class="n">head</span><span class="p">(</span> <span class="p">)</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="log-an-exception-locally">🧾 Log an Exception Locally<a class="headerlink" href="#log-an-exception-locally" title="Permanent link">&para;</a></h2>
 <p>This example logs a sanitized local exception using Fiddy’s structured logging pattern.</p>
 <div class="codehilite"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">booger</span><span class="w"> </span><span class="kn">import</span> <span class="n">Error</span><span class="p">,</span> <span class="n">Logger</span>
@@ -1393,7 +1480,6 @@ final interactive controls at runtime.</p>
     <span class="nb">print</span><span class="p">(</span> <span class="s1">&#39;Logged row:&#39;</span><span class="p">,</span> <span class="n">row_id</span> <span class="p">)</span>
 </code></pre></div>
 
-<hr />
 <h2 id="troubleshooting-examples">🛠️ Troubleshooting Examples<a class="headerlink" href="#troubleshooting-examples" title="Permanent link">&para;</a></h2>
 <h3 id="modulenotfounderror-no-module-named-src">ModuleNotFoundError: No module named <code>src</code><a class="headerlink" href="#modulenotfounderror-no-module-named-src" title="Permanent link">&para;</a></h3>
 <p>Run the example from the project root.</p>
@@ -1404,7 +1490,6 @@ src/
 </code></pre></div>
 
 <p>Then run your script from that folder.</p>
-<hr />
 <h3 id="tesseract-not-found">Tesseract Not Found<a class="headerlink" href="#tesseract-not-found" title="Permanent link">&para;</a></h3>
 <p>Confirm Tesseract is installed.</p>
 <p>On Windows, configure the path if needed:</p>
@@ -1412,7 +1497,6 @@ src/
 </code></pre></div>
 
 <p>Restart the terminal or IDE after changing environment variables.</p>
-<hr />
 <h3 id="pdf-conversion-fails">PDF Conversion Fails<a class="headerlink" href="#pdf-conversion-fails" title="Permanent link">&para;</a></h3>
 <p>PDF support requires Poppler.</p>
 <p>Confirm Poppler is available:</p>
@@ -1424,7 +1508,6 @@ src/
 <div class="codehilite"><pre><span></span><code>docs/PATH-POPPLER.md
 </code></pre></div>
 
-<hr />
 <h2 id="example-limitations">⚖️ Example Limitations<a class="headerlink" href="#example-limitations" title="Permanent link">&para;</a></h2>
 <p>These examples are intended for development, testing, and demonstration. They do not replace the
 Streamlit reviewer workflow.</p>
@@ -1438,7 +1521,6 @@ Streamlit reviewer workflow.</p>
 <li>Generated outputs should not include real sensitive application data unless appropriate controls
   are established.</li>
 </ul>
-<hr />
 <h2 id="final-note">🧠 Final Note<a class="headerlink" href="#final-note" title="Permanent link">&para;</a></h2>
 <p>The examples show that Fiddy’s implementation is not tightly coupled to the UI. The core OCR,
 manifest, verification, reporting, performance, accessibility, deployment, and acceptance components
