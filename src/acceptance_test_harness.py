@@ -266,10 +266,6 @@ class AcceptanceHarnessResult( BaseModel ):
 					'Message': 'Harness manifest record could not be rendered.'
 			}
 
-# ==========================================================================================
-# Acceptance Test Harness
-# ==========================================================================================
-
 class AcceptanceTestHarness( ):
 	"""Run non-UI acceptance checks and generate redacted evidence packages.
 

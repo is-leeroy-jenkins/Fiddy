@@ -58,17 +58,18 @@ from src.models import ExtractedLabel
 class LabelFieldExtractor( ):
 	"""Extract structured alcohol-label fields from OCR text.
 
-	The ``LabelFieldExtractor`` class provides deterministic pattern-based extraction helpers
-	for converting raw OCR output into structured fields on an ``ExtractedLabel`` model. The
-	class intentionally uses regular expressions, line filtering, whitespace normalization, and
-	simple keyword detection rather than probabilistic classification so field extraction remains
-	predictable and easy to audit.
-
-	The extractor supports the fields required by the Fiddy prototype workflow: brand name,
-	class/type, alcohol content, net contents, producer or bottler statement, country of origin,
-	and government warning text. The extraction results are best-effort values intended to
-	support downstream rule checks and human review, not to replace reviewer judgment when OCR
-	is incomplete or ambiguous.
+	Purpose:
+		The ``LabelFieldExtractor`` class provides deterministic pattern-based extraction helpers
+		for converting raw OCR output into structured fields on an ``ExtractedLabel`` model. The
+		class intentionally uses regular expressions, line filtering, whitespace normalization, and
+		simple keyword detection rather than probabilistic classification so field extraction remains
+		predictable and easy to audit.
+	
+		The extractor supports the fields required by the Fiddy prototype workflow: brand name,
+		class/type, alcohol content, net contents, producer or bottler statement, country of origin,
+		and government warning text. The extraction results are best-effort values intended to
+		support downstream rule checks and human review, not to replace reviewer judgment when OCR
+		is incomplete or ambiguous.
 
 	Attributes:
 		_raw_text (str): Raw OCR text currently being inspected.
@@ -80,10 +81,11 @@ class LabelFieldExtractor( ):
 	def normalize_space( self, value: str ) -> str:
 		"""Normalize repeated whitespace in a text value.
 
-		This method converts the supplied value to a string, collapses runs of whitespace into a
-		single space, and trims leading or trailing whitespace. It is used throughout the
-		extractor to stabilize OCR text before applying line-based or regular-expression
-		matching.
+		Purpose:
+			This method converts the supplied value to a string, collapses runs of whitespace into a
+			single space, and trims leading or trailing whitespace. It is used throughout the
+			extractor to stabilize OCR text before applying line-based or regular-expression
+			matching.
 
 		Args:
 			value (str): Source text value to normalize.
@@ -106,10 +108,11 @@ class LabelFieldExtractor( ):
 	def get_lines( self, raw_text: str ) -> List[ str ]:
 		"""Return non-empty normalized OCR text lines.
 
-		This method splits OCR text into lines, normalizes each line with ``normalize_space``,
-		and returns only non-empty results. The returned list is used by field-specific extraction
-		methods that depend on label layout or line-level context, including brand, class/type,
-		producer/bottler, and country-of-origin extraction.
+		Purpose:
+			This method splits OCR text into lines, normalizes each line with ``normalize_space``,
+			and returns only non-empty results. The returned list is used by field-specific extraction
+			methods that depend on label layout or line-level context, including brand, class/type,
+			producer/bottler, and country-of-origin extraction.
 
 		Args:
 			raw_text (str): Raw OCR text to split and normalize.
@@ -141,10 +144,11 @@ class LabelFieldExtractor( ):
 	def is_non_brand_line( self, line: str ) -> bool:
 		"""Determine whether an OCR line is unlikely to be a brand name.
 
-		This method applies a conservative exclusion list for common regulatory, alcohol-content,
-		net-contents, producer, importer, and government-warning terms. Lines containing these
-		terms are skipped during brand extraction because they usually describe compliance text
-		or product metadata rather than the brand itself.
+		Purpose:
+			This method applies a conservative exclusion list for common regulatory, alcohol-content,
+			net-contents, producer, importer, and government-warning terms. Lines containing these
+			terms are skipped during brand extraction because they usually describe compliance text
+			or product metadata rather than the brand itself.
 
 		Args:
 			line (str): Normalized OCR line to inspect.
@@ -188,11 +192,12 @@ class LabelFieldExtractor( ):
 	def extract_brand_name( self, raw_text: str ) -> str:
 		"""Extract a likely brand name from the first meaningful OCR label line.
 
-		The method examines normalized OCR lines in their original order and returns the first
-		line that is not excluded by ``is_non_brand_line`` and is at least three characters long.
-		This follows the common label-layout assumption that the brand or trade name appears near
-		the top of the recognized label text, while regulatory lines and metadata should be
-		ignored.
+		Purpose:
+			The method examines normalized OCR lines in their original order and returns the first
+			line that is not excluded by ``is_non_brand_line`` and is at least three characters long.
+			This follows the common label-layout assumption that the brand or trade name appears near
+			the top of the recognized label text, while regulatory lines and metadata should be
+			ignored.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -225,10 +230,11 @@ class LabelFieldExtractor( ):
 	def extract_class_type( self, raw_text: str ) -> str:
 		"""Extract likely class or type text from OCR lines.
 
-		This method scans normalized OCR lines for common alcohol beverage terms such as whiskey,
-		bourbon, vodka, wine, beer, ale, cider, mezcal, and scotch. The first line containing a
-		known class/type keyword is returned unchanged so downstream comparison retains the label
-		wording observed by OCR.
+		Purpose:
+			This method scans normalized OCR lines for common alcohol beverage terms such as whiskey,
+			bourbon, vodka, wine, beer, ale, cider, mezcal, and scotch. The first line containing a
+			known class/type keyword is returned unchanged so downstream comparison retains the label
+			wording observed by OCR.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -279,14 +285,15 @@ class LabelFieldExtractor( ):
 	def extract_alcohol_content( self, raw_text: str ) -> float | None:
 		"""Extract alcohol by volume percentage from OCR text.
 
-		This method applies multiple regular-expression patterns to find common ABV expressions,
-		including values followed by percent and alcohol indicators, values after ``ALC`` or
-		``ALCOHOL``, and values followed directly by ``ABV``. The first matching numeric capture
-		group is converted to ``float`` and returned.
-
-		The method does not validate whether the resulting value is legally plausible for a
-		particular beverage class. It only extracts the numeric value that OCR appears to have
-		captured. Downstream rule logic remains responsible for comparison and tolerance handling.
+		Purpose:
+			This method applies multiple regular-expression patterns to find common ABV expressions,
+			including values followed by percent and alcohol indicators, values after ``ALC`` or
+			``ALCOHOL``, and values followed directly by ``ABV``. The first matching numeric capture
+			group is converted to ``float`` and returned.
+	
+			The method does not validate whether the resulting value is legally plausible for a
+			particular beverage class. It only extracts the numeric value that OCR appears to have
+			captured. Downstream rule logic remains responsible for comparison and tolerance handling.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -322,10 +329,11 @@ class LabelFieldExtractor( ):
 	def extract_net_contents( self, raw_text: str ) -> str:
 		"""Extract the net contents statement from OCR text.
 
-		This method searches for a ``NET CONTENTS`` or ``CONTENTS`` label followed by a numeric
-		amount and a supported unit of measure. Supported units include milliliters, liters,
-		ounces, fluid ounces, gallons, and common abbreviations. When a match is found, the method
-		returns a compact ``amount unit`` string.
+		Purpose:
+			This method searches for a ``NET CONTENTS`` or ``CONTENTS`` label followed by a numeric
+			amount and a supported unit of measure. Supported units include milliliters, liters,
+			ounces, fluid ounces, gallons, and common abbreviations. When a match is found, the method
+			returns a compact ``amount unit`` string.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -362,10 +370,11 @@ class LabelFieldExtractor( ):
 	def extract_producer_bottler( self, raw_text: str ) -> str:
 		"""Extract the producer, bottler, importer, brewer, vintner, or distiller statement.
 
-		This method scans normalized OCR lines for common responsibility phrases such as
-		``BOTTLED BY``, ``PRODUCED BY``, ``DISTILLED BY``, ``BREWED BY``, ``IMPORTED BY``,
-		``PRODUCED AND BOTTLED BY``, and ``BOTTLED FOR``. The first matching line is returned
-		unchanged to preserve the label wording captured by OCR.
+		Purpose:
+			This method scans normalized OCR lines for common responsibility phrases such as
+			``BOTTLED BY``, ``PRODUCED BY``, ``DISTILLED BY``, ``BREWED BY``, ``IMPORTED BY``,
+			``PRODUCED AND BOTTLED BY``, and ``BOTTLED FOR``. The first matching line is returned
+			unchanged to preserve the label wording captured by OCR.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -398,9 +407,10 @@ class LabelFieldExtractor( ):
 	def extract_country_of_origin( self, raw_text: str ) -> str:
 		"""Extract a country-of-origin statement from OCR text.
 
-		This method scans normalized OCR lines for common origin phrases including
-		``PRODUCT OF``, ``PRODUCED IN``, ``MADE IN``, and ``COUNTRY OF ORIGIN``. When a phrase is
-		found, the text after the phrase is returned as the extracted country-of-origin value.
+		Purpose:
+			This method scans normalized OCR lines for common origin phrases including
+			``PRODUCT OF``, ``PRODUCED IN``, ``MADE IN``, and ``COUNTRY OF ORIGIN``. When a phrase is
+			found, the text after the phrase is returned as the extracted country-of-origin value.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -432,14 +442,15 @@ class LabelFieldExtractor( ):
 	def extract_government_warning( self, raw_text: str ) -> str:
 		"""Extract the government warning statement from OCR text.
 
-		This method first normalizes the full OCR text and compares it to the canonical
-		``GOVERNMENT_WARNING_TEXT``. If the canonical warning appears in the normalized OCR text,
-		the canonical warning text is returned. Otherwise, the method searches for a line or text
-		segment beginning with ``GOVERNMENT WARNING`` and returns the normalized matching segment.
-
-		This method intentionally does not perform final legal validation of the warning. It only
-		extracts the best available warning text so the warning validator and label rules can
-		perform exact-text, near-match, prefix, and review checks.
+		Purpose:
+			This method first normalizes the full OCR text and compares it to the canonical
+			``GOVERNMENT_WARNING_TEXT``. If the canonical warning appears in the normalized OCR text,
+			the canonical warning text is returned. Otherwise, the method searches for a line or text
+			segment beginning with ``GOVERNMENT WARNING`` and returns the normalized matching segment.
+	
+			This method intentionally does not perform final legal validation of the warning. It only
+			extracts the best available warning text so the warning validator and label rules can
+			perform exact-text, near-match, prefix, and review checks.
 
 		Args:
 			raw_text (str): Raw OCR text from the uploaded label.
@@ -479,15 +490,16 @@ class LabelFieldExtractor( ):
 	def enrich( self, extracted_label: ExtractedLabel ) -> ExtractedLabel:
 		"""Populate structured fields on an OCR ``ExtractedLabel`` instance.
 
-		This method reads ``raw_text`` from an existing ``ExtractedLabel`` and populates the
-		structured extraction fields used by downstream verification. The method assigns brand
-		name, class/type, alcohol content, net contents, producer/bottler, country of origin,
-		and government warning values using the deterministic extraction helpers in this class.
-
-		The method mutates and returns the same ``ExtractedLabel`` instance supplied by the
-		caller. This preserves the original object identity and allows upstream OCR metadata,
-		file metadata, normalized text, OCR timing, and image-quality notes to remain attached to
-		the enriched object.
+		Purpose:
+			This method reads ``raw_text`` from an existing ``ExtractedLabel`` and populates the
+			structured extraction fields used by downstream verification. The method assigns brand
+			name, class/type, alcohol content, net contents, producer/bottler, country of origin,
+			and government warning values using the deterministic extraction helpers in this class.
+	
+			The method mutates and returns the same ``ExtractedLabel`` instance supplied by the
+			caller. This preserves the original object identity and allows upstream OCR metadata,
+			file metadata, normalized text, OCR timing, and image-quality notes to remain attached to
+			the enriched object.
 
 		Args:
 			extracted_label: OCR extraction result to enrich with structured fields.

@@ -329,10 +329,6 @@ class RedactionResult( BaseModel ):
 					'Message': 'Redaction result could not be rendered.'
 			}
 
-# ==========================================================================================
-# Data Retention Policy
-# ==========================================================================================
-
 class DataRetentionPolicy( ):
 	"""Enforces no-persistence and redacted-export behavior.
 

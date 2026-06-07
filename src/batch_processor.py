@@ -64,9 +64,6 @@ from src.models import BatchVerificationReport, LabelCheckResult, LabelVerificat
 from src.performance_monitor import BatchPerformanceSummary, LabelPerformanceResult, \
 	PerformanceMonitor
 
-# ==========================================================================================
-# Batch Processing Result
-# ==========================================================================================
 
 class BatchProcessingResult( BaseModel ):
 	"""Represent the complete result of a manifest-driven batch verification run.
@@ -189,9 +186,6 @@ class BatchProcessingResult( BaseModel ):
 					'Warnings': 0
 			}
 
-# ==========================================================================================
-# Batch Processor
-# ==========================================================================================
 
 class BatchProcessor( ):
 	"""Process manifest-driven batches of uploaded alcohol label files.

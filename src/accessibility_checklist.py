@@ -65,10 +65,6 @@ import config as cfg
 from booger import Error, Logger
 from config import throw_if
 
-# ==========================================================================================
-# Accessibility Constants
-# ==========================================================================================
-
 CHECK_STATUS_PASS: str = 'Pass'
 CHECK_STATUS_FAIL: str = 'Fail'
 CHECK_STATUS_NOT_TESTED: str = 'Not Tested'

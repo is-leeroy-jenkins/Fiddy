@@ -542,7 +542,7 @@ class VisualQualityAnalyzer( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'calculate_readability_score( contrast: float, blur_score: float, glare_ratio: float, dark_ratio: float, skew_angle: float ) -> float'
+			error.method = 'calculate_readability_score( self, *args ) -> float'
 			Logger( ).write( error )
 			return 0.0
 	
@@ -728,9 +728,10 @@ class VisualQualityAnalyzer( ):
 	def analyze_file( self, image_path: str | Path ) -> VisualQualityResult:
 		"""Load and analyze one image file for OCR readability risks.
 
-		This method validates the image path, confirms the file exists, opens the image through
-		PIL, applies EXIF orientation correction, converts non-RGB images to RGB, and delegates
-		final measurement and scoring to ``analyze_image``.
+		Purpose:
+			This method validates the image path, confirms the file exists, opens the image through
+			PIL, applies EXIF orientation correction, converts non-RGB images to RGB, and delegates
+			final measurement and scoring to ``analyze_image``.
 
 		Args:
 			image_path (str | Path): Path to image file.

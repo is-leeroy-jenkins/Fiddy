@@ -71,17 +71,18 @@ from src.visual_quality import VisualQualityAnalyzer, VisualQualityResult
 class OcrEngine( ):
 	"""Extract text from alcohol label images and PDF files using local OCR.
 
-	The ``OcrEngine`` class is the OCR coordination layer for the Fiddy verification workflow.
-	It determines file type, checks whether uploaded files are supported image or document
-	types, runs image-quality analysis, preprocesses images, invokes local Tesseract OCR,
-	converts PDFs into page images, normalizes extracted text, records processing time, and
-	returns structured ``ExtractedLabel`` objects.
-
-	The engine remains local-first and deterministic. It delegates image preparation to
-	``ImageProcessor``, visual diagnostics to ``VisualQualityAnalyzer``, and text normalization
-	to ``TextNormalizer``. OCR notes are collected throughout extraction so reviewers can
-	understand timeout conditions, preprocessing steps, unsupported file types, quality warnings,
-	PDF page-limit behavior, and OCR fallback behavior.
+	Purpose:
+		The ``OcrEngine`` class is the OCR coordination layer for the Fiddy verification workflow.
+		It determines file type, checks whether uploaded files are supported image or document
+		types, runs image-quality analysis, preprocesses images, invokes local Tesseract OCR,
+		converts PDFs into page images, normalizes extracted text, records processing time, and
+		returns structured ``ExtractedLabel`` objects.
+	
+		The engine remains local-first and deterministic. It delegates image preparation to
+		``ImageProcessor``, visual diagnostics to ``VisualQualityAnalyzer``, and text normalization
+		to ``TextNormalizer``. OCR notes are collected throughout extraction so reviewers can
+		understand timeout conditions, preprocessing steps, unsupported file types, quality warnings,
+		PDF page-limit behavior, and OCR fallback behavior.
 
 	Attributes:
 		_file_path (Path): Path to the file currently being processed.
@@ -127,8 +128,6 @@ class OcrEngine( ):
 			configuration. When ``TESSERACT_CMD`` is configured, the command path is assigned to
 			``pytesseract``.
 
-		
-
 		Returns:
 			None.
 		"""
@@ -172,8 +171,6 @@ class OcrEngine( ):
 			visual quality status, readability metrics, preprocessing actions, OCR timeout
 			messages, unsupported file-type messages, PDF page-limit messages, and extraction
 			failure messages.
-
-		
 
 		Returns:
 			List[str]: OCR and image-quality notes from the latest extraction run.
@@ -524,7 +521,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'image_to_text( self, image: Image.Image, file_name: str = "", progress_callback: Optional[Callable[[str], None]] = None ) -> str'
+			error.method = 'image_to_text( self, *args ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image extraction.' )
 			self.report_progress( progress_callback, f'OCR timeout: {file_name}' )
@@ -533,7 +530,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'image_to_text( self, image: Image.Image, file_name: str = "", progress_callback: Optional[Callable[[str], None]] = None ) -> str'
+			error.method = 'image_to_text( self, *args ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for one image.' )
 			self.report_progress( progress_callback, f'OCR failed: {file_name}' )
@@ -588,7 +585,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_image_file_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
+			error.method = 'extract_image_file_text( self, *args ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image file extraction.' )
 			self.report_progress( progress_callback, f'OCR timeout: {Path( file_path ).name}' )
@@ -597,7 +594,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_image_file_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
+			error.method = 'extract_image_file_text( self, *args) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for image file.' )
 			self.report_progress( progress_callback,
@@ -690,7 +687,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_pdf_file_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
+			error.method = 'extract_pdf_file_text( self, *args ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR extraction failed for PDF file.' )
 			self.report_progress( progress_callback,
@@ -706,7 +703,6 @@ class OcrEngine( ):
 			engine name, OCR duration, and image-quality notes.
 
 		
-
 		Returns:
 			ExtractedLabel: Structured OCR result. If object creation fails, a reviewer-safe
 			fallback result is returned.
@@ -852,7 +848,7 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> ExtractedLabel'
+			error.method = 'extract_text( self, *args ) -> ExtractedLabel'
 			Logger( ).write( error )
 			self.report_progress( progress_callback, 'OCR extraction failed.' )
 			return self.create_fallback_label(

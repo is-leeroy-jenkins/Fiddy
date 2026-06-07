@@ -115,13 +115,14 @@ class LabelApplication( BaseModel ):
 	def required_field_map( self ) -> Dict[ str, Any ]:
 		"""Return expected values keyed by reviewer-facing label field names.
 
-		This method creates a display-oriented dictionary from the expected application values.
-		The keys are user-facing labels rather than internal attribute names so the returned
-		mapping can be used directly in comparison tables, review panels, or export records.
-
-		The importer field is included only when the application indicates that the product is
-		imported. This preserves the original behavior and avoids showing importer expectations
-		for domestic products where the importer field is not applicable.
+		Purpose:
+			This method creates a display-oriented dictionary from the expected application values.
+			The keys are user-facing labels rather than internal attribute names so the returned
+			mapping can be used directly in comparison tables, review panels, or export records.
+	
+			The importer field is included only when the application indicates that the product is
+			imported. This preserves the original behavior and avoids showing importer expectations
+			for domestic products where the importer field is not applicable.
 
 		Returns:
 			Dict[str, Any]: Dictionary of expected application field values. If mapping fails,
@@ -158,14 +159,15 @@ class LabelApplication( BaseModel ):
 class ExtractedLabel( BaseModel ):
 	"""Represent OCR and structured extraction results for one uploaded label file.
 
-	The ``ExtractedLabel`` model stores the raw OCR output, normalized OCR text, structured
-	fields extracted from the label, OCR engine metadata, OCR timing, and image-quality notes.
-	It is the label-side counterpart to ``LabelApplication`` and is used by the verifier to
-	compare what appears on label artwork against what was expected from application data.
-
-	Structured fields may be populated by the OCR engine, field extractor, or verifier
-	enrichment step. Raw text remains available so deterministic rules can still search the full
-	label text even when a structured field is missing or incomplete.
+	Purpose:
+		The ``ExtractedLabel`` model stores the raw OCR output, normalized OCR text, structured
+		fields extracted from the label, OCR engine metadata, OCR timing, and image-quality notes.
+		It is the label-side counterpart to ``LabelApplication`` and is used by the verifier to
+		compare what appears on label artwork against what was expected from application data.
+	
+		Structured fields may be populated by the OCR engine, field extractor, or verifier
+		enrichment step. Raw text remains available so deterministic rules can still search the full
+		label text even when a structured field is missing or incomplete.
 
 	Attributes:
 		file_name (str): Uploaded file name.
@@ -203,9 +205,10 @@ class ExtractedLabel( BaseModel ):
 	def has_text( self ) -> bool:
 		"""Determine whether OCR produced readable label text.
 
-		This method checks whether ``raw_text`` exists and contains non-whitespace content. The
-		verifier uses this method to decide whether normal text-based rules can run or whether an
-		OCR human-review result should be created instead.
+		Purpose:
+			This method checks whether ``raw_text`` exists and contains non-whitespace content. The
+			verifier uses this method to decide whether normal text-based rules can run or whether an
+			OCR human-review result should be created instead.
 
 		Returns:
 			bool: ``True`` when extracted raw text is present; otherwise, ``False``. If the check
@@ -224,10 +227,11 @@ class ExtractedLabel( BaseModel ):
 	def to_extracted_field_map( self ) -> Dict[ str, Any ]:
 		"""Return extracted label values keyed by reviewer-facing field names.
 
-		This method creates a display-oriented dictionary from structured OCR extraction fields.
-		The keys are user-facing labels so the mapping can be used in side-by-side comparison
-		tables with the application field map. The method includes both ``Alcohol Content`` and
-		``ABV`` keys for the same extracted ABV value to preserve the original return contract.
+		Purpose:
+			This method creates a display-oriented dictionary from structured OCR extraction fields.
+			The keys are user-facing labels so the mapping can be used in side-by-side comparison
+			tables with the application field map. The method includes both ``Alcohol Content`` and
+			``ABV`` keys for the same extracted ABV value to preserve the original return contract.
 
 		Returns:
 			Dict[str, Any]: Structured extracted label field values. If mapping fails, the
@@ -252,20 +256,17 @@ class ExtractedLabel( BaseModel ):
 			Logger( ).write( error )
 			return { }
 
-# ==========================================================================================
-# Rule Result Model
-# ==========================================================================================
-
 class LabelCheckResult( BaseModel ):
 	"""Represent the result of one deterministic label verification rule.
 
-	The ``LabelCheckResult`` model captures the outcome of an individual rule executed against
-	label text and application data. Each result stores the rule identifier, field name, status,
-	severity, expected value, observed value, confidence score, supporting evidence, reviewer
-	message, human-review flag, and creation timestamp.
-
-	The report models use these helpers to count passes, warnings, failures, and review items.
-	The flat record conversion method is used by DataFrame-building and report-writing code.
+	Purpose:
+		The ``LabelCheckResult`` model captures the outcome of an individual rule executed against
+		label text and application data. Each result stores the rule identifier, field name, status,
+		severity, expected value, observed value, confidence score, supporting evidence, reviewer
+		message, human-review flag, and creation timestamp.
+	
+		The report models use these helpers to count passes, warnings, failures, and review items.
+		The flat record conversion method is used by DataFrame-building and report-writing code.
 
 	Attributes:
 		rule_id (str): Machine-readable rule identifier.
@@ -348,9 +349,10 @@ class LabelCheckResult( BaseModel ):
 	def is_review( self ) -> bool:
 		"""Determine whether the rule result requires human review.
 
-		A result is considered a review item when its status is ``STATUS_REVIEW`` or when its
-		``requires_human_review`` flag is set. This supports rules that may have a non-review
-		status but still need reviewer confirmation.
+		Purpose:
+			A result is considered a review item when its status is ``STATUS_REVIEW`` or when its
+			``requires_human_review`` flag is set. This supports rules that may have a non-review
+			status but still need reviewer confirmation.
 
 		Returns:
 			bool: ``True`` when human review is required; otherwise, ``False``. If the check fails
@@ -369,9 +371,10 @@ class LabelCheckResult( BaseModel ):
 	def to_record( self, file_name: str ) -> Dict[ str, Any ]:
 		"""Convert the rule result into a flat dictionary for display or export.
 
-		The returned record contains file name, field name, rule identifier, status, severity,
-		expected value, observed value, rounded confidence, evidence, and reviewer-facing message.
-		This shape is suitable for DataFrame display, CSV export, and detail-report generation.
+		Purpose:
+			The returned record contains file name, field name, rule identifier, status, severity,
+			expected value, observed value, rounded confidence, evidence, and reviewer-facing message.
+			This shape is suitable for DataFrame display, CSV export, and detail-report generation.
 
 		Args:
 			file_name (str): Name of the uploaded file associated with the rule result.
@@ -421,13 +424,14 @@ class LabelCheckResult( BaseModel ):
 class LabelVerificationReport( BaseModel ):
 	"""Represent the complete verification report for one uploaded alcohol label.
 
-	The ``LabelVerificationReport`` model aggregates expected application data, OCR extraction
-	data, rule results, overall status, processing time, reviewer disclaimer, and creation time
-	for one label file. It is the primary single-label report object returned by the verifier.
-
-	The report determines its overall status from the individual rule results. Failures take
-	priority over review items, review items take priority over warnings, warnings take priority
-	over pass, and a report with no results defaults to ``Needs Review``.
+	Purpose:
+		The ``LabelVerificationReport`` model aggregates expected application data, OCR extraction
+		data, rule results, overall status, processing time, reviewer disclaimer, and creation time
+		for one label file. It is the primary single-label report object returned by the verifier.
+	
+		The report determines its overall status from the individual rule results. Failures take
+		priority over review items, review items take priority over warnings, warnings take priority
+		over pass, and a report with no results defaults to ``Needs Review``.
 
 	Attributes:
 		file_name (str): Uploaded file name.
@@ -454,10 +458,11 @@ class LabelVerificationReport( BaseModel ):
 	def determine_overall_status( self ) -> str:
 		"""Determine the overall report status from individual rule results.
 
-		The method applies a deterministic priority order. Empty reports are marked
-		``Needs Review``. Any failure marks the report ``Fail``. If no failures exist but any
-		review item exists, the report is marked ``Needs Review``. If no failures or reviews
-		exist but warnings exist, the report is marked ``Warning``. Otherwise, the report passes.
+		Purpose:
+			The method applies a deterministic priority order. Empty reports are marked
+			``Needs Review``. Any failure marks the report ``Fail``. If no failures exist but any
+			review item exists, the report is marked ``Needs Review``. If no failures or reviews
+			exist but warnings exist, the report is marked ``Warning``. Otherwise, the report passes.
 
 		Returns:
 			str: Overall status value. If status determination fails, the exception is logged,
@@ -539,9 +544,10 @@ class LabelVerificationReport( BaseModel ):
 	def to_records( self ) -> List[ Dict[ str, Any ] ]:
 		"""Convert all rule results into flat dictionaries.
 
-		This method delegates detail-record creation to each ``LabelCheckResult`` and passes the
-		report's file name into every child record. The resulting list is suitable for detail
-		DataFrames, CSV exports, or rule-level report sections.
+		Purpose:
+			This method delegates detail-record creation to each ``LabelCheckResult`` and passes the
+			report's file name into every child record. The resulting list is suitable for detail
+			DataFrames, CSV exports, or rule-level report sections.
 
 		Returns:
 			List[Dict[str, Any]]: Flat verification result records. If conversion fails, the
@@ -563,10 +569,11 @@ class LabelVerificationReport( BaseModel ):
 	def to_summary_record( self ) -> Dict[ str, Any ]:
 		"""Convert the report into a one-row summary dictionary.
 
-		The summary record contains the file name, brand name, beverage type, extracted-text
-		presence, overall status, failure count, warning count, review count, processing seconds,
-		and formatted creation timestamp. The method recalculates overall status before creating
-		the summary so the record reflects the current result list.
+		Purpose:
+			The summary record contains the file name, brand name, beverage type, extracted-text
+			presence, overall status, failure count, warning count, review count, processing seconds,
+			and formatted creation timestamp. The method recalculates overall status before creating
+			the summary so the record reflects the current result list.
 
 		Returns:
 			Dict[str, Any]: Batch summary record. If conversion fails, the exception is logged and
@@ -611,9 +618,10 @@ class LabelVerificationReport( BaseModel ):
 	def add_result( self, result: LabelCheckResult ) -> None:
 		"""Add one rule result to the verification report.
 
-		This method appends a ``LabelCheckResult`` to the report and immediately recalculates the
-		overall report status. Recalculating after every append keeps the status synchronized for
-		UI components that read the report before all rules have been added.
+		Purpose:
+			This method appends a ``LabelCheckResult`` to the report and immediately recalculates the
+			overall report status. Recalculating after every append keeps the status synchronized for
+			UI components that read the report before all rules have been added.
 
 		Args:
 			result (LabelCheckResult): Rule result to append.
@@ -637,10 +645,11 @@ class LabelVerificationReport( BaseModel ):
 	def empty( cls, file_name: str = '' ) -> 'LabelVerificationReport':
 		"""Create an empty review report when verification cannot be completed.
 
-		The fallback report contains one ``LabelCheckResult`` indicating that verification was
-		unavailable and that human review is required. This classmethod is used by verifier,
-		batch, and error-handling paths to return a structurally valid report instead of raising
-		an exception to the UI.
+		Purpose:
+			The fallback report contains one ``LabelCheckResult`` indicating that verification was
+			unavailable and that human review is required. This classmethod is used by verifier,
+			batch, and error-handling paths to return a structurally valid report instead of raising
+			an exception to the UI.
 
 		Args:
 			file_name (str): Optional uploaded file name to assign to the fallback report.
@@ -671,17 +680,14 @@ class LabelVerificationReport( BaseModel ):
 			Logger( ).write( error )
 			return cls( )
 
-# ==========================================================================================
-# Batch Report Model
-# ==========================================================================================
-
 class BatchVerificationReport( BaseModel ):
 	"""Represent a batch of alcohol label verification reports.
 
-	The ``BatchVerificationReport`` model aggregates single-label verification reports into a
-	batch container. It provides helper methods for appending reports, flattening rule detail
-	records, counting report outcomes, and creating summary records for every report in the
-	batch.
+	Purpose:
+		The ``BatchVerificationReport`` model aggregates single-label verification reports into a
+		batch container. It provides helper methods for appending reports, flattening rule detail
+		records, counting report outcomes, and creating summary records for every report in the
+		batch.
 
 	Attributes:
 		reports (List[LabelVerificationReport]): Verification reports contained in the batch.
@@ -714,9 +720,10 @@ class BatchVerificationReport( BaseModel ):
 	def to_detail_records( self ) -> List[ Dict[ str, Any ] ]:
 		"""Convert all batch rule results into flat detail records.
 
-		This method iterates through each child report and extends a single list with that
-		report's flat rule records. The output is suitable for detail DataFrames or CSV exports
-		that need one row per rule result across the full batch.
+		Purpose:
+			This method iterates through each child report and extends a single list with that
+			report's flat rule records. The output is suitable for detail DataFrames or CSV exports
+			that need one row per rule result across the full batch.
 
 		Returns:
 			List[Dict[str, Any]]: Flat rule result records for all reports. If conversion fails,
@@ -807,8 +814,9 @@ class BatchVerificationReport( BaseModel ):
 	def to_summary_records( self ) -> List[ Dict[ str, Any ] ]:
 		"""Convert all batch reports into flat summary records.
 
-		This method delegates summary creation to each child ``LabelVerificationReport`` and
-		returns a list containing one summary row per report.
+		Purpose:
+			This method delegates summary creation to each child ``LabelVerificationReport`` and
+			returns a list containing one summary row per report.
 
 		Returns:
 			List[Dict[str, Any]]: Flat summary records for all reports. If conversion fails, the

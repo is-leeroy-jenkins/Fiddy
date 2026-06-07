@@ -65,10 +65,6 @@ import config as cfg
 from booger import Error, Logger
 from config import throw_if
 
-# ==========================================================================================
-# Deployment Evidence Constants
-# ==========================================================================================
-
 EVIDENCE_STATUS_MET: str = 'Met'
 EVIDENCE_STATUS_PARTIAL: str = 'Partially Met'
 EVIDENCE_STATUS_NOT_MET: str = 'Not Met'
@@ -98,10 +94,6 @@ DOCKERFILE_NAMES: List[ str ] = [
 		'Dockerfile',
 		'dockerfile'
 ]
-
-# ==========================================================================================
-# Deployment Evidence Models
-# ==========================================================================================
 
 class DeploymentEvidenceItem( BaseModel ):
 	"""Represent one deployment or security evidence check.
@@ -475,10 +467,6 @@ class DeploymentEvidence( BaseModel ):
 					'LONG_TERM_STORAGE_DISABLED': True,
 					'DEPLOYMENT_TARGET': 'local'
 			}
-
-# ==========================================================================================
-# Deployment Evidence Checker
-# ==========================================================================================
 
 class DeploymentEvidenceChecker( ):
 	"""Inspect project and configuration posture for deployment evidence.

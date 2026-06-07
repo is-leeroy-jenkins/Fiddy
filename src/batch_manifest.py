@@ -374,10 +374,11 @@ class BatchManifest( ):
 	def optional_columns( self ) -> List[ str ]:
 		"""Return the optional manifest columns supported by the verifier.
 
-		Optional columns are accepted when present and are included in parsed
-		``BatchManifestRecord`` objects. They are not required for a manifest to load, but they
-		provide additional application context such as proof, import status, importer, country of
-		origin, COLA reference, and reviewer notes.
+		Purpose:
+			Optional columns are accepted when present and are included in parsed
+			``BatchManifestRecord`` objects. They are not required for a manifest to load, but they
+			provide additional application context such as proof, import status, importer, country of
+			origin, COLA reference, and reviewer notes.
 
 		Returns:
 			List[str]: Optional canonical manifest column names.

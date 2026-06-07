@@ -139,10 +139,6 @@ def calculate_percentile( values: List[ float ], percentile: float ) -> float:
 		Logger( ).write( error )
 		return 0.0
 
-# ==========================================================================================
-# Performance Models
-# ==========================================================================================
-
 class LabelPerformanceResult( BaseModel ):
 	"""Represent timing and SLA status for one processed label.
 

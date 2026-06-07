@@ -74,23 +74,24 @@ from src.ocr_engine import OcrEngine
 class AlcoholLabelVerifier( ):
 	"""Coordinate OCR, rule execution, and verification report generation.
 
-	The ``AlcoholLabelVerifier`` is the high-level service object used by the Fiddy
-	application to process alcohol label artwork or manually supplied OCR text. It connects
-	the local OCR engine, structured field extractor, deterministic rule engine, and
-	verification report models without requiring the user interface to manage those components
-	directly.
-
-	The class supports three primary workflows. First, ``verify_file`` accepts one image or PDF
-	path, extracts OCR text, enriches the extracted label, and verifies the label against the
-	expected application data. Second, ``verify_files`` applies that same logic to a collection
-	of uploaded files and returns a batch-level report. Third, ``verify_text`` bypasses OCR and
-	verifies manually supplied label text, which supports testing, troubleshooting, and
-	reviewer-entered text scenarios.
-
-	The verifier uses conservative fallback behavior. Existing exception handlers return
-	reviewer-safe report objects or status messages rather than propagating exceptions to the
-	Streamlit interface. Each guarded failure path records structured Booger metadata before
-	returning the original fallback value.
+	Purpose:
+		The ``AlcoholLabelVerifier`` is the high-level service object used by the Fiddy
+		application to process alcohol label artwork or manually supplied OCR text. It connects
+		the local OCR engine, structured field extractor, deterministic rule engine, and
+		verification report models without requiring the user interface to manage those components
+		directly.
+	
+		The class supports three primary workflows. First, ``verify_file`` accepts one image or PDF
+		path, extracts OCR text, enriches the extracted label, and verifies the label against the
+		expected application data. Second, ``verify_files`` applies that same logic to a collection
+		of uploaded files and returns a batch-level report. Third, ``verify_text`` bypasses OCR and
+		verifies manually supplied label text, which supports testing, troubleshooting, and
+		reviewer-entered text scenarios.
+	
+		The verifier uses conservative fallback behavior. Existing exception handlers return
+		reviewer-safe report objects or status messages rather than propagating exceptions to the
+		Streamlit interface. Each guarded failure path records structured Booger metadata before
+		returning the original fallback value.
 
 	Attributes:
 		_application (LabelApplication): Expected application values for the active verification
@@ -124,12 +125,13 @@ class AlcoholLabelVerifier( ):
 	def __init__( self ) -> None:
 		"""Initialize the verifier and its deterministic processing components.
 
-		The constructor creates one local OCR engine, one deterministic field extractor, and one
-		deterministic alcohol-label rules engine. These collaborators are reused by the instance
-		for single-file, multi-file, and manual-text verification paths.
-
-		No external service calls are made by this constructor. OCR backend configuration is
-		delegated to ``OcrEngine`` and rule configuration is delegated to ``AlcoholLabelRules``.
+		Purpose:
+			The constructor creates one local OCR engine, one deterministic field extractor, and one
+			deterministic alcohol-label rules engine. These collaborators are reused by the instance
+			for single-file, multi-file, and manual-text verification paths.
+	
+			No external service calls are made by this constructor. OCR backend configuration is
+			delegated to ``OcrEngine`` and rule configuration is delegated to ``AlcoholLabelRules``.
 
 		Returns:
 			None.
@@ -141,14 +143,15 @@ class AlcoholLabelVerifier( ):
 	def create_ocr_review_result( self, extracted_label: ExtractedLabel ) -> LabelCheckResult:
 		"""Create a human-review rule result for unusable OCR output.
 
-		This method constructs the standard ``LabelCheckResult`` used when OCR completes but
-		does not produce readable label text. The result intentionally marks the item as
-		``Needs Review`` with high severity because the verifier cannot reliably execute
-		text-based compliance checks without usable extracted text.
-
-		Image-quality notes from the ``ExtractedLabel`` are joined into the result evidence
-		field so reviewers can see why OCR may have failed, such as blur, glare, low contrast,
-		skew, or other preprocessing diagnostics captured upstream.
+		Purpose:
+			This method constructs the standard ``LabelCheckResult`` used when OCR completes but
+			does not produce readable label text. The result intentionally marks the item as
+			``Needs Review`` with high severity because the verifier cannot reliably execute
+			text-based compliance checks without usable extracted text.
+	
+			Image-quality notes from the ``ExtractedLabel`` are joined into the result evidence
+			field so reviewers can see why OCR may have failed, such as blur, glare, low contrast,
+			skew, or other preprocessing diagnostics captured upstream.
 
 		Args:
 			extracted_label (ExtractedLabel): OCR extraction result for the uploaded label. The
@@ -203,16 +206,17 @@ class AlcoholLabelVerifier( ):
 			extracted_label: ExtractedLabel ) -> LabelVerificationReport:
 		"""Verify an already extracted label against expected application values.
 
-		This method is the central report-construction path for the verifier. It accepts a
-		``LabelApplication`` containing expected values and an ``ExtractedLabel`` containing OCR
-		output. The extracted label is passed through the existing enrichment path, wrapped in a
-		``LabelVerificationReport``, evaluated by the deterministic rules engine, and finalized
-		with processing time and overall status.
-
-		When the extracted label does not contain usable text, the method does not attempt
-		field-level compliance checks. Instead, it adds the standard OCR human-review result,
-		sets the processing duration, determines the report-level status, and returns the report
-		for reviewer handling.
+		Purpose:
+			This method is the central report-construction path for the verifier. It accepts a
+			``LabelApplication`` containing expected values and an ``ExtractedLabel`` containing OCR
+			output. The extracted label is passed through the existing enrichment path, wrapped in a
+			``LabelVerificationReport``, evaluated by the deterministic rules engine, and finalized
+			with processing time and overall status.
+	
+			When the extracted label does not contain usable text, the method does not attempt
+			field-level compliance checks. Instead, it adds the standard OCR human-review result,
+			sets the processing duration, determines the report-level status, and returns the report
+			for reviewer handling.
 
 		Args:
 			application (LabelApplication): Expected application data entered or loaded for the
@@ -270,14 +274,15 @@ class AlcoholLabelVerifier( ):
 			file_path: str | Path ) -> LabelVerificationReport:
 		"""Extract OCR text from one label file and verify the extracted label.
 
-		This method is the primary single-file workflow used by the application. It validates
-		the expected application model and uploaded file path, normalizes the file path to a
-		``Path`` object, invokes the local OCR engine, enriches the extracted label fields, and
-		delegates final rule execution and report construction to ``verify_extracted_label``.
-
-		The method accepts image and document paths supported by the OCR engine. It does not
-		perform user-interface operations, does not persist uploaded artwork, and does not modify
-		the application model supplied by the caller.
+		Purpose:
+			This method is the primary single-file workflow used by the application. It validates
+			the expected application model and uploaded file path, normalizes the file path to a
+			``Path`` object, invokes the local OCR engine, enriches the extracted label fields, and
+			delegates final rule execution and report construction to ``verify_extracted_label``.
+	
+			The method accepts image and document paths supported by the OCR engine. It does not
+			perform user-interface operations, does not persist uploaded artwork, and does not modify
+			the application model supplied by the caller.
 
 		Args:
 			application (LabelApplication): Expected application values entered by the reviewer
@@ -311,14 +316,15 @@ class AlcoholLabelVerifier( ):
 			file_paths: Iterable[ str | Path ] ) -> BatchVerificationReport:
 		"""Verify multiple label files against one shared application model.
 
-		This method supports batch verification when all uploaded labels should be evaluated
-		against the same expected application values. The iterable of file paths is converted to
-		``Path`` objects, each file is processed through ``verify_file``, and each resulting
-		``LabelVerificationReport`` is added to a ``BatchVerificationReport``.
-
-		This workflow is intentionally simple and sequential. It preserves per-file fallback
-		behavior from ``verify_file`` while returning a batch container suitable for summary and
-		detail reporting.
+		Purpose:
+			This method supports batch verification when all uploaded labels should be evaluated
+			against the same expected application values. The iterable of file paths is converted to
+			``Path`` objects, each file is processed through ``verify_file``, and each resulting
+			``LabelVerificationReport`` is added to a ``BatchVerificationReport``.
+	
+			This workflow is intentionally simple and sequential. It preserves per-file fallback
+			behavior from ``verify_file`` while returning a batch container suitable for summary and
+			detail reporting.
 
 		Args:
 			application (LabelApplication): Expected application values to apply to every file in
@@ -348,7 +354,7 @@ class AlcoholLabelVerifier( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'verify_files( application: LabelApplication, file_paths: Iterable[str | Path] ) -> BatchVerificationReport'
+			error.method = 'verify_files( self, *args ) -> BatchVerificationReport'
 			Logger( ).write( error )
 			return BatchVerificationReport(
 				reports=[
@@ -360,12 +366,13 @@ class AlcoholLabelVerifier( ):
 			file_name: str = 'manual_text_entry.txt' ) -> LabelVerificationReport:
 		"""Verify manually supplied label text without invoking OCR.
 
-		This method supports testing, troubleshooting, and reviewer-entered text workflows. It
-		creates an ``ExtractedLabel`` from the supplied text, marks the OCR engine as ``manual``,
-		records zero OCR seconds, and adds an image-quality note explaining that OCR was
-		bypassed. The constructed extracted label is then passed through the standard
-		``verify_extracted_label`` path so rule execution and report construction remain
-		consistent with OCR-based verification.
+		Purpose:
+			This method supports testing, troubleshooting, and reviewer-entered text workflows. It
+			creates an ``ExtractedLabel`` from the supplied text, marks the OCR engine as ``manual``,
+			records zero OCR seconds, and adds an image-quality note explaining that OCR was
+			bypassed. The constructed extracted label is then passed through the standard
+			``verify_extracted_label`` path so rule execution and report construction remain
+			consistent with OCR-based verification.
 
 		Args:
 			application (LabelApplication): Expected application values entered by the reviewer
@@ -402,18 +409,19 @@ class AlcoholLabelVerifier( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'verify_text( application: LabelApplication, text: str, file_name: str ) -> LabelVerificationReport'
+			error.method = 'verify_text( self, *args ) -> LabelVerificationReport'
 			Logger( ).write( error )
 			return LabelVerificationReport.empty( file_name=file_name )
 	
 	def summarize_report_status( self, report: LabelVerificationReport ) -> str:
 		"""Summarize one verification report for compact reviewer display.
 
-		This method recalculates the report-level status, counts failure, warning, and human
-		review results, and returns a compact sentence suitable for status banners, result cards,
-		log messages, or quick dashboard summaries. The method does not alter rule results; it
-		only ensures the overall status reflects the current report contents before
-		summarization.
+		Purpose:
+			This method recalculates the report-level status, counts failure, warning, and human
+			review results, and returns a compact sentence suitable for status banners, result cards,
+			log messages, or quick dashboard summaries. The method does not alter rule results; it
+			only ensures the overall status reflects the current report contents before
+			summarization.
 
 		Args:
 			report (LabelVerificationReport): Verification report to summarize.

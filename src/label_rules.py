@@ -106,16 +106,17 @@ from src.warning_validator import GovernmentWarningValidator
 class AlcoholLabelRules( ):
 	"""Execute deterministic alcohol-label verification rules.
 
-	The ``AlcoholLabelRules`` class evaluates OCR label text against expected application
-	values using deterministic pattern matching, normalization helpers, fuzzy matching, numeric
-	tolerance checks, and delegated government-warning validation. The class produces
-	``LabelCheckResult`` objects for each rule so downstream reports can show pass/fail/review
-	status, severity, confidence, evidence, reviewer-facing messages, and human-review flags.
-
-	The rule engine is deliberately deterministic and auditable. It does not attempt to make
-	final legal determinations beyond the encoded checks; instead, it flags mismatches, missing
-	fields, confidence-sensitive comparisons, and visual-format conditions for reviewer
-	confirmation where appropriate.
+	Purpose:
+		The ``AlcoholLabelRules`` class evaluates OCR label text against expected application
+		values using deterministic pattern matching, normalization helpers, fuzzy matching, numeric
+		tolerance checks, and delegated government-warning validation. The class produces
+		``LabelCheckResult`` objects for each rule so downstream reports can show pass/fail/review
+		status, severity, confidence, evidence, reviewer-facing messages, and human-review flags.
+	
+		The rule engine is deliberately deterministic and auditable. It does not attempt to make
+		final legal determinations beyond the encoded checks; instead, it flags mismatches, missing
+		fields, confidence-sensitive comparisons, and visual-format conditions for reviewer
+		confirmation where appropriate.
 
 	Attributes:
 		_application (LabelApplication): Expected application values currently being evaluated.
@@ -151,9 +152,10 @@ class AlcoholLabelRules( ):
 	def __init__( self ) -> None:
 		"""Initialize the deterministic alcohol-label rule engine.
 
-		The constructor creates one ``TextNormalizer`` for text, numeric, and context
-		normalization and one ``GovernmentWarningValidator`` for the specialized warning
-		checks. No rule execution occurs during initialization.
+		Purpose:
+			The constructor creates one ``TextNormalizer`` for text, numeric, and context
+			normalization and one ``GovernmentWarningValidator`` for the specialized warning
+			checks. No rule execution occurs during initialization.
 
 		Returns:
 			None.
@@ -166,11 +168,12 @@ class AlcoholLabelRules( ):
 			message: str = '', requires_human_review: bool = False ) -> LabelCheckResult:
 		"""Create a structured label-check result.
 
-		This helper centralizes ``LabelCheckResult`` construction so all rule methods produce
-		consistent result objects. Required identifiers, field names, statuses, and severities
-		are validated before the result is created. Optional expected values, observed values,
-		confidence scores, evidence, messages, and human-review flags are passed through to the
-		model without additional transformation.
+		Purpose:
+			This helper centralizes ``LabelCheckResult`` construction so all rule methods produce
+			consistent result objects. Required identifiers, field names, statuses, and severities
+			are validated before the result is created. Optional expected values, observed values,
+			confidence scores, evidence, messages, and human-review flags are passed through to the
+			model without additional transformation.
 
 		Args:
 			rule_id (str): Machine-readable rule identifier.
@@ -222,7 +225,7 @@ class AlcoholLabelRules( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_result( rule_id: str, field_name: str, status: str, severity: str, expected: str, observed: str, confidence: float, evidence: str, message: str, requires_human_review: bool ) -> LabelCheckResult'
+			error.method = 'create_result( self, *args ) -> LabelCheckResult'
 			Logger( ).write( error )
 			return LabelCheckResult(
 				rule_id='rule_result_unavailable',
@@ -240,12 +243,13 @@ class AlcoholLabelRules( ):
 	def verify( self, application: LabelApplication, text: str ) -> List[ LabelCheckResult ]:
 		"""Run all applicable alcohol-label verification rules.
 
-		This method executes the full deterministic rule set for one application/label-text
-		pair. Common rules are always evaluated, including brand, class/type, ABV presence,
-		ABV match, proof presence, proof consistency, net contents presence, net contents match,
-		producer/bottler presence, and government-warning checks. Importer and
-		country-of-origin rules are added only when the application indicates the product is
-		imported.
+		Purpose:
+			This method executes the full deterministic rule set for one application/label-text
+			pair. Common rules are always evaluated, including brand, class/type, ABV presence,
+			ABV match, proof presence, proof consistency, net contents presence, net contents match,
+			producer/bottler presence, and government-warning checks. Importer and
+			country-of-origin rules are added only when the application indicates the product is
+			imported.
 
 		Args:
 			application (LabelApplication): Expected application values supplied by the reviewer
@@ -309,10 +313,11 @@ class AlcoholLabelRules( ):
 	def extract_abv( self, text: str ) -> Optional[ float ]:
 		"""Extract an ABV value from OCR label text.
 
-		This method searches the OCR text using the configured ``ABV_PATTERN`` and returns the
-		normalized numeric ABV value from the named capture group. It does not compare the value
-		to application data; it only extracts the value that downstream rules use for presence,
-		matching, and proof-consistency checks.
+		Purpose:
+			This method searches the OCR text using the configured ``ABV_PATTERN`` and returns the
+			normalized numeric ABV value from the named capture group. It does not compare the value
+			to application data; it only extracts the value that downstream rules use for presence,
+			matching, and proof-consistency checks.
 
 		Args:
 			text (str): OCR label text.
@@ -342,9 +347,10 @@ class AlcoholLabelRules( ):
 	def extract_proof( self, text: str ) -> Optional[ float ]:
 		"""Extract a proof value from OCR label text.
 
-		This method searches the OCR text using the configured ``PROOF_PATTERN`` and returns the
-		normalized numeric proof value from the named capture group. The extracted proof value is
-		used by distilled-spirits proof presence and proof/ABV consistency checks.
+		Purpose:
+			This method searches the OCR text using the configured ``PROOF_PATTERN`` and returns the
+			normalized numeric proof value from the named capture group. The extracted proof value is
+			used by distilled-spirits proof presence and proof/ABV consistency checks.
 
 		Args:
 			text (str): OCR label text.
@@ -374,9 +380,10 @@ class AlcoholLabelRules( ):
 	def extract_net_contents( self, text: str ) -> str:
 		"""Extract normalized net contents from OCR label text.
 
-		This method searches OCR text using ``NET_CONTENTS_PATTERN`` and combines the captured
-		amount and unit into a normalized net-contents value through ``TextNormalizer``. The value
-		is used by net-contents presence and match rules.
+		Purpose:
+			This method searches OCR text using ``NET_CONTENTS_PATTERN`` and combines the captured
+			amount and unit into a normalized net-contents value through ``TextNormalizer``. The value
+			is used by net-contents presence and match rules.
 
 		Args:
 			text (str): OCR label text.
@@ -409,11 +416,12 @@ class AlcoholLabelRules( ):
 	def check_brand_name( self, application: LabelApplication, text: str ) -> LabelCheckResult:
 		"""Compare expected brand name against OCR label text.
 
-		This rule normalizes the expected brand name and OCR text, then uses fuzzy partial-ratio
-		matching to determine whether the brand appears in the label text. Minor formatting,
-		case, punctuation, and OCR variation can still pass when confidence meets the configured
-		brand threshold. Missing expected brand names and low-confidence matches require human
-		review rather than an automatic failure.
+		Purpose:
+			This rule normalizes the expected brand name and OCR text, then uses fuzzy partial-ratio
+			matching to determine whether the brand appears in the label text. Minor formatting,
+			case, punctuation, and OCR variation can still pass when confidence meets the configured
+			brand threshold. Missing expected brand names and low-confidence matches require human
+			review rather than an automatic failure.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -489,10 +497,11 @@ class AlcoholLabelRules( ):
 	def check_class_type( self, application: LabelApplication, text: str ) -> LabelCheckResult:
 		"""Compare expected class/type designation against OCR label text.
 
-		This rule normalizes the expected class/type designation and OCR text, then uses fuzzy
-		partial-ratio matching to determine whether the designation appears on the label. The rule
-		passes when confidence meets the configured class/type threshold and otherwise requests
-		reviewer judgment.
+		Purpose:
+			This rule normalizes the expected class/type designation and OCR text, then uses fuzzy
+			partial-ratio matching to determine whether the designation appears on the label. The rule
+			passes when confidence meets the configured class/type threshold and otherwise requests
+			reviewer judgment.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -568,9 +577,10 @@ class AlcoholLabelRules( ):
 	def check_alcohol_content_present( self, text: str ) -> LabelCheckResult:
 		"""Determine whether the label contains an alcohol-content statement.
 
-		This rule attempts to extract an ABV value from OCR text. A detected value passes the
-		presence check; a missing value fails because alcohol content is a core label field for
-		the Fiddy verification workflow.
+		Purpose:
+			This rule attempts to extract an ABV value from OCR text. A detected value passes the
+			presence check; a missing value fails because alcohol content is a core label field for
+			the Fiddy verification workflow.
 
 		Args:
 			text (str): OCR label text.
@@ -633,9 +643,10 @@ class AlcoholLabelRules( ):
 			text: str ) -> LabelCheckResult:
 		"""Compare expected application ABV against detected label ABV.
 
-		This rule normalizes the expected ABV from the application, extracts the observed ABV
-		from OCR text, and compares the values using the configured ABV tolerance. Missing
-		expected values require review, missing observed values fail, and mismatched values fail.
+		Purpose:
+			This rule normalizes the expected ABV from the application, extracts the observed ABV
+			from OCR text, and compares the values using the configured ABV tolerance. Missing
+			expected values require review, missing observed values fail, and mismatched values fail.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -724,10 +735,11 @@ class AlcoholLabelRules( ):
 	def check_proof_present( self, application: LabelApplication, text: str ) -> LabelCheckResult:
 		"""Determine whether proof is present when relevant to the beverage type.
 
-		This rule is applicable to distilled spirits and not applicable to other beverage types.
-		For distilled spirits, it extracts proof from OCR text. Detected proof passes; missing
-		proof produces a warning so the reviewer can confirm whether proof is required for the
-		specific product and label context.
+		Purpose:
+			This rule is applicable to distilled spirits and not applicable to other beverage types.
+			For distilled spirits, it extracts proof from OCR text. Detected proof passes; missing
+			proof produces a warning so the reviewer can confirm whether proof is required for the
+			specific product and label context.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -797,10 +809,11 @@ class AlcoholLabelRules( ):
 			text: str ) -> LabelCheckResult:
 		"""Check whether detected proof is consistent with detected ABV.
 
-		This rule is applicable to distilled spirits and not applicable to other beverage types.
-		When both ABV and proof are detected, expected proof is calculated from observed ABV and
-		compared to observed proof using the configured proof tolerance. Missing ABV or proof
-		produces a warning because the consistency check cannot be fully evaluated.
+		Purpose:
+			This rule is applicable to distilled spirits and not applicable to other beverage types.
+			When both ABV and proof are detected, expected proof is calculated from observed ABV and
+			compared to observed proof using the configured proof tolerance. Missing ABV or proof
+			produces a warning because the consistency check cannot be fully evaluated.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -872,7 +885,7 @@ class AlcoholLabelRules( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'check_proof_consistency( application: LabelApplication, text: str ) -> LabelCheckResult'
+			error.method = 'check_proof_consistency( self, *args ) -> LabelCheckResult'
 			Logger( ).write( error )
 			return self.create_result(
 				rule_id=RULE_PROOF_CONSISTENCY,
@@ -890,9 +903,10 @@ class AlcoholLabelRules( ):
 	def check_net_contents_present( self, text: str ) -> LabelCheckResult:
 		"""Determine whether net contents are present on the label.
 
-		This rule extracts normalized net contents from OCR text. A detected value passes the
-		presence check; a missing value fails because net contents are a required label field in
-		the verification workflow.
+		Purpose:
+			This rule extracts normalized net contents from OCR text. A detected value passes the
+			presence check; a missing value fails because net contents are a required label field in
+			the verification workflow.
 
 		Args:
 			text (str): OCR label text.
@@ -945,10 +959,11 @@ class AlcoholLabelRules( ):
 			text: str ) -> LabelCheckResult:
 		"""Compare expected net contents against detected label net contents.
 
-		This rule normalizes the expected net contents from the application and compares it to
-		net contents extracted from OCR text. Exact normalized matches pass, and high-confidence
-		fuzzy matches also pass using the existing threshold. Missing expected values require
-		review, while missing observed values or mismatches fail.
+		Purpose:
+			This rule normalizes the expected net contents from the application and compares it to
+			net contents extracted from OCR text. Exact normalized matches pass, and high-confidence
+			fuzzy matches also pass using the existing threshold. Missing expected values require
+			review, while missing observed values or mismatches fail.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -1016,7 +1031,7 @@ class AlcoholLabelRules( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'check_net_contents_match( application: LabelApplication, text: str ) -> LabelCheckResult'
+			error.method = 'check_net_contents_match( self, *args ) -> LabelCheckResult'
 			Logger( ).write( error )
 			return self.create_result(
 				rule_id=RULE_NET_CONTENTS_MATCH,
@@ -1034,9 +1049,10 @@ class AlcoholLabelRules( ):
 	def check_producer_bottler_present( self, text: str ) -> LabelCheckResult:
 		"""Determine whether producer, bottler, brewer, or distiller language is present.
 
-		This rule searches OCR text for the configured producer/bottler pattern. A match passes
-		the rule and uses the matched text as observed value and evidence. No match fails because
-		the responsible-party statement is a required label field for the prototype workflow.
+		Purpose:
+			This rule searches OCR text for the configured producer/bottler pattern. A match passes
+			the rule and uses the matched text as observed value and evidence. No match fails because
+			the responsible-party statement is a required label field for the prototype workflow.
 
 		Args:
 			text (str): OCR label text.
@@ -1076,9 +1092,10 @@ class AlcoholLabelRules( ):
 	def check_importer_present( self, text: str ) -> LabelCheckResult:
 		"""Determine whether importer language is present for an imported product.
 
-		This rule searches OCR text for the configured importer pattern. It is called only when
-		the application indicates the product is imported. A match passes the rule; no match fails
-		because importer information is expected for imported products.
+		Purpose:
+			This rule searches OCR text for the configured importer pattern. It is called only when
+			the application indicates the product is imported. A match passes the rule; no match fails
+			because importer information is expected for imported products.
 
 		Args:
 			text (str): OCR label text.
@@ -1131,10 +1148,11 @@ class AlcoholLabelRules( ):
 			text: str ) -> LabelCheckResult:
 		"""Determine whether country-of-origin language is present for an imported product.
 
-		This rule searches OCR text for the configured country-of-origin pattern. It is called
-		only when the application indicates the product is imported. The expected value uses the
-		application country when available and falls back to a generic imported-product
-		requirement when the application value is empty.
+		Purpose:
+			This rule searches OCR text for the configured country-of-origin pattern. It is called
+			only when the application indicates the product is imported. The expected value uses the
+			application country when available and falls back to a generic imported-product
+			requirement when the application value is empty.
 
 		Args:
 			application (LabelApplication): Expected application values.
@@ -1175,9 +1193,10 @@ class AlcoholLabelRules( ):
 	def check_government_warning_present( self, text: str ) -> LabelCheckResult:
 		"""Determine whether government-warning language is present.
 
-		This rule delegates specialized warning parsing to ``GovernmentWarningValidator`` and
-		returns the validator's presence result. Delegation keeps warning-specific parsing and
-		messaging centralized while preserving this class as the rule orchestration layer.
+		Purpose:
+			This rule delegates specialized warning parsing to ``GovernmentWarningValidator`` and
+			returns the validator's presence result. Delegation keeps warning-specific parsing and
+			messaging centralized while preserving this class as the rule orchestration layer.
 
 		Args:
 			text (str): OCR label text.
@@ -1208,10 +1227,11 @@ class AlcoholLabelRules( ):
 	def check_government_warning_exact( self, text: str ) -> LabelCheckResult:
 		"""Determine whether OCR text contains the exact government-warning wording.
 
-		This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
-		validator's exact-text result. The exact-text result is intended to enforce the standard
-		government warning wording without applying the looser fuzzy matching used for brand and
-		class/type comparisons.
+		Purpose:
+			This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
+			validator's exact-text result. The exact-text result is intended to enforce the standard
+			government warning wording without applying the looser fuzzy matching used for brand and
+			class/type comparisons.
 
 		Args:
 			text (str): OCR label text.
@@ -1243,9 +1263,10 @@ class AlcoholLabelRules( ):
 	def check_government_warning_prefix_caps( self, text: str ) -> LabelCheckResult:
 		"""Determine whether the all-caps government-warning prefix is present.
 
-		This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
-		validator's prefix-capitalization result. It focuses on the required
-		``GOVERNMENT WARNING:`` prefix rather than the full warning body.
+		Purpose:
+			This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
+			validator's prefix-capitalization result. It focuses on the required
+			``GOVERNMENT WARNING:`` prefix rather than the full warning body.
 
 		Args:
 			text (str): OCR label text.
@@ -1281,10 +1302,11 @@ class AlcoholLabelRules( ):
 	def check_government_warning_visual_format( self, text: str ) -> LabelCheckResult:
 		"""Flag government-warning visual-format requirements for reviewer confirmation.
 
-		This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
-		validator's visual-format result. OCR text alone cannot reliably prove visual attributes
-		such as boldness, prominence, placement, or whether the warning is hidden, so this rule is
-		designed to surface the issue for reviewer confirmation.
+		Purpose:
+			This rule delegates warning validation to ``GovernmentWarningValidator`` and returns the
+			validator's visual-format result. OCR text alone cannot reliably prove visual attributes
+			such as boldness, prominence, placement, or whether the warning is hidden, so this rule is
+			designed to surface the issue for reviewer confirmation.
 
 		Args:
 			text (str): OCR label text.
