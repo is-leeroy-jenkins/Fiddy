@@ -73,10 +73,10 @@ from src.constants import (
 	STATUS_WARNING,
 	SUPPORTED_UPLOAD_TYPES
 )
+from src.data_retention import DataRetentionPolicy
 from src.label_verifier import AlcoholLabelVerifier
 from src.models import BatchVerificationReport, LabelApplication, LabelVerificationReport
 from src.report_writer import ReportWriter
-from src.acceptance_checker import AcceptanceChecker, AcceptanceSummary
 
 # ==========================================================================================
 # Session State
@@ -86,11 +86,10 @@ def initialize_session_state( ) -> None:
 	"""Initialize all Streamlit session-state keys used by the application.
 
 	Purpose:
-		Prepare batch results, report objects, display DataFrames, manifest state, generated
-		report text, acceptance evidence, verification flags, selected report index, reviewer
-		mode, accessibility options, keyboard guidance state, and CAV form fields before widgets
-		or display functions read those keys. The function is idempotent and preserves existing
-		state across Streamlit reruns.
+		Prepare batch results, report objects, display DataFrames, manifest state, generated report
+		text, verification flags, selected report index, reviewer mode, accessibility options,
+		keyboard guidance state, and CAV form fields before widgets or display functions read those
+		keys. The function is idempotent and preserves existing state across Streamlit reruns.
 
 	Returns:
 		None.
@@ -112,21 +111,6 @@ def initialize_session_state( ) -> None:
 	
 	if 'performance_dataframe' not in st.session_state:
 		st.session_state[ 'performance_dataframe' ] = pd.DataFrame( )
-	
-	if 'acceptance_summary' not in st.session_state:
-		st.session_state[ 'acceptance_summary' ] = AcceptanceSummary( )
-	
-	if 'acceptance_dataframe' not in st.session_state:
-		st.session_state[ 'acceptance_dataframe' ] = pd.DataFrame( )
-	
-	if 'acceptance_json_report' not in st.session_state:
-		st.session_state[ 'acceptance_json_report' ] = '{}'
-	
-	if 'acceptance_markdown_report' not in st.session_state:
-		st.session_state[ 'acceptance_markdown_report' ] = ''
-	
-	if 'acceptance_complete' not in st.session_state:
-		st.session_state[ 'acceptance_complete' ] = False
 	
 	if 'manifest_dataframe' not in st.session_state:
 		st.session_state[ 'manifest_dataframe' ] = pd.DataFrame( )
@@ -182,14 +166,13 @@ def initialize_session_state( ) -> None:
 	initialize_cav_form_state( )
 
 def clear_results( ) -> None:
-	"""Clear prior verification and acceptance outputs while preserving input values.
+	"""Clear prior verification outputs while preserving current input widget values.
 
 	Purpose:
-		Reset generated verification outputs, acceptance outputs, report objects, display
-		DataFrames, download text, completion state, and selected report index. The function
-		intentionally does not clear uploaded file widgets, manifest state, reviewer mode,
-		accessibility settings, or CAV form values because those are input-side state rather than
-		generated result state.
+		This function resets generated verification outputs, report objects, display DataFrames,
+		download text, completion state, and selected report index. It intentionally does not clear
+		uploaded file widgets, manifest state, reviewer mode, accessibility settings, or CAV form
+		values because those are input-side state rather than generated result state.
 
 	Returns:
 		None.
@@ -200,11 +183,6 @@ def clear_results( ) -> None:
 	st.session_state[ 'detail_dataframe' ] = pd.DataFrame( )
 	st.session_state[ 'comparison_dataframe' ] = pd.DataFrame( )
 	st.session_state[ 'performance_dataframe' ] = pd.DataFrame( )
-	st.session_state[ 'acceptance_summary' ] = AcceptanceSummary( )
-	st.session_state[ 'acceptance_dataframe' ] = pd.DataFrame( )
-	st.session_state[ 'acceptance_json_report' ] = '{}'
-	st.session_state[ 'acceptance_markdown_report' ] = ''
-	st.session_state[ 'acceptance_complete' ] = False
 	st.session_state[ 'json_report' ] = '{}'
 	st.session_state[ 'markdown_report' ] = ''
 	st.session_state[ 'verification_complete' ] = False
@@ -1982,7 +1960,6 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 		st.session_state[ 'markdown_report' ] = writer.batch_to_markdown( result.batch_report )
 		st.session_state[ 'verification_complete' ] = True
 		st.session_state[ 'selected_report_index' ] = 0
-		update_acceptance_state( )
 		
 		progress_bar.progress( 100 )
 		status_text.success( 'Batch verification complete.' )
@@ -1990,7 +1967,7 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 		error = Error( e )
 		error.cause = 'Application'
 		error.module = __name__
-		error.method = 'run_manifest_batch_verification( *args ) -> None'
+		error.method = 'run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: List[object], max_workers: int, sla_seconds: float ) -> None'
 		Logger( ).write( error )
 		st.error( f'Batch verification failed: {e}' )
 		st.session_state[ 'verification_complete' ] = False
@@ -2044,303 +2021,15 @@ def run_manual_fallback_verification( application: LabelApplication,
 		st.session_state[ 'markdown_report' ] = writer.batch_to_markdown( batch_report )
 		st.session_state[ 'verification_complete' ] = True
 		st.session_state[ 'selected_report_index' ] = 0
-		update_acceptance_state( )
 	except Exception as e:
 		error = Error( e )
 		error.cause = 'Application'
 		error.module = __name__
-		error.method = 'run_manual_fallback_verification( *args ) -> None'
+		error.method = 'run_manual_fallback_verification( application: LabelApplication, uploaded_files: List[object] ) -> None'
 		Logger( ).write( error )
 		st.error( f'Manual fallback verification failed: {e}' )
 		st.session_state[ 'verification_complete' ] = False
 
-# ==========================================================================================
-# Acceptance Evidence
-# ==========================================================================================
-
-def get_acceptance_evidence( ) -> Dict[ str, object ]:
-	"""Build supplemental acceptance evidence from configuration and session state.
-
-	Purpose:
-		Create the evidence dictionary consumed by ``AcceptanceChecker``. The dictionary combines
-		configuration posture, current UI state, runtime output availability, processing status,
-		and conservative defaults for evidence that still requires test-harness or manual browser
-		validation. Evidence keys supplied here are intentionally explicit so acceptance results
-		can distinguish implemented features from proven runtime, browser, or deployment evidence.
-
-	Returns:
-		Dict[str, object]: Supplemental acceptance evidence keyed by acceptance-checker field
-		names. If evidence construction fails, a conservative evidence dictionary is returned.
-	"""
-	try:
-		df_summary = st.session_state.get( 'summary_dataframe', pd.DataFrame( ) )
-		df_details = st.session_state.get( 'detail_dataframe', pd.DataFrame( ) )
-		df_comparison = st.session_state.get( 'comparison_dataframe', pd.DataFrame( ) )
-		df_performance = st.session_state.get( 'performance_dataframe', pd.DataFrame( ) )
-		batch_result = st.session_state.get( 'batch_result', BatchProcessingResult( ) )
-		processed_count = len( getattr( batch_result, 'processed_files', [ ] ) )
-		progress_history = st.session_state.get( 'processing_status_history', [ ] )
-		min_batch_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MIN_FILES', 20 ) )
-		max_batch_files = int( getattr( cfg, 'BATCH_ACCEPTANCE_MAX_FILES', 50 ) )
-		acceptance_dataframe_exists = not st.session_state.get(
-			'acceptance_dataframe',
-			pd.DataFrame( )
-		).empty
-		
-		return {
-				'DEFAULT_SIMPLE_MODE': bool( st.session_state.get( 'simple_mode', True ) ),
-				'DEFAULT_HIGH_CONTRAST_MODE': bool(
-					st.session_state.get( 'high_contrast_mode',
-						getattr( cfg, 'DEFAULT_HIGH_CONTRAST_MODE', False ) ) ),
-				'DEFAULT_LARGE_TEXT_MODE': bool(
-					st.session_state.get( 'large_text_mode',
-						getattr( cfg, 'DEFAULT_LARGE_TEXT_MODE', False ) ) ),
-				'SHOW_KEYBOARD_ACCESSIBILITY_NOTES': bool(
-					st.session_state.get( 'show_keyboard_notes', True ) ),
-				'KEYBOARD_ACCESSIBILITY_PASSED': bool(
-					getattr( cfg, 'KEYBOARD_ACCESSIBILITY_PASSED', False ) ),
-				'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED': bool(
-					getattr( cfg, 'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED', False ) ),
-				'LARGE_BUTTONS_PRESENT': True,
-				'MINIMAL_NAVIGATION_VALIDATED': bool(
-					getattr( cfg, 'MINIMAL_NAVIGATION_VALIDATED', False ) ),
-				'PROGRESS_INDICATORS_DISPLAYED': bool( progress_history ),
-				'NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED': 'Reviewer Action' in df_comparison.columns,
-				'ACCEPTANCE_EXPORT_AVAILABLE': acceptance_dataframe_exists,
-				'IMPERFECT_IMAGE_TESTED': bool( getattr( cfg, 'IMPERFECT_IMAGE_TESTED', False ) ),
-				'LOW_QUALITY_IMAGE_TESTED': bool(
-					getattr( cfg, 'LOW_QUALITY_IMAGE_TESTED', False ) ),
-				'FALSE_POSITIVE_VARIATION_TESTED': bool(
-					getattr( cfg, 'FALSE_POSITIVE_VARIATION_TESTED', False ) ),
-				'PERFORMANCE_SLA_TESTED': not df_performance.empty,
-				'PERFORMANCE_SLA_PASSED': bool(
-					getattr(
-						getattr( batch_result.performance_summary, 'acceptance_result', None ),
-						'meets_acceptance',
-						False
-					)
-				),
-				'PROTOTYPE_BATCH_SCALE_TESTED': processed_count >= min_batch_files,
-				'PROTOTYPE_BATCH_SCALE_PASSED': min_batch_files <= processed_count <= max_batch_files,
-				'BATCH_ACCEPTANCE_MIN_FILES': min_batch_files,
-				'BATCH_ACCEPTANCE_MAX_FILES': max_batch_files,
-				'ALLOW_EXTERNAL_ML_ENDPOINTS': bool(
-					getattr( cfg, 'ALLOW_EXTERNAL_ML_ENDPOINTS', False ) ),
-				'REQUIRE_LOCAL_OCR': bool( getattr( cfg, 'REQUIRE_LOCAL_OCR', True ) ),
-				'ENABLE_RAW_TEXT_LOGGING': bool(
-					getattr( cfg, 'ENABLE_RAW_TEXT_LOGGING', False ) ),
-				'ENABLE_FILE_PATH_LOGGING': bool(
-					getattr( cfg, 'ENABLE_FILE_PATH_LOGGING', False ) ),
-				'ENABLE_UPLOAD_PERSISTENCE': bool(
-					getattr( cfg, 'ENABLE_UPLOAD_PERSISTENCE', False ) ),
-				'LONG_TERM_STORAGE_DISABLED': bool(
-					getattr( cfg, 'LONG_TERM_STORAGE_DISABLED', True ) ),
-				'LOG_RETENTION_DAYS': int( getattr( cfg, 'LOG_RETENTION_DAYS', 14 ) ),
-				'DEPLOYMENT_TARGET': str( getattr( cfg, 'DEPLOYMENT_TARGET', 'local' ) ),
-				'AZURE_READY_ARTIFACTS_PRESENT': bool(
-					getattr( cfg, 'AZURE_READY_ARTIFACTS_PRESENT', False ) ),
-				'AZURE_SMOKE_TEST_PASSED': bool(
-					getattr( cfg, 'AZURE_SMOKE_TEST_PASSED', False ) ),
-				'COLA_INTEGRATION_ENABLED': bool(
-					getattr( cfg, 'COLA_INTEGRATION_ENABLED', False ) ),
-				'SUMMARY_OUTPUT_AVAILABLE': not df_summary.empty,
-				'DETAIL_OUTPUT_AVAILABLE': not df_details.empty,
-				'COMPARISON_OUTPUT_AVAILABLE': not df_comparison.empty,
-				'PERFORMANCE_OUTPUT_AVAILABLE': not df_performance.empty
-		}
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_acceptance_evidence( ) -> Dict[str, object]'
-		Logger( ).write( error )
-		return {
-				'DEFAULT_SIMPLE_MODE': True,
-				'REQUIRE_LOCAL_OCR': True,
-				'ALLOW_EXTERNAL_ML_ENDPOINTS': False,
-				'COLA_INTEGRATION_ENABLED': False,
-				'LONG_TERM_STORAGE_DISABLED': True
-		}
-
-def update_acceptance_state( ) -> None:
-	"""Evaluate stakeholder acceptance and write acceptance outputs to session state.
-
-	Purpose:
-		Run ``AcceptanceChecker`` against the current verification outputs and store the resulting
-		acceptance summary, DataFrame, JSON report, Markdown report, and completion flag in
-		Streamlit session state. This function is safe to call after either manifest-driven batch
-		verification or manual fallback verification.
-
-	Returns:
-		None.
-	"""
-	try:
-		if not st.session_state.get( 'verification_complete', False ):
-			st.session_state[ 'acceptance_summary' ] = AcceptanceSummary( )
-			st.session_state[ 'acceptance_dataframe' ] = pd.DataFrame( )
-			st.session_state[ 'acceptance_json_report' ] = '{}'
-			st.session_state[ 'acceptance_markdown_report' ] = ''
-			st.session_state[ 'acceptance_complete' ] = False
-			return None
-		
-		checker = AcceptanceChecker( )
-		summary = checker.evaluate_batch_result(
-			result=st.session_state.get( 'batch_result', BatchProcessingResult( ) ),
-			summary_dataframe=st.session_state.get( 'summary_dataframe', pd.DataFrame( ) ),
-			detail_dataframe=st.session_state.get( 'detail_dataframe', pd.DataFrame( ) ),
-			comparison_dataframe=st.session_state.get( 'comparison_dataframe', pd.DataFrame( ) ),
-			performance_dataframe=st.session_state.get( 'performance_dataframe', pd.DataFrame( ) ),
-			evidence=get_acceptance_evidence( ) )
-		
-		st.session_state[ 'acceptance_summary' ] = summary
-		st.session_state[ 'acceptance_dataframe' ] = summary.to_dataframe( )
-		st.session_state[ 'acceptance_json_report' ] = summary.to_json( )
-		st.session_state[ 'acceptance_markdown_report' ] = summary.to_markdown( )
-		st.session_state[ 'acceptance_complete' ] = True
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'update_acceptance_state( ) -> None'
-		Logger( ).write( error )
-		st.session_state[ 'acceptance_summary' ] = AcceptanceSummary( )
-		st.session_state[ 'acceptance_dataframe' ] = pd.DataFrame( )
-		st.session_state[ 'acceptance_json_report' ] = '{}'
-		st.session_state[ 'acceptance_markdown_report' ] = ''
-		st.session_state[ 'acceptance_complete' ] = False
-
-def get_acceptance_status_counts( df_acceptance: pd.DataFrame ) -> Dict[ str, int ]:
-	"""Return status counts from the acceptance DataFrame.
-
-	Purpose:
-		Calculate acceptance status counts for dashboard metric display without requiring direct
-		access to the underlying ``AcceptanceSummary`` model.
-
-	Args:
-		df_acceptance (pd.DataFrame): Acceptance result DataFrame.
-
-	Returns:
-		Dict[str, int]: Counts keyed by status text. If counting fails, an empty dictionary is
-		returned.
-	"""
-	try:
-		if df_acceptance is None or df_acceptance.empty or 'Status' not in df_acceptance.columns:
-			return { }
-		
-		return df_acceptance[ 'Status' ].value_counts( ).to_dict( )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_acceptance_status_counts( df_acceptance: pd.DataFrame ) -> Dict[str, int]'
-		Logger( ).write( error )
-		return { }
-
-def get_acceptance_csv( ) -> str:
-	"""Return acceptance results as CSV text.
-
-	Purpose:
-		Convert the acceptance DataFrame in session state into CSV text so the download section
-		can expose stakeholder acceptance evidence without recomputing the acceptance summary.
-
-	Returns:
-		str: Acceptance CSV text, or an empty string when no acceptance DataFrame is available.
-	"""
-	try:
-		df_acceptance = st.session_state.get( 'acceptance_dataframe', pd.DataFrame( ) )
-		
-		if df_acceptance.empty:
-			return ''
-		
-		return df_acceptance.to_csv( index=False )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_acceptance_csv( ) -> str'
-		Logger( ).write( error )
-		return ''
-
-def display_acceptance_dashboard( ) -> None:
-	"""Display stakeholder acceptance status after verification completes.
-
-	Purpose:
-		Evaluate current verification outputs, refresh acceptance session state, and display a
-		compact stakeholder acceptance dashboard. Simple Mode shows high-level acceptance counts
-		and unmet/partial items. Advanced Mode also shows the full requirement table.
-
-	Returns:
-		None.
-	"""
-	try:
-		update_acceptance_state( )
-		df_acceptance = st.session_state.get( 'acceptance_dataframe', pd.DataFrame( ) )
-		
-		st.markdown(
-			"""
-			<div class="fiddy-panel">
-				<div class="fiddy-panel-title">Acceptance Evidence</div>
-				<div class="fiddy-panel-text">
-					Review requirement-level acceptance status for the current run. Evidence-dependent
-					items remain partial or not evaluated until runtime, browser, or deployment proof is
-					available.
-				</div>
-			</div>
-			""",
-			unsafe_allow_html=True
-		)
-		
-		if df_acceptance.empty:
-			st.info( 'No acceptance records are available yet.' )
-			return
-		
-		counts = get_acceptance_status_counts( df_acceptance )
-		col1, col2, col3, col4 = st.columns( 4 )
-		col1.metric( 'Met', int( counts.get( 'Met', 0 ) ) )
-		col2.metric( 'Partial', int( counts.get( 'Partially Met', 0 ) ) )
-		col3.metric( 'Not Met', int( counts.get( 'Not Met', 0 ) ) )
-		col4.metric( 'Not Evaluated', int( counts.get( 'Not Evaluated', 0 ) ) )
-		
-		df_attention = df_acceptance[
-			df_acceptance[ 'Status' ].isin(
-				[
-						'Partially Met',
-						'Not Met',
-						'Not Evaluated'
-				]
-			)
-		]
-		
-		with st.expander( 'Acceptance Items Requiring Attention', expanded=True ):
-			if df_attention.empty:
-				st.success( 'All evaluated acceptance requirements are marked Met.' )
-			else:
-				st.dataframe(
-					df_attention[
-						[
-								'Requirement ID',
-								'Requirement Name',
-								'Status',
-								'Evidence',
-								'Recommendation'
-						]
-					],
-					use_container_width=True,
-					hide_index=True
-				)
-		
-		if st.session_state.get( 'simple_mode', True ):
-			return
-		
-		with st.expander( 'Full Acceptance Evidence Table', expanded=False ):
-			st.dataframe( df_acceptance, use_container_width=True, hide_index=True )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_acceptance_dashboard( ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Unable to display acceptance evidence: {e}' )
 # ==========================================================================================
 # Processing Controller
 # ==========================================================================================
@@ -3819,278 +3508,37 @@ def display_report_detail( report: LabelVerificationReport ) -> None:
 		Logger( ).write( error )
 		st.warning( f'Unable to display report details: {e}' )
 
-# ==========================================================================================
-# Simple Mode Results
-# ==========================================================================================
-
-def get_attention_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame:
-	"""Return comparison rows requiring reviewer attention.
+def display_results_viewer( ) -> None:
+	"""Display verification results, selected-label review, and downloads.
 
 	Purpose:
-		Filter the comparison DataFrame to rows that require reviewer attention. The function
-		prioritizes ``Fail``, ``Warning``, and ``Needs Review`` statuses while preserving all
-		reviewer-facing explanation and action columns. If no attention rows exist, an empty
-		DataFrame with the original schema is returned.
-
-	Args:
-		df_comparison (pd.DataFrame): Side-by-side comparison DataFrame.
-
-	Returns:
-		pd.DataFrame: Filtered attention DataFrame. If filtering fails, an empty DataFrame is
-		returned.
-	"""
-	try:
-		if df_comparison is None or df_comparison.empty:
-			return pd.DataFrame( )
-		
-		if 'Status' not in df_comparison.columns:
-			return pd.DataFrame( )
-		
-		return df_comparison[
-			df_comparison[ 'Status' ].isin(
-				[
-						STATUS_FAIL,
-						STATUS_WARNING,
-						STATUS_REVIEW
-				]
-			)
-		].copy( )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_attention_dataframe( df_comparison: pd.DataFrame ) -> pd.DataFrame'
-		Logger( ).write( error )
-		return pd.DataFrame( )
-
-def get_simple_result_columns( df_source: pd.DataFrame ) -> List[ str ]:
-	"""Return available columns for Simple Mode result display.
-
-	Purpose:
-		Build a safe, ordered list of reviewer-facing comparison columns that exist in the
-		supplied DataFrame. This prevents display errors when optional columns are unavailable
-		and keeps Simple Mode focused on fields reviewers need to act on.
-
-	Args:
-		df_source (pd.DataFrame): Source comparison DataFrame.
-
-	Returns:
-		List[str]: Ordered list of available Simple Mode display columns.
-	"""
-	try:
-		if df_source is None or df_source.empty:
-			return [ ]
-		
-		preferred_columns = [
-				'File Name',
-				'Field',
-				'Application',
-				'Extracted',
-				'Status',
-				'Severity',
-				'Confidence',
-				'Explanation',
-				'Reviewer Action'
-		]
-		
-		return [
-				column
-				for column in preferred_columns
-				if column in df_source.columns
-		]
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_simple_result_columns( df_source: pd.DataFrame ) -> List[str]'
-		Logger( ).write( error )
-		return [ ]
-
-def get_status_counts_from_dataframe( df_source: pd.DataFrame ) -> Dict[ str, int ]:
-	"""Return status counts from a result DataFrame.
-
-	Purpose:
-		Count result rows by status for Simple Mode summary metrics. The helper avoids direct
-		assumptions about the source DataFrame and returns an empty dictionary when status data is
-		unavailable.
-
-	Args:
-		df_source (pd.DataFrame): Source result DataFrame.
-
-	Returns:
-		Dict[str, int]: Counts keyed by status text.
-	"""
-	try:
-		if df_source is None or df_source.empty or 'Status' not in df_source.columns:
-			return { }
-		
-		return df_source[ 'Status' ].value_counts( ).to_dict( )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'get_status_counts_from_dataframe( df_source: pd.DataFrame ) -> Dict[str, int]'
-		Logger( ).write( error )
-		return { }
-
-def display_needs_attention_panel( df_comparison: pd.DataFrame ) -> None:
-	"""Display a Simple Mode panel for rows requiring reviewer attention.
-
-	Purpose:
-		Show a concise reviewer-facing table of mismatches, warnings, and human-review items.
-		The panel keeps explanations and reviewer actions visible as normal text/table content so
-		reviewers do not need hover tooltips to understand what happened.
-
-	Args:
-		df_comparison (pd.DataFrame): Side-by-side comparison DataFrame.
+		This function displays the batch summary table, batch comparison table, optional rule detail
+		table, selected flagged label review, and download controls after verification completes.
+		Simple Mode hides technical rule-detail output.
 
 	Returns:
 		None.
 	"""
-	try:
-		df_attention = get_attention_dataframe( df_comparison )
-		
-		st.markdown(
-			"""
-			<div class="fiddy-panel">
-				<div class="fiddy-panel-title">Needs Attention</div>
-				<div class="fiddy-panel-text">
-					Review mismatches, warnings, and human-review items first. Explanations and
-					reviewer actions are shown directly in the table.
-				</div>
-			</div>
-			""",
-			unsafe_allow_html=True
-		)
-		
-		if df_attention.empty:
-			st.success(
-				'No mismatches, warnings, or review items were found in the comparison results.' )
-			return
-		
-		display_columns = get_simple_result_columns( df_attention )
-		
-		st.dataframe(
-			df_attention[ display_columns ],
-			use_container_width=True,
-			hide_index=True,
-			column_config={
-					'File Name': st.column_config.TextColumn(
-						'File Name',
-						width='medium',
-						help='Uploaded label artwork filename.'
-					),
-					'Field': st.column_config.TextColumn(
-						'Field',
-						width='medium',
-						help='Label field being checked.'
-					),
-					'Application': st.column_config.TextColumn(
-						'Application',
-						width='medium',
-						help='Expected application value.'
-					),
-					'Extracted': st.column_config.TextColumn(
-						'Extracted',
-						width='medium',
-						help='Observed OCR or rule-derived label value.'
-					),
-					'Status': st.column_config.TextColumn(
-						'Status',
-						width='small',
-						help='Pass, warning, failure, or human-review status.'
-					),
-					'Severity': st.column_config.TextColumn(
-						'Severity',
-						width='small',
-						help='Relative review significance.'
-					),
-					'Confidence': st.column_config.NumberColumn(
-						'Confidence',
-						format='%.1f',
-						width='small',
-						help='Rule confidence score.'
-					),
-					'Explanation': st.column_config.TextColumn(
-						'Explanation',
-						width='large',
-						help='Plain-language explanation of the finding.'
-					),
-					'Reviewer Action': st.column_config.TextColumn(
-						'Reviewer Action',
-						width='large',
-						help='Recommended reviewer action.'
-					)
-			}
-		)
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_needs_attention_panel( df_comparison: pd.DataFrame ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Needs-attention results could not be displayed: {e}' )
-
-def display_simple_result_summary( df_summary: pd.DataFrame, df_comparison: pd.DataFrame ) -> None:
-	"""Display Simple Mode result metrics and summary information.
-
-	Purpose:
-		Show high-level counts for total comparison rows, failures, warnings, human-review items,
-		and passes. These metrics give reviewers an immediate sense of whether a label or batch
-		can be cleared quickly or requires closer review.
-
-	Args:
-		df_summary (pd.DataFrame): Batch summary DataFrame.
-		df_comparison (pd.DataFrame): Side-by-side comparison DataFrame.
-
-	Returns:
-		None.
-	"""
-	try:
-		status_counts = get_status_counts_from_dataframe( df_comparison )
-		total_rows = 0 if df_comparison is None else len( df_comparison )
-		total_labels = 0 if df_summary is None else len( df_summary )
-		
-		col1, col2, col3, col4, col5 = st.columns( 5 )
-		col1.metric( 'Labels', total_labels )
-		col2.metric( 'Checks', total_rows )
-		col3.metric( 'Failures', int( status_counts.get( STATUS_FAIL, 0 ) ) )
-		col4.metric( 'Warnings', int( status_counts.get( STATUS_WARNING, 0 ) ) )
-		col5.metric( 'Needs Review', int( status_counts.get( STATUS_REVIEW, 0 ) ) )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_simple_result_summary( self, *args ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Simple result summary could not be displayed: {e}' )
-
-def display_simple_comparison_panel( df_comparison: pd.DataFrame ) -> None:
-	"""Display the full Simple Mode side-by-side comparison panel.
-
-	Purpose:
-		Display the complete reviewer-facing comparison table with application values, extracted
-		values, status, severity, confidence, explanation, and reviewer action. The panel provides
-		non-hover mismatch guidance while keeping Simple Mode readable.
-
-	Args:
-		df_comparison (pd.DataFrame): Side-by-side comparison DataFrame.
-
-	Returns:
-		None.
-	"""
-	try:
-		df_display = get_display_comparison_dataframe( df_comparison )
-		
-		with st.expander( 'All Comparison Results', expanded=False ):
-			if df_display.empty:
-				st.info( 'No side-by-side comparison records are available.' )
-				return
-			
-			display_columns = get_simple_result_columns( df_display )
-			
+	batch_report = st.session_state[ 'batch_report' ]
+	df_summary = st.session_state[ 'summary_dataframe' ]
+	df_details = st.session_state[ 'detail_dataframe' ]
+	df_comparison = st.session_state[ 'comparison_dataframe' ]
+	df_display_comparison = get_display_comparison_dataframe( df_comparison )
+	
+	st.success( 'Verification complete. Review the findings below.' )
+	
+	with st.expander( 'Batch Summary Table', expanded=True ):
+		if df_summary.empty:
+			st.info( 'No summary records are available.' )
+		else:
+			st.dataframe( df_summary, use_container_width=True, hide_index=True )
+	
+	with st.expander( 'Side-by-Side Comparison Table', expanded=True ):
+		if df_display_comparison.empty:
+			st.info( 'No side-by-side comparison records are available.' )
+		else:
 			st.dataframe(
-				df_display[ display_columns ],
+				df_display_comparison,
 				use_container_width=True,
 				hide_index=True,
 				column_config={
@@ -4102,22 +3550,22 @@ def display_simple_comparison_panel( df_comparison: pd.DataFrame ) -> None:
 						'Field': st.column_config.TextColumn(
 							'Field',
 							width='medium',
-							help='Label field being checked.'
+							help='The label field being checked.'
 						),
 						'Application': st.column_config.TextColumn(
 							'Application',
-							width='medium',
-							help='Expected application value.'
+							width='large',
+							help='Expected value from CAV data or manifest.'
 						),
 						'Extracted': st.column_config.TextColumn(
 							'Extracted',
-							width='medium',
-							help='Observed OCR or rule-derived label value.'
+							width='large',
+							help='Structured extracted value when available; otherwise OCR/rule observation.'
 						),
 						'Status': st.column_config.TextColumn(
 							'Status',
-							width='small',
-							help='Pass, warning, failure, or human-review status.'
+							width='medium',
+							help='Match, mismatch, warning, or needs-review status.'
 						),
 						'Severity': st.column_config.TextColumn(
 							'Severity',
@@ -4133,7 +3581,7 @@ def display_simple_comparison_panel( df_comparison: pd.DataFrame ) -> None:
 						'Explanation': st.column_config.TextColumn(
 							'Explanation',
 							width='large',
-							help='Plain-language explanation of the finding.'
+							help='Plain-language explanation of the rule result.'
 						),
 						'Reviewer Action': st.column_config.TextColumn(
 							'Reviewer Action',
@@ -4142,33 +3590,15 @@ def display_simple_comparison_panel( df_comparison: pd.DataFrame ) -> None:
 						)
 				}
 			)
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_simple_comparison_panel( df_comparison: pd.DataFrame ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Comparison panel could not be displayed: {e}' )
-
-def display_simple_selected_label_review( batch_report: BatchVerificationReport ) -> None:
-	"""Display selected-label review for Simple Mode.
-
-	Purpose:
-		Allow the reviewer to inspect one flagged label at a time. Labels with fail, warning, or
-		human-review status are prioritized. If no labels are flagged, the function lets the
-		reviewer select from all labels.
-
-	Args:
-		batch_report (BatchVerificationReport): Batch report containing label-level reports.
-
-	Returns:
-		None.
-	"""
-	try:
-		if not batch_report.reports:
-			st.info( 'No label reports are available for selected-label review.' )
-			return
-		
+	
+	if not st.session_state.get( 'simple_mode', True ):
+		with st.expander( 'Rule Detail Table', expanded=False ):
+			if df_details.empty:
+				st.info( 'No rule detail records are available.' )
+			else:
+				st.dataframe( df_details, use_container_width=True, hide_index=True )
+	
+	if batch_report.reports:
 		flagged_reports = [
 				report
 				for report in batch_report.reports
@@ -4181,374 +3611,106 @@ def display_simple_selected_label_review( batch_report: BatchVerificationReport 
 				for report in report_source
 		]
 		
-		if not report_names:
-			st.info( 'No label reports are available for review.' )
-			return
-		
 		selected_name = st.selectbox(
-			'Review label',
+			'Review flagged label',
 			options=report_names,
-			index=min( st.session_state[ 'selected_report_index' ], len( report_names ) - 1 ),
-			key='simple_selected_label_review_selectbox'
+			index=min( st.session_state[ 'selected_report_index' ], len( report_names ) - 1 )
 		)
 		
 		selected_index = report_names.index( selected_name )
 		st.session_state[ 'selected_report_index' ] = selected_index
-		
-		with st.expander( 'Selected Label Review', expanded=True ):
-			display_report_detail( report_source[ selected_index ] )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_simple_selected_label_review( batch_report: BatchVerificationReport ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Selected-label review could not be displayed: {e}' )
-
-def display_simple_results_viewer( ) -> None:
-	"""Display the Simple Mode results viewer.
-
-	Purpose:
-		Render the streamlined reviewer result view after verification completes. The view shows
-		high-level result metrics, a prominent needs-attention table, a selected-label review
-		panel, the optional full comparison table, and downloads. Mismatch explanations and
-		reviewer actions are shown as normal visible content rather than hover-only tooltips.
-
-	Returns:
-		None.
-	"""
-	try:
-		batch_report = st.session_state[ 'batch_report' ]
-		df_summary = st.session_state[ 'summary_dataframe' ]
-		df_comparison = st.session_state[ 'comparison_dataframe' ]
-		
-		st.success( 'Verification complete. Review the findings below.' )
-		
-		display_simple_result_summary( df_summary, df_comparison )
-		display_needs_attention_panel( df_comparison )
-		display_simple_selected_label_review( batch_report )
-		display_simple_comparison_panel( df_comparison )
-		display_downloads( )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_simple_results_viewer( ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Simple results could not be displayed: {e}' )
-
-def display_results_viewer( ) -> None:
-	"""Display verification results, selected-label review, and downloads.
-
-	Purpose:
-		Route completed verification output to the appropriate reviewer results view. Simple Mode
-		uses a streamlined results view with visible mismatch explanations and reviewer actions.
-		Advanced Mode preserves the fuller technical view with batch summary, comparison table,
-		rule detail table, selected-label diagnostics, and downloads.
-
-	Returns:
-		None.
-	"""
-	try:
-		if st.session_state.get( 'simple_mode', True ):
-			display_simple_results_viewer( )
-			return
-		
-		batch_report = st.session_state[ 'batch_report' ]
-		df_summary = st.session_state[ 'summary_dataframe' ]
-		df_details = st.session_state[ 'detail_dataframe' ]
-		df_comparison = st.session_state[ 'comparison_dataframe' ]
-		df_display_comparison = get_display_comparison_dataframe( df_comparison )
-		
-		st.success( 'Verification complete. Review the findings below.' )
-		
-		with st.expander( 'Batch Summary Table', expanded=True ):
-			if df_summary.empty:
-				st.info( 'No summary records are available.' )
-			else:
-				st.dataframe( df_summary, use_container_width=True, hide_index=True )
-		
-		with st.expander( 'Side-by-Side Comparison Table', expanded=True ):
-			if df_display_comparison.empty:
-				st.info( 'No side-by-side comparison records are available.' )
-			else:
-				st.dataframe(
-					df_display_comparison,
-					use_container_width=True,
-					hide_index=True,
-					column_config={
-							'File Name': st.column_config.TextColumn(
-								'File Name',
-								width='medium',
-								help='Uploaded label artwork filename.'
-							),
-							'Field': st.column_config.TextColumn(
-								'Field',
-								width='medium',
-								help='Label field being checked.'
-							),
-							'Application': st.column_config.TextColumn(
-								'Application',
-								width='medium',
-								help='Expected application value.'
-							),
-							'Extracted': st.column_config.TextColumn(
-								'Extracted',
-								width='medium',
-								help='Observed OCR or rule-derived label value.'
-							),
-							'Status': st.column_config.TextColumn(
-								'Status',
-								width='small',
-								help='Pass, warning, failure, or human-review status.'
-							),
-							'Severity': st.column_config.TextColumn(
-								'Severity',
-								width='small',
-								help='Relative review significance.'
-							),
-							'Confidence': st.column_config.NumberColumn(
-								'Confidence',
-								format='%.1f',
-								width='small',
-								help='Rule confidence score.'
-							),
-							'Explanation': st.column_config.TextColumn(
-								'Explanation',
-								width='large',
-								help='Plain-language explanation of the rule result.'
-							),
-							'Reviewer Action': st.column_config.TextColumn(
-								'Reviewer Action',
-								width='large',
-								help='Recommended reviewer action.'
-							)
-					}
-				)
-		
-		with st.expander( 'Rule Detail Table', expanded=False ):
-			if df_details.empty:
-				st.info( 'No rule detail records are available.' )
-			else:
-				st.dataframe( df_details, use_container_width=True, hide_index=True )
-		
-		if batch_report.reports:
-			flagged_reports = [
-					report
-					for report in batch_report.reports
-					if report.overall_status in (STATUS_FAIL, STATUS_WARNING, STATUS_REVIEW)
-			]
-			
-			report_source = flagged_reports if flagged_reports else batch_report.reports
-			report_names = [
-					report.file_name
-					for report in report_source
-			]
-			
-			selected_name = st.selectbox(
-				'Review flagged label',
-				options=report_names,
-				index=min( st.session_state[ 'selected_report_index' ], len( report_names ) - 1 ),
-				key='advanced_selected_label_review_selectbox'
-			)
-			
-			selected_index = report_names.index( selected_name )
-			st.session_state[ 'selected_report_index' ] = selected_index
-			display_report_detail( report_source[ selected_index ] )
-		
-		display_downloads( )
-	except Exception as e:
-		error = Error( e )
-		error.cause = 'Application'
-		error.module = __name__
-		error.method = 'display_results_viewer( ) -> None'
-		Logger( ).write( error )
-		st.warning( f'Unable to display results: {e}' )
+		display_report_detail( report_source[ selected_index ] )
+	
+	display_downloads( )
 
 def display_downloads( ) -> None:
-	"""Display verification, acceptance, accessibility, and evidence download controls.
+	"""Display redacted verification report download controls.
 
 	Purpose:
-		Render reviewer-facing download buttons for all generated verification and stakeholder
-		acceptance artifacts. This function preserves the original summary, comparison, detail,
-		performance, JSON, and Markdown report downloads, and adds acceptance CSV, acceptance
-		JSON, acceptance Markdown, optional accessibility CSV, optional deployment evidence CSV,
-		and optional visual-quality CSV downloads when those DataFrames or text artifacts are
-		available in Streamlit session state.
-
-		The function intentionally reads session-state values using safe defaults so downloads can
-		render even when optional future evidence tables have not yet been wired into the
-		application. Empty artifacts disable their respective buttons rather than raising errors.
+		Render reviewer-facing download controls while enforcing the Fiddy no-persistence policy.
+		Summary, comparison, detail, and performance DataFrames are serialized through
+		``DataRetentionPolicy`` before download. Raw OCR text, extracted label values,
+		application values, local file paths, and detailed evidence text are redacted by default.
+		Operational evidence such as status, severity, confidence, timing, and reviewer action
+		categories remains available.
 
 	Returns:
 		None.
 	"""
 	try:
+		policy = DataRetentionPolicy( )
 		df_summary = st.session_state.get( 'summary_dataframe', pd.DataFrame( ) )
 		df_details = st.session_state.get( 'detail_dataframe', pd.DataFrame( ) )
 		df_comparison = st.session_state.get( 'comparison_dataframe', pd.DataFrame( ) )
 		df_performance = st.session_state.get( 'performance_dataframe', pd.DataFrame( ) )
-		df_acceptance = st.session_state.get( 'acceptance_dataframe', pd.DataFrame( ) )
-		df_accessibility = st.session_state.get( 'accessibility_dataframe', pd.DataFrame( ) )
-		df_deployment = st.session_state.get( 'deployment_dataframe', pd.DataFrame( ) )
-		df_visual_quality = st.session_state.get( 'visual_quality_dataframe', pd.DataFrame( ) )
-		
 		json_report = st.session_state.get( 'json_report', '{}' )
 		markdown_report = st.session_state.get( 'markdown_report', '' )
-		acceptance_json_report = st.session_state.get( 'acceptance_json_report', '{}' )
-		acceptance_markdown_report = st.session_state.get( 'acceptance_markdown_report', '' )
-		
-		csv_summary = df_summary.to_csv( index=False ) if not df_summary.empty else ''
-		csv_details = df_details.to_csv( index=False ) if not df_details.empty else ''
-		csv_comparison = df_comparison.to_csv( index=False ) if not df_comparison.empty else ''
-		csv_performance = df_performance.to_csv( index=False ) if not df_performance.empty else ''
-		csv_acceptance = df_acceptance.to_csv( index=False ) if not df_acceptance.empty else ''
-		csv_accessibility = df_accessibility.to_csv(
-			index=False ) if not df_accessibility.empty else ''
-		csv_deployment = df_deployment.to_csv( index=False ) if not df_deployment.empty else ''
-		csv_visual_quality = df_visual_quality.to_csv(
-			index=False ) if not df_visual_quality.empty else ''
+		csv_summary = policy.dataframe_to_csv( df_summary )
+		csv_details = policy.dataframe_to_csv( df_details )
+		csv_comparison = policy.dataframe_to_csv( df_comparison )
+		csv_performance = policy.dataframe_to_csv( df_performance )
 		
 		st.subheader( 'Downloads' )
 		
-		st.caption(
-			'Download verification outputs, performance evidence, and stakeholder acceptance '
-			'evidence for the current run.'
+		if policy.no_persistence_mode:
+			st.caption(
+				'No-persistence mode is active. Download files are redacted and exclude raw OCR text, '
+				'extracted label values, application values, local file paths, and detailed evidence text.'
+			)
+		else:
+			st.caption( 'Download verification outputs for the current run.' )
+		
+		col1, col2, col3, col4, col5, col6 = st.columns( 6 )
+		
+		col1.download_button(
+			label='Summary CSV',
+			data=csv_summary,
+			file_name='fiddy_summary_redacted.csv',
+			mime='text/csv',
+			disabled=df_summary.empty or not bool( csv_summary ),
+			use_container_width=True
 		)
 		
-		with st.expander( 'Verification Reports', expanded=True ):
-			col1, col2, col3 = st.columns( 3 )
-			
-			col1.download_button(
-				label='Summary CSV',
-				data=csv_summary,
-				file_name='fiddy_summary.csv',
-				mime='text/csv',
-				disabled=df_summary.empty,
-				use_container_width=True
-			)
-			
-			col2.download_button(
-				label='Comparison CSV',
-				data=csv_comparison,
-				file_name='fiddy_comparison.csv',
-				mime='text/csv',
-				disabled=df_comparison.empty,
-				use_container_width=True
-			)
-			
-			col3.download_button(
-				label='Details CSV',
-				data=csv_details,
-				file_name='fiddy_details.csv',
-				mime='text/csv',
-				disabled=df_details.empty,
-				use_container_width=True
-			)
-			
-			col4, col5, col6 = st.columns( 3 )
-			
-			col4.download_button(
-				label='Performance CSV',
-				data=csv_performance,
-				file_name='fiddy_performance.csv',
-				mime='text/csv',
-				disabled=df_performance.empty,
-				use_container_width=True
-			)
-			
-			col5.download_button(
-				label='JSON Report',
-				data=json_report,
-				file_name='fiddy_report.json',
-				mime='application/json',
-				disabled=not bool( json_report ) or json_report == '{}',
-				use_container_width=True
-			)
-			
-			col6.download_button(
-				label='Markdown Report',
-				data=markdown_report,
-				file_name='fiddy_report.md',
-				mime='text/markdown',
-				disabled=not bool( markdown_report ),
-				use_container_width=True
-			)
+		col2.download_button(
+			label='Comparison CSV',
+			data=csv_comparison,
+			file_name='fiddy_comparison_redacted.csv',
+			mime='text/csv',
+			disabled=df_comparison.empty or not bool( csv_comparison ),
+			use_container_width=True
+		)
 		
-		with st.expander( 'Acceptance Evidence', expanded=True ):
-			col1, col2, col3 = st.columns( 3 )
-			
-			col1.download_button(
-				label='Acceptance CSV',
-				data=csv_acceptance,
-				file_name='fiddy_acceptance.csv',
-				mime='text/csv',
-				disabled=df_acceptance.empty,
-				use_container_width=True
-			)
-			
-			col2.download_button(
-				label='Acceptance JSON',
-				data=acceptance_json_report,
-				file_name='fiddy_acceptance.json',
-				mime='application/json',
-				disabled=not bool( acceptance_json_report ) or acceptance_json_report == '{}',
-				use_container_width=True
-			)
-			
-			col3.download_button(
-				label='Acceptance Markdown',
-				data=acceptance_markdown_report,
-				file_name='fiddy_acceptance_report.md',
-				mime='text/markdown',
-				disabled=not bool( acceptance_markdown_report ),
-				use_container_width=True
-			)
-			
-			col4, col5, col6 = st.columns( 3 )
-			
-			col4.download_button(
-				label='Accessibility CSV',
-				data=csv_accessibility,
-				file_name='fiddy_accessibility.csv',
-				mime='text/csv',
-				disabled=df_accessibility.empty,
-				use_container_width=True
-			)
-			
-			col5.download_button(
-				label='Deployment CSV',
-				data=csv_deployment,
-				file_name='fiddy_deployment_evidence.csv',
-				mime='text/csv',
-				disabled=df_deployment.empty,
-				use_container_width=True
-			)
-			
-			col6.download_button(
-				label='Visual Quality CSV',
-				data=csv_visual_quality,
-				file_name='fiddy_visual_quality.csv',
-				mime='text/csv',
-				disabled=df_visual_quality.empty,
-				use_container_width=True
-			)
+		col3.download_button(
+			label='Details CSV',
+			data=csv_details,
+			file_name='fiddy_details_redacted.csv',
+			mime='text/csv',
+			disabled=df_details.empty or not bool( csv_details ),
+			use_container_width=True
+		)
 		
-		with st.expander( 'Evidence Package Checklist', expanded=False ):
-			st.markdown(
-				"""
-				- `fiddy_summary.csv`
-				- `fiddy_comparison.csv`
-				- `fiddy_details.csv`
-				- `fiddy_performance.csv`
-				- `fiddy_acceptance.csv`
-				- `fiddy_acceptance.json`
-				- `fiddy_acceptance_report.md`
-				- `fiddy_accessibility.csv`, when accessibility evidence is available
-				- `fiddy_deployment_evidence.csv`, when deployment evidence is available
-				- `fiddy_visual_quality.csv`, when visual-quality evidence is available
-				"""
-			)
+		col4.download_button( label='Performance CSV',
+			data=csv_performance,
+			file_name='fiddy_performance.csv',
+			mime='text/csv',
+			disabled=df_performance.empty or not bool( csv_performance ),
+			use_container_width=True )
+		
+		col5.download_button( label='JSON Report',
+			data=json_report,
+			file_name='fiddy_report_redacted.json',
+			mime='application/json',
+			disabled=not bool( json_report ) or json_report == '{}',
+			use_container_width=True )
+		
+		col6.download_button( label='Markdown Report',
+			data=markdown_report, file_name='fiddy_report_redacted.md',
+			mime='text/markdown',
+			disabled=not bool( markdown_report ),
+			use_container_width=True )
+		
+		with st.expander( 'No-Persistence Policy', expanded=False ):
+			st.dataframe( policy.to_dataframe( ), use_container_width=True, hide_index=True )
 	except Exception as e:
 		error = Error( e )
 		error.cause = 'Application'
@@ -4590,10 +3752,9 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 	"""Display the streamlined reviewer workflow for Simple Mode.
 
 	Purpose:
-		Render the low-navigation reviewer workflow consisting of upload, run verification, review
-		results, and acceptance evidence. Technical processing controls, manifest previews,
-		diagnostics, methodology, and raw rule tables remain hidden unless Advanced Mode is
-		selected.
+		Render the low-navigation reviewer workflow consisting of upload, run verification, and
+		review results. Technical processing controls, manifest previews, diagnostics, methodology,
+		and raw rule tables remain hidden unless Advanced Mode is selected.
 
 	Args:
 		uploaded_manifest (object): Uploaded manifest file.
@@ -4609,15 +3770,14 @@ def display_simple_workflow( uploaded_manifest: object, uploaded_files: List[ ob
 	if st.session_state[ 'verification_complete' ]:
 		display_batch_dashboard( )
 		display_results_viewer( )
-		display_acceptance_dashboard( )
 
 def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ object ] ) -> None:
 	"""Display the full reviewer workflow for Advanced Mode.
 
 	Purpose:
 		Render the full CAV form, upload preview, processing controls, dashboard, results content,
-		acceptance evidence, diagnostics, rule detail, downloads, and methodology material for
-		testing, tuning, and developer-level inspection.
+		diagnostics, rule detail, downloads, and methodology material for testing, tuning, and
+		developer-level inspection.
 
 	Args:
 		uploaded_manifest (object): Uploaded manifest file.
@@ -4634,7 +3794,6 @@ def display_advanced_workflow( uploaded_manifest: object, uploaded_files: List[ 
 	if st.session_state[ 'verification_complete' ]:
 		display_batch_dashboard( )
 		display_results_viewer( )
-		display_acceptance_dashboard( )
 	
 	display_methodology_expander( )
 

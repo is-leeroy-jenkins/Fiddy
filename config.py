@@ -6,7 +6,7 @@
       Created:                 06-03-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        06-06-2026
+      Last Modified On:        06-07-2026
     ******************************************************************************************
     <copyright file="config.py" company="Terry D. Eppler">
 
@@ -37,13 +37,14 @@
     </copyright>
     <summary>
         Centralizes Fiddy configuration for local development, prototype acceptance testing,
-        and Azure-ready deployment.
+        no-persistence data handling, and Azure-ready deployment.
 
         This module defines project paths, Streamlit display settings, upload limits, local OCR
         settings, optional Azure Vision settings, deterministic verification thresholds,
         reporting settings, performance-service-level targets, batch-acceptance limits,
-        accessibility defaults, security and data-retention switches, and small environment
-        parsing helpers used by the application and supporting service modules.
+        accessibility defaults, security posture, redacted-export controls, no-persistence
+        controls, deployment controls, and small environment parsing helpers used by the
+        application and supporting service modules.
     </summary>
     ******************************************************************************************
 '''
@@ -179,6 +180,27 @@ def get_path( name: str, default: Path ) -> Path:
 	except Exception:
 		return default.resolve( )
 
+def get_text( name: str, default: str ) -> str:
+	"""Read a text environment variable with a deterministic fallback.
+
+	Purpose:
+		Return an environment variable as text while preserving the supplied default when the
+		variable is missing or empty.
+
+	Args:
+		name (str): Environment variable name.
+		default (str): Default text value.
+
+	Returns:
+		str: Environment value or supplied default.
+	"""
+	try:
+		throw_if( 'name', name )
+		value = os.getenv( name )
+		return default if value in (None, '') else str( value )
+	except Exception:
+		return default
+
 # ==========================================================================================
 # Project Paths
 # ==========================================================================================
@@ -190,37 +212,39 @@ SAMPLES_DIR: Path = ROOT_DIR / 'samples'
 TESTS_DIR: Path = ROOT_DIR / 'tests'
 DOCS_DIR: Path = ROOT_DIR / 'docs'
 LOG_DIR: Path = get_path( 'LOG_DIR', ROOT_DIR / 'logging' )
-LOG_PATH: str = os.getenv( 'LOG_PATH', str( LOG_DIR / 'Exceptions.db' ) )
-LOG_FILE: str = os.getenv( 'LOG_FILE', 'Exceptions' )
-FAVICON: str = os.getenv( 'FAVICON', r'assets/images/favicon.ico' )
-LOGO: str = os.getenv( 'LOGO', r'assets/images/fiddy.png' )
-TITLE: str = os.getenv( 'TITLE', r'assets/images/title.png' )
+LOG_PATH: str = get_text( 'LOG_PATH', str( LOG_DIR / 'Exceptions.db' ) )
+LOG_FILE: str = get_text( 'LOG_FILE', 'Exceptions' )
+FAVICON: str = get_text( 'FAVICON', r'assets/images/favicon.ico' )
+LOGO: str = get_text( 'LOGO', r'assets/images/fiddy.png' )
+TITLE: str = get_text( 'TITLE', r'assets/images/title.png' )
 BLUE_DIVIDER: str = "<div style='height:2px;align:left;background:#0078FC;margin:0px 30px 30px 0px;'></div>"
 
 # ==========================================================================================
 # Application Settings
 # ==========================================================================================
 
-APP_NAME: str = os.getenv( 'APP_NAME', 'Label Verification' )
-APP_TITLE: str = os.getenv( 'APP_TITLE', 'Fiddy' )
+APP_NAME: str = get_text( 'APP_NAME', 'Label Verification' )
+APP_TITLE: str = get_text( 'APP_TITLE', 'Fiddy' )
 
-APP_DESCRIPTION: str = os.getenv(
+APP_DESCRIPTION: str = get_text(
 	'APP_DESCRIPTION',
 	'A local-first prototype for alcohol label verification using OCR, deterministic rules, '
 	'fuzzy matching, and human-review flags.' )
 
-APP_ICON: str = os.getenv( 'APP_ICON', '🥃' )
-APP_LAYOUT: str = os.getenv( 'APP_LAYOUT', 'wide' )
+APP_ICON: str = get_text( 'APP_ICON', '🥃' )
+APP_LAYOUT: str = get_text( 'APP_LAYOUT', 'wide' )
 
 # ==========================================================================================
 # Deployment and Infrastructure Settings
 # ==========================================================================================
 
-DEPLOYMENT_TARGET: str = os.getenv( 'DEPLOYMENT_TARGET', 'local' )
+DEPLOYMENT_TARGET: str = get_text( 'DEPLOYMENT_TARGET', 'local' )
 REQUIRE_LOCAL_OCR: bool = get_bool( 'REQUIRE_LOCAL_OCR', True )
 ALLOW_EXTERNAL_ML_ENDPOINTS: bool = get_bool( 'ALLOW_EXTERNAL_ML_ENDPOINTS', False )
-ENABLE_UPLOAD_PERSISTENCE: bool = get_bool( 'ENABLE_UPLOAD_PERSISTENCE', False )
 ENABLE_AZURE_DEPLOYMENT_MODE: bool = get_bool( 'ENABLE_AZURE_DEPLOYMENT_MODE', False )
+AZURE_READY_ARTIFACTS_PRESENT: bool = get_bool( 'AZURE_READY_ARTIFACTS_PRESENT', False )
+AZURE_SMOKE_TEST_PASSED: bool = get_bool( 'AZURE_SMOKE_TEST_PASSED', False )
+COLA_INTEGRATION_ENABLED: bool = get_bool( 'COLA_INTEGRATION_ENABLED', False )
 
 # ==========================================================================================
 # Upload Settings
@@ -264,11 +288,11 @@ SUPPORTED_BATCH_UPLOAD_EXTENSIONS: tuple[ str, ... ] = (
 # OCR Settings
 # ==========================================================================================
 
-OCR_ENGINE: str = os.getenv( 'OCR_ENGINE', 'tesseract' )
+OCR_ENGINE: str = get_text( 'OCR_ENGINE', 'tesseract' )
 TESSERACT_CMD: Optional[ str ] = os.getenv( 'TESSERACT_CMD' )
-OCR_LANGUAGE: str = os.getenv( 'OCR_LANGUAGE', 'eng' )
+OCR_LANGUAGE: str = get_text( 'OCR_LANGUAGE', 'eng' )
 OCR_TIMEOUT_SECONDS: int = get_int( 'OCR_TIMEOUT_SECONDS', 5 )
-OCR_CONFIG: str = os.getenv( 'OCR_CONFIG', '--oem 3 --psm 6' )
+OCR_CONFIG: str = get_text( 'OCR_CONFIG', '--oem 3 --psm 6' )
 OCR_MINIMUM_WIDTH: int = get_int( 'OCR_MINIMUM_WIDTH', 800 )
 OCR_MINIMUM_HEIGHT: int = get_int( 'OCR_MINIMUM_HEIGHT', 800 )
 
@@ -290,8 +314,14 @@ LOW_CONFIDENCE_THRESHOLD: float = get_float( 'LOW_CONFIDENCE_THRESHOLD', 70.0 )
 ABV_TOLERANCE: float = get_float( 'ABV_TOLERANCE', 0.3 )
 PROOF_TOLERANCE: float = get_float( 'PROOF_TOLERANCE', 0.6 )
 NET_CONTENTS_MATCH_THRESHOLD: float = get_float( 'NET_CONTENTS_MATCH_THRESHOLD', 90.0 )
-PRODUCER_BOTTLER_MATCH_THRESHOLD: float = get_float( 'PRODUCER_BOTTLER_MATCH_THRESHOLD', 85.0 )
-COUNTRY_OF_ORIGIN_MATCH_THRESHOLD: float = get_float( 'COUNTRY_OF_ORIGIN_MATCH_THRESHOLD', 90.0 )
+PRODUCER_BOTTLER_MATCH_THRESHOLD: float = get_float(
+	'PRODUCER_BOTTLER_MATCH_THRESHOLD',
+	85.0
+)
+COUNTRY_OF_ORIGIN_MATCH_THRESHOLD: float = get_float(
+	'COUNTRY_OF_ORIGIN_MATCH_THRESHOLD',
+	90.0
+)
 
 DEFAULT_STATUS_PASS: str = 'Pass'
 DEFAULT_STATUS_WARNING: str = 'Warning'
@@ -305,12 +335,52 @@ DEFAULT_STATUS_REVIEW: str = 'Needs Review'
 LABEL_PROCESSING_SLA_SECONDS: float = get_float( 'LABEL_PROCESSING_SLA_SECONDS', 5.0 )
 BATCH_ACCEPTANCE_MIN_FILES: int = get_int( 'BATCH_ACCEPTANCE_MIN_FILES', 20 )
 BATCH_ACCEPTANCE_MAX_FILES: int = get_int( 'BATCH_ACCEPTANCE_MAX_FILES', 50 )
-BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS: float = get_float( 'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS',
-	5.0 )
-BATCH_ACCEPTANCE_MAX_P95_SECONDS: float = get_float( 'BATCH_ACCEPTANCE_MAX_P95_SECONDS', 5.0 )
-BATCH_ACCEPTANCE_MAX_BREACH_RATE: float = get_float( 'BATCH_ACCEPTANCE_MAX_BREACH_RATE', 0.0 )
+BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS: float = get_float(
+	'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS',
+	5.0
+)
+BATCH_ACCEPTANCE_MAX_P95_SECONDS: float = get_float(
+	'BATCH_ACCEPTANCE_MAX_P95_SECONDS',
+	5.0
+)
+BATCH_ACCEPTANCE_MAX_BREACH_RATE: float = get_float(
+	'BATCH_ACCEPTANCE_MAX_BREACH_RATE',
+	0.0
+)
 ENABLE_ACCEPTANCE_SUMMARY: bool = get_bool( 'ENABLE_ACCEPTANCE_SUMMARY', True )
 ENABLE_PERFORMANCE_WARNINGS: bool = get_bool( 'ENABLE_PERFORMANCE_WARNINGS', True )
+
+# ==========================================================================================
+# Acceptance Scenario Evidence Flags
+# ==========================================================================================
+
+IMPERFECT_IMAGE_TESTED: bool = get_bool( 'IMPERFECT_IMAGE_TESTED', False )
+LOW_QUALITY_IMAGE_TESTED: bool = get_bool( 'LOW_QUALITY_IMAGE_TESTED', False )
+FALSE_POSITIVE_VARIATION_TESTED: bool = get_bool(
+	'FALSE_POSITIVE_VARIATION_TESTED',
+	False
+)
+LOW_TECH_REVIEWER_WORKFLOW_VALIDATED: bool = get_bool(
+	'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED',
+	False
+)
+MINIMAL_NAVIGATION_VALIDATED: bool = get_bool(
+	'MINIMAL_NAVIGATION_VALIDATED',
+	False
+)
+KEYBOARD_ACCESSIBILITY_PASSED: bool = get_bool(
+	'KEYBOARD_ACCESSIBILITY_PASSED',
+	False
+)
+PROGRESS_INDICATORS_DISPLAYED: bool = get_bool(
+	'PROGRESS_INDICATORS_DISPLAYED',
+	False
+)
+NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED: bool = get_bool(
+	'NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED',
+	True
+)
+LARGE_BUTTONS_PRESENT: bool = get_bool( 'LARGE_BUTTONS_PRESENT', True )
 
 # ==========================================================================================
 # Accessibility Settings
@@ -319,9 +389,16 @@ ENABLE_PERFORMANCE_WARNINGS: bool = get_bool( 'ENABLE_PERFORMANCE_WARNINGS', Tru
 DEFAULT_SIMPLE_MODE: bool = get_bool( 'DEFAULT_SIMPLE_MODE', True )
 DEFAULT_HIGH_CONTRAST_MODE: bool = get_bool( 'DEFAULT_HIGH_CONTRAST_MODE', False )
 DEFAULT_LARGE_TEXT_MODE: bool = get_bool( 'DEFAULT_LARGE_TEXT_MODE', False )
-REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK: bool = get_bool( 'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK',
-	True )
-SHOW_KEYBOARD_ACCESSIBILITY_NOTES: bool = get_bool( 'SHOW_KEYBOARD_ACCESSIBILITY_NOTES', True )
+HIGH_CONTRAST_AVAILABLE: bool = get_bool( 'HIGH_CONTRAST_AVAILABLE', True )
+LARGE_TEXT_AVAILABLE: bool = get_bool( 'LARGE_TEXT_AVAILABLE', True )
+REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK: bool = get_bool(
+	'REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK',
+	True
+)
+SHOW_KEYBOARD_ACCESSIBILITY_NOTES: bool = get_bool(
+	'SHOW_KEYBOARD_ACCESSIBILITY_NOTES',
+	True
+)
 MINIMUM_TOUCH_TARGET_PX: int = get_int( 'MINIMUM_TOUCH_TARGET_PX', 44 )
 
 # ==========================================================================================
@@ -330,9 +407,26 @@ MINIMUM_TOUCH_TARGET_PX: int = get_int( 'MINIMUM_TOUCH_TARGET_PX', 44 )
 
 ENABLE_EXCEPTION_LOGGING: bool = get_bool( 'ENABLE_EXCEPTION_LOGGING', True )
 ENABLE_RAW_TEXT_LOGGING: bool = get_bool( 'ENABLE_RAW_TEXT_LOGGING', False )
-ENABLE_RAW_OCR_EXPORT: bool = get_bool( 'ENABLE_RAW_OCR_EXPORT', False )
 ENABLE_MANIFEST_ROW_LOGGING: bool = get_bool( 'ENABLE_MANIFEST_ROW_LOGGING', False )
 ENABLE_FILE_PATH_LOGGING: bool = get_bool( 'ENABLE_FILE_PATH_LOGGING', False )
+ENABLE_FILE_PATH_EXPORT: bool = get_bool( 'ENABLE_FILE_PATH_EXPORT', False )
+
+NO_PERSISTENCE_MODE: bool = get_bool( 'NO_PERSISTENCE_MODE', True )
+LONG_TERM_STORAGE_DISABLED: bool = get_bool( 'LONG_TERM_STORAGE_DISABLED', True )
+ENABLE_UPLOAD_PERSISTENCE: bool = get_bool( 'ENABLE_UPLOAD_PERSISTENCE', False )
+ENABLE_TEMP_CLEANUP: bool = get_bool( 'ENABLE_TEMP_CLEANUP', True )
+
+ENABLE_RAW_OCR_EXPORT: bool = get_bool( 'ENABLE_RAW_OCR_EXPORT', False )
+ENABLE_EXTRACTED_DATA_EXPORT: bool = get_bool( 'ENABLE_EXTRACTED_DATA_EXPORT', False )
+ENABLE_REDACTED_EVIDENCE_EXPORT: bool = get_bool(
+	'ENABLE_REDACTED_EVIDENCE_EXPORT',
+	True
+)
+ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE: bool = get_bool(
+	'ENABLE_UNREDACTED_ACCEPTANCE_PACKAGE',
+	False
+)
+
 LOG_RETENTION_DAYS: int = get_int( 'LOG_RETENTION_DAYS', 7 )
 MAX_LOG_MESSAGE_CHARS: int = get_int( 'MAX_LOG_MESSAGE_CHARS', 1000 )
 MAX_LOG_TRACE_CHARS: int = get_int( 'MAX_LOG_TRACE_CHARS', 4000 )
@@ -341,8 +435,8 @@ MAX_LOG_TRACE_CHARS: int = get_int( 'MAX_LOG_TRACE_CHARS', 4000 )
 # Reporting Settings
 # ==========================================================================================
 
-REPORT_FILENAME_PREFIX: str = os.getenv( 'REPORT_FILENAME_PREFIX', 'fiddy_report' )
-REPORT_DATE_FORMAT: str = os.getenv( 'REPORT_DATE_FORMAT', '%Y-%m-%d %H:%M:%S' )
+REPORT_FILENAME_PREFIX: str = get_text( 'REPORT_FILENAME_PREFIX', 'fiddy_report' )
+REPORT_DATE_FORMAT: str = get_text( 'REPORT_DATE_FORMAT', '%Y-%m-%d %H:%M:%S' )
 ENABLE_MARKDOWN_REPORT: bool = get_bool( 'ENABLE_MARKDOWN_REPORT', True )
 ENABLE_JSON_REPORT: bool = get_bool( 'ENABLE_JSON_REPORT', True )
 ENABLE_CSV_REPORTS: bool = get_bool( 'ENABLE_CSV_REPORTS', True )
@@ -353,8 +447,11 @@ ENABLE_CSV_REPORTS: bool = get_bool( 'ENABLE_CSV_REPORTS', True )
 
 STREAMLIT_SERVER_PORT: int = get_int(
 	'PORT',
-	get_int( 'STREAMLIT_SERVER_PORT', 8501 ) )
+	get_int( 'STREAMLIT_SERVER_PORT', 8501 )
+)
 
-STREAMLIT_SERVER_ADDRESS: str = os.getenv( 'STREAMLIT_SERVER_ADDRESS', '0.0.0.0' )
-STREAMLIT_BROWSER_GATHER_USAGE_STATS: bool = get_bool( 'STREAMLIT_BROWSER_GATHER_USAGE_STATS',
-	False )
+STREAMLIT_SERVER_ADDRESS: str = get_text( 'STREAMLIT_SERVER_ADDRESS', '0.0.0.0' )
+STREAMLIT_BROWSER_GATHER_USAGE_STATS: bool = get_bool(
+	'STREAMLIT_BROWSER_GATHER_USAGE_STATS',
+	False
+)

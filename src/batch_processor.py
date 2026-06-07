@@ -1050,8 +1050,7 @@ class BatchProcessor( ):
 			performance_summary = self._performance_monitor.summarize( self._performance_results )
 			acceptance_record = self.create_acceptance_record( performance_summary )
 			
-			return BatchProcessingResult(
-				batch_report=self._batch_report,
+			return BatchProcessingResult( batch_report=self._batch_report,
 				validation_result=self._validation_result,
 				performance_summary=performance_summary,
 				performance_results=self._performance_results,
@@ -1059,8 +1058,7 @@ class BatchProcessor( ):
 				skipped_files=self._skipped_files,
 				errors=self._errors,
 				warnings=self._warnings,
-				acceptance_record=acceptance_record
-			)
+				acceptance_record=acceptance_record )
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
@@ -1070,18 +1068,11 @@ class BatchProcessor( ):
 			safe_message = 'Batch processing result creation failed. See sanitized diagnostics.'
 			
 			return BatchProcessingResult(
-				batch_report=BatchVerificationReport(
-					reports=[
-							self.create_error_report(
-								file_name='Batch processing result unavailable',
-								message=safe_message
-							)
-					]
-				),
-				validation_result=BatchManifestValidationResult(
-					is_valid=False,
-					errors=[ safe_message ]
-				),
+				batch_report=BatchVerificationReport( reports=[
+							self.create_error_report( file_name='Batch processing result unavailable',
+								message=safe_message ) ] ),
+				validation_result=BatchManifestValidationResult( is_valid=False,
+					errors=[ safe_message ] ),
 				errors=[ safe_message ],
 				warnings=[ ],
 				acceptance_record={
@@ -1090,5 +1081,4 @@ class BatchProcessor( ):
 						'Batch Size Acceptance': 'Not Evaluated',
 						'Overall Acceptance': 'Not Evaluated',
 						'Acceptance Message': safe_message
-				}
-			)
+				} )

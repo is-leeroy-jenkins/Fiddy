@@ -49,11 +49,13 @@
 '''
 from __future__ import annotations
 
+import json
 import statistics
 import time
 from datetime import datetime
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
 import config as cfg
@@ -61,13 +63,17 @@ from booger import Error, Logger
 from config import throw_if
 from src.constants import STATUS_PASS, STATUS_WARNING
 
+# ==========================================================================================
+# Performance Utility Functions
+# ==========================================================================================
+
 def get_config_float( name: str, default: float ) -> float:
 	"""Read a floating-point value from the configuration module.
 
 	Purpose:
 		Safely read optional acceptance and SLA configuration values without requiring every
-		deployment or test harness to define the newest settings. Missing, empty, or invalid values
-		return the supplied default.
+		deployment or test harness to define the newest settings. Missing, empty, or invalid
+		values return the supplied default.
 
 	Args:
 		name (str): Configuration attribute name.
@@ -107,7 +113,10 @@ def calculate_percentile( values: List[ float ], percentile: float ) -> float:
 		if not values:
 			return 0.0
 		
-		clean_values = sorted( float( value ) for value in values )
+		clean_values = sorted(
+			float( value )
+			for value in values
+		)
 		
 		if len( clean_values ) == 1:
 			return clean_values[ 0 ]
@@ -137,14 +146,11 @@ def calculate_percentile( values: List[ float ], percentile: float ) -> float:
 class LabelPerformanceResult( BaseModel ):
 	"""Represent timing and SLA status for one processed label.
 
-	The ``LabelPerformanceResult`` model captures the timing outcome for a single label file.
-	It records the file name, elapsed processing time, configured SLA threshold, whether the
-	label completed within that threshold, reviewer-facing SLA status, reviewer-facing message,
-	start timestamp, completion timestamp, and calculated breach seconds.
-
-	This model is used by batch processing and reporting workflows to show whether the prototype
-	met the per-label usability target. It intentionally stores both numeric timing values and
-	formatted timestamps so the raw model can support dashboards, exports, and diagnostics.
+	Purpose:
+		Capture the timing outcome for a single label file. The model records the file name,
+		elapsed processing time, configured SLA threshold, whether the label completed within
+		that threshold, reviewer-facing SLA status, reviewer-facing message, start timestamp,
+		completion timestamp, and calculated breach seconds.
 
 	Attributes:
 		file_name (str): Label file name associated with the timing result.
@@ -172,10 +178,11 @@ class LabelPerformanceResult( BaseModel ):
 
 		Purpose:
 			Calculate how far the label exceeded the SLA threshold. Labels within SLA return
-			``0.0`` so the value is safe for dashboard display, CSV export, and aggregate analysis.
+			``0.0`` so the value is safe for dashboard display, CSV export, and aggregate
+			analysis.
 
 		Returns:
-			float: Non-negative number of seconds above the SLA threshold.
+			float: Non-negative number of seconds above the threshold.
 		"""
 		try:
 			return max( 0.0, float( self.processing_seconds ) - float( self.sla_seconds ) )
@@ -192,15 +199,13 @@ class LabelPerformanceResult( BaseModel ):
 
 		Purpose:
 			Convert the timing result into a dictionary suitable for Streamlit tables, DataFrame
-			construction, CSV export, JSON export, or reviewer-facing performance reports. Numeric
-			values are rounded to three decimal places to preserve useful timing precision without
-			overloading the UI with excessive decimals.
-
-		
+			construction, CSV export, JSON export, or reviewer-facing performance reports.
+			Numeric values are rounded to three decimal places to preserve useful timing precision
+			without overloading the UI with excessive decimals.
 
 		Returns:
-			Dict[str, object]: Flat performance result record. If conversion fails, the exception
-			is logged and a conservative fallback record is returned.
+			Dict[str, object]: Flat performance result record. If conversion fails, a conservative
+			fallback record is returned.
 		"""
 		try:
 			return {
@@ -235,11 +240,11 @@ class LabelPerformanceResult( BaseModel ):
 class PerformanceAcceptanceResult( BaseModel ):
 	"""Represent formal SLA acceptance evidence for one batch.
 
-	The ``PerformanceAcceptanceResult`` model stores the calculated acceptance outcome for a
-	batch timing summary. It compares average processing time, p95 processing time, and SLA
-	breach rate against configured acceptance thresholds. This separates measured performance
-	from acceptance judgment so reports can show both the raw values and the pass/fail
-	determination.
+	Purpose:
+		Store the calculated acceptance outcome for a batch timing summary. The model compares
+		average processing time, p95 processing time, and SLA breach rate against configured
+		acceptance thresholds. This separates measured performance from acceptance judgment so
+		reports can show both raw values and pass/fail determination.
 
 	Attributes:
 		total_files (int): Number of timed label files represented in the acceptance result.
@@ -272,14 +277,11 @@ class PerformanceAcceptanceResult( BaseModel ):
 	message: str = Field( default='' )
 	
 	def to_record( self ) -> Dict[ str, object ]:
-		"""Convert the SLA acceptance result into a flat display/export record.
+		"""Convert the performance acceptance result into a flat record.
 
 		Purpose:
-			Create a compact dictionary containing acceptance status, measured values, target
-			values, Boolean outcomes, and a plain-language message for dashboards, reports, and
-			acceptance evidence exports.
-
-		
+			Convert formal performance acceptance fields into a dictionary suitable for DataFrame
+			display, CSV export, JSON export, Markdown reports, and acceptance evidence packages.
 
 		Returns:
 			Dict[str, object]: Flat performance acceptance record.
@@ -288,17 +290,17 @@ class PerformanceAcceptanceResult( BaseModel ):
 			return {
 					'Performance Acceptance Status': self.status,
 					'Performance Acceptance Met': self.meets_acceptance,
-					'Acceptance Message': self.message,
-					'Acceptance Total Files': self.total_files,
+					'Timed Files': self.total_files,
 					'Acceptance Average Seconds': round( self.average_seconds, 3 ),
+					'Acceptance Average Target Seconds': round( self.average_target_seconds, 3 ),
 					'Acceptance P95 Seconds': round( self.p95_seconds, 3 ),
+					'Acceptance P95 Target Seconds': round( self.p95_target_seconds, 3 ),
 					'Acceptance SLA Breach Rate': round( self.sla_breach_rate, 4 ),
-					'Average Target Seconds': round( self.average_target_seconds, 3 ),
-					'P95 Target Seconds': round( self.p95_target_seconds, 3 ),
-					'Maximum Breach Rate': round( self.max_breach_rate, 4 ),
+					'Acceptance Max Breach Rate': round( self.max_breach_rate, 4 ),
 					'Meets Average Target': self.meets_average_target,
 					'Meets P95 Target': self.meets_p95_target,
-					'Meets Breach Rate Target': self.meets_breach_rate_target
+					'Meets Breach Rate Target': self.meets_breach_rate_target,
+					'Acceptance Message': self.message
 			}
 		except Exception as e:
 			error = Error( e )
@@ -309,46 +311,108 @@ class PerformanceAcceptanceResult( BaseModel ):
 			return {
 					'Performance Acceptance Status': 'Not Evaluated',
 					'Performance Acceptance Met': False,
-					'Acceptance Message': 'Performance acceptance record could not be rendered.',
-					'Acceptance Total Files': 0,
+					'Timed Files': 0,
 					'Acceptance Average Seconds': 0.0,
+					'Acceptance Average Target Seconds': self.average_target_seconds,
 					'Acceptance P95 Seconds': 0.0,
+					'Acceptance P95 Target Seconds': self.p95_target_seconds,
 					'Acceptance SLA Breach Rate': 0.0,
-					'Average Target Seconds': self.average_target_seconds,
-					'P95 Target Seconds': self.p95_target_seconds,
-					'Maximum Breach Rate': self.max_breach_rate,
+					'Acceptance Max Breach Rate': self.max_breach_rate,
 					'Meets Average Target': False,
 					'Meets P95 Target': False,
-					'Meets Breach Rate Target': False
+					'Meets Breach Rate Target': False,
+					'Acceptance Message': 'Performance acceptance record could not be rendered.'
+			}
+
+class PerformanceEvidence( BaseModel ):
+	"""Represent exportable performance evidence for acceptance review.
+
+	Purpose:
+		Provide a compact evidence object that can be generated from a batch performance summary.
+		The object reports whether the under-five-second SLA was tested, whether all timed labels
+		were within SLA, whether the average target was met, whether the p95 target was met,
+		whether the breach-rate target was met, and whether the evidence supports stakeholder
+		acceptance.
+
+	Attributes:
+		sla_tested (bool): Indicates whether timed label evidence exists.
+		under_five_seconds_per_label (bool): Indicates whether all timed labels met the SLA.
+		meets_average_target (bool): Indicates whether the average target was met.
+		meets_p95_target (bool): Indicates whether the p95 target was met.
+		meets_zero_breach_target (bool): Indicates whether the configured breach-rate target was
+			met.
+		meets_acceptance (bool): Indicates whether overall performance acceptance passed.
+		message (str): Reviewer-facing evidence message.
+	"""
+	
+	sla_tested: bool = Field( default=False )
+	under_five_seconds_per_label: bool = Field( default=False )
+	meets_average_target: bool = Field( default=False )
+	meets_p95_target: bool = Field( default=False )
+	meets_zero_breach_target: bool = Field( default=False )
+	meets_acceptance: bool = Field( default=False )
+	message: str = Field( default='' )
+	
+	def to_record( self ) -> Dict[ str, object ]:
+		"""Convert performance evidence into a flat record.
+
+		Purpose:
+			Create a compact dictionary suitable for acceptance summary tables, CSV export, JSON
+			output, and Markdown reporting.
+
+		Returns:
+			Dict[str, object]: Flat performance evidence record.
+		"""
+		try:
+			return {
+					'SLA Tested': self.sla_tested,
+					'Under Five Seconds Per Label': self.under_five_seconds_per_label,
+					'Meets Average Target': self.meets_average_target,
+					'Meets P95 Target': self.meets_p95_target,
+					'Meets Zero Breach Target': self.meets_zero_breach_target,
+					'Meets Performance Acceptance': self.meets_acceptance,
+					'Performance Evidence Message': self.message
+			}
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_record( self ) -> Dict[str, object]'
+			Logger( ).write( error )
+			return {
+					'SLA Tested': False,
+					'Under Five Seconds Per Label': False,
+					'Meets Average Target': False,
+					'Meets P95 Target': False,
+					'Meets Zero Breach Target': False,
+					'Meets Performance Acceptance': False,
+					'Performance Evidence Message': 'Performance evidence could not be rendered.'
 			}
 
 class BatchPerformanceSummary( BaseModel ):
-	"""Represent batch-level timing and SLA summary statistics.
+	"""Represent batch-level performance statistics.
 
-	The ``BatchPerformanceSummary`` model aggregates per-label performance results into
-	batch-level metrics. It stores the source results, total file count, average elapsed time,
-	maximum elapsed time, minimum elapsed time, median elapsed time, p50, p90, p95, number of
-	files within SLA, number of SLA breaches, SLA breach rate, SLA threshold, and formal
-	performance acceptance result.
-
-	This model is returned by ``PerformanceMonitor.summarize`` and is intended for batch
-	dashboards, report summaries, QA checks, acceptance checks, and export records.
+	Purpose:
+		Aggregate one or more per-label timing results into batch-level performance metrics. The
+		summary stores raw per-label results, total file count, average seconds, maximum seconds,
+		minimum seconds, median, p50, p90, p95, within-SLA count, SLA breach count, breach rate,
+		configured SLA threshold, and formal performance acceptance result.
 
 	Attributes:
-		results (List[LabelPerformanceResult]): Per-label timing results summarized by this model.
-		total_files (int): Number of label files represented in the summary.
-		average_seconds (float): Average elapsed processing time.
-		maximum_seconds (float): Maximum elapsed processing time.
-		minimum_seconds (float): Minimum elapsed processing time.
-		median_seconds (float): Median elapsed processing time.
-		p50_seconds (float): Fiftieth percentile elapsed processing time.
-		p90_seconds (float): Ninetieth percentile elapsed processing time.
-		p95_seconds (float): Ninety-fifth percentile elapsed processing time.
-		within_sla_count (int): Count of labels completed within the SLA threshold.
-		sla_breach_count (int): Count of labels that exceeded the SLA threshold.
-		sla_breach_rate (float): Fraction of labels exceeding the SLA threshold.
-		sla_seconds (float): SLA threshold used for the batch summary.
-		acceptance_result (PerformanceAcceptanceResult): Formal performance acceptance outcome.
+		results (List[LabelPerformanceResult]): Per-label timing results included in the summary.
+		total_files (int): Number of timing results summarized.
+		average_seconds (float): Average processing seconds.
+		maximum_seconds (float): Maximum processing seconds.
+		minimum_seconds (float): Minimum processing seconds.
+		median_seconds (float): Median processing seconds.
+		p50_seconds (float): Fiftieth percentile processing seconds.
+		p90_seconds (float): Ninetieth percentile processing seconds.
+		p95_seconds (float): Ninety-fifth percentile processing seconds.
+		within_sla_count (int): Count of labels processed within SLA.
+		sla_breach_count (int): Count of labels exceeding SLA.
+		sla_breach_rate (float): Fraction of labels exceeding SLA.
+		sla_seconds (float): SLA threshold used for the summary.
+		acceptance_result (PerformanceAcceptanceResult): Formal acceptance result.
 	"""
 	
 	results: List[ LabelPerformanceResult ] = Field( default_factory=list )
@@ -365,22 +429,19 @@ class BatchPerformanceSummary( BaseModel ):
 	sla_breach_rate: float = Field( default=0.0 )
 	sla_seconds: float = Field( default=5.0 )
 	acceptance_result: PerformanceAcceptanceResult = Field(
-		default_factory=PerformanceAcceptanceResult )
+		default_factory=PerformanceAcceptanceResult
+	)
 	
 	def to_record( self ) -> Dict[ str, object ]:
-		"""Convert batch performance summary into a flat display/export record.
+		"""Convert the batch performance summary into a flat record.
 
 		Purpose:
-			Convert aggregate timing metrics and acceptance evidence into a dictionary suitable for
-			dashboard cards, summary tables, CSV export, JSON export, and report writing. Timing
-			values are rounded to three decimal places for compact display while retaining enough
-			precision to assess the five-second usability target.
-
-		
+			Convert summary metrics and formal acceptance fields into a dictionary suitable for
+			Streamlit metrics, DataFrame display, CSV export, JSON export, Markdown reports, and
+			stakeholder acceptance evidence.
 
 		Returns:
-			Dict[str, object]: Flat batch performance summary record. If conversion fails, the
-			exception is logged and a conservative fallback summary is returned.
+			Dict[str, object]: Flat batch performance summary record.
 		"""
 		try:
 			record = {
@@ -397,7 +458,6 @@ class BatchPerformanceSummary( BaseModel ):
 					'SLA Breach Rate': round( self.sla_breach_rate, 4 ),
 					'SLA Seconds': round( self.sla_seconds, 3 )
 			}
-			
 			record.update( self.acceptance_result.to_record( ) )
 			return record
 		except Exception as e:
@@ -423,6 +483,181 @@ class BatchPerformanceSummary( BaseModel ):
 					'Performance Acceptance Met': False,
 					'Acceptance Message': 'Performance summary could not be rendered.'
 			}
+	
+	def to_dataframe( self ) -> pd.DataFrame:
+		"""Convert the batch performance summary into a one-row DataFrame.
+
+		Purpose:
+			Create a DataFrame containing the batch-level performance summary. This is useful for
+			Streamlit display, CSV export, and acceptance evidence packages.
+
+		Returns:
+			pd.DataFrame: One-row batch performance summary DataFrame.
+		"""
+		try:
+			return pd.DataFrame( [ self.to_record( ) ] )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_dataframe( self ) -> pd.DataFrame'
+			Logger( ).write( error )
+			return pd.DataFrame( )
+	
+	def to_acceptance_record( self ) -> Dict[ str, object ]:
+		"""Convert the summary into compact acceptance evidence.
+
+		Purpose:
+			Build a compact acceptance-focused dictionary from the batch performance summary.
+			This method is intended for acceptance dashboards and evidence packages where the
+			raw performance detail table is not required.
+
+		Returns:
+			Dict[str, object]: Compact performance acceptance evidence record.
+		"""
+		try:
+			evidence = self.to_performance_evidence( )
+			record = {
+					'Total Files': self.total_files,
+					'Average Seconds': round( self.average_seconds, 3 ),
+					'P95 Seconds': round( self.p95_seconds, 3 ),
+					'Maximum Seconds': round( self.maximum_seconds, 3 ),
+					'SLA Seconds': round( self.sla_seconds, 3 ),
+					'SLA Breach Count': self.sla_breach_count,
+					'SLA Breach Rate': round( self.sla_breach_rate, 4 )
+			}
+			record.update( evidence.to_record( ) )
+			return record
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_acceptance_record( self ) -> Dict[str, object]'
+			Logger( ).write( error )
+			return {
+					'Total Files': 0,
+					'SLA Tested': False,
+					'Under Five Seconds Per Label': False,
+					'Meets Performance Acceptance': False,
+					'Performance Evidence Message': 'Performance acceptance record could not be rendered.'
+			}
+	
+	def to_performance_evidence( self ) -> PerformanceEvidence:
+		"""Create a compact performance evidence object.
+
+		Purpose:
+			Translate batch-level metrics and the formal acceptance result into an evidence model
+			that directly answers the stakeholder performance requirement.
+
+		Returns:
+			PerformanceEvidence: Compact performance evidence object.
+		"""
+		try:
+			sla_tested = self.total_files > 0
+			under_five_seconds = sla_tested and self.sla_breach_count == 0
+			meets_zero_breach = bool( self.acceptance_result.meets_breach_rate_target )
+			meets_acceptance = bool( self.acceptance_result.meets_acceptance )
+			
+			if not sla_tested:
+				message = 'No timed label files were available for performance evidence.'
+			elif meets_acceptance:
+				message = (
+						f'Performance evidence passed for {self.total_files} timed labels. '
+						f'Average {self.average_seconds:.3f}s and p95 {self.p95_seconds:.3f}s '
+						f'were within configured targets.'
+				)
+			else:
+				message = (
+						f'Performance evidence did not pass for {self.total_files} timed labels. '
+						f'Average {self.average_seconds:.3f}s, p95 {self.p95_seconds:.3f}s, '
+						f'and breach rate {self.sla_breach_rate:.4f} should be reviewed.'
+				)
+			
+			return PerformanceEvidence(
+				sla_tested=sla_tested,
+				under_five_seconds_per_label=under_five_seconds,
+				meets_average_target=bool( self.acceptance_result.meets_average_target ),
+				meets_p95_target=bool( self.acceptance_result.meets_p95_target ),
+				meets_zero_breach_target=meets_zero_breach,
+				meets_acceptance=meets_acceptance,
+				message=message
+			)
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_performance_evidence( self ) -> PerformanceEvidence'
+			Logger( ).write( error )
+			return PerformanceEvidence(
+				message='Performance evidence could not be created.'
+			)
+	
+	def to_json( self ) -> str:
+		"""Serialize the batch performance summary as formatted JSON.
+
+		Purpose:
+			Create a JSON payload containing summary metrics, acceptance status, and per-label
+			performance results for evidence packages and test harness outputs.
+
+		Returns:
+			str: Formatted JSON string. If serialization fails, returns an empty JSON object.
+		"""
+		try:
+			payload = {
+					'summary': self.to_record( ),
+					'acceptance_evidence': self.to_acceptance_record( ),
+					'results': [
+							result.to_record( )
+							for result in self.results
+					]
+			}
+			return json.dumps( payload, indent=2, default=str )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_json( self ) -> str'
+			Logger( ).write( error )
+			return '{}'
+	
+	def to_markdown( self ) -> str:
+		"""Render the batch performance summary as Markdown.
+
+		Purpose:
+			Create a stakeholder-readable performance report containing summary metrics,
+			acceptance status, and the formal acceptance message.
+
+		Returns:
+			str: Markdown performance report.
+		"""
+		try:
+			lines = [
+					'# Fiddy Performance Summary',
+					'',
+					f'Total Files: {self.total_files}',
+					f'Average Seconds: {self.average_seconds:.3f}',
+					f'Median Seconds: {self.median_seconds:.3f}',
+					f'P95 Seconds: {self.p95_seconds:.3f}',
+					f'Maximum Seconds: {self.maximum_seconds:.3f}',
+					f'SLA Seconds: {self.sla_seconds:.3f}',
+					f'SLA Breach Count: {self.sla_breach_count}',
+					f'SLA Breach Rate: {self.sla_breach_rate:.4f}',
+					'',
+					'## Acceptance',
+					'',
+					f'Status: {self.acceptance_result.status}',
+					f'Meets Acceptance: {self.acceptance_result.meets_acceptance}',
+					f'Message: {self.acceptance_result.message}',
+					''
+			]
+			return '\n'.join( lines )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_markdown( self ) -> str'
+			Logger( ).write( error )
+			return '# Fiddy Performance Summary\n\nPerformance summary could not be rendered.'
 
 # ==========================================================================================
 # Performance Monitor
@@ -431,15 +666,16 @@ class BatchPerformanceSummary( BaseModel ):
 class PerformanceMonitor( ):
 	"""Track per-label processing time and evaluate SLA performance.
 
-	The ``PerformanceMonitor`` class provides start/stop timing for label processing workflows.
-	It records high-resolution start times with ``time.perf_counter`` and human-readable start
-	timestamps with ``datetime.now``. When processing stops, it creates a
-	``LabelPerformanceResult`` that records elapsed seconds, SLA status, timestamps, breach
-	seconds, and a reviewer-facing performance message.
+	Purpose:
+		Provide start/stop timing for label processing workflows. The monitor records
+		high-resolution start times with ``time.perf_counter`` and human-readable start
+		timestamps with ``datetime.now``. When processing stops, it creates a
+		``LabelPerformanceResult`` that records elapsed seconds, SLA status, timestamps, breach
+		seconds, and a reviewer-facing performance message.
 
-	The monitor also stores all generated timing results for later summarization. Batch
-	processors can either summarize the monitor's internal results or provide an explicit list of
-	results to ``summarize`` and ``result_records``.
+		The monitor stores all generated timing results for later summarization. Batch processors
+		can either summarize the monitor's internal results or provide an explicit list of
+		results to ``summarize`` and ``result_records``.
 
 	Attributes:
 		_sla_seconds (float): Configured per-label SLA threshold in seconds.
@@ -455,108 +691,75 @@ class PerformanceMonitor( ):
 	_results: List[ LabelPerformanceResult ]
 	
 	def __init__( self, sla_seconds: float | None = None ) -> None:
-		"""Initialize the monitor with a configured or default SLA threshold.
+		"""Initialize the performance monitor.
 
 		Purpose:
-			Read the default threshold from ``cfg.LABEL_PROCESSING_SLA_SECONDS`` when no explicit
-			threshold is supplied. If the configuration value is unavailable, the monitor defaults to
-			``5.0`` seconds. The constructor also initializes empty dictionaries for active timings
-			and an empty list for completed performance results.
+			Store the per-label SLA threshold and initialize empty timing and result collections.
+			When no SLA is supplied by the caller, ``cfg.LABEL_PROCESSING_SLA_SECONDS`` is used
+			with a fallback of five seconds.
 
 		Args:
-			sla_seconds (float | None): Optional SLA threshold in seconds. When ``None``, the
-				configuration value or default value is used.
+			sla_seconds (float | None): Optional per-label SLA threshold in seconds.
 
 		Returns:
 			None.
 		"""
 		try:
-			default_sla = getattr( cfg, 'LABEL_PROCESSING_SLA_SECONDS', 5.0 )
-			self._sla_seconds = float( sla_seconds if sla_seconds is not None else default_sla )
-			self._start_times = { }
-			self._start_datetimes = { }
-			self._results = [ ]
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = '__init__( self, sla_seconds: float | None = None ) -> None'
-			Logger( ).write( error )
+			if sla_seconds is None:
+				self._sla_seconds = get_config_float( 'LABEL_PROCESSING_SLA_SECONDS', 5.0 )
+			else:
+				self._sla_seconds = float( sla_seconds )
+			
+			if self._sla_seconds <= 0:
+				self._sla_seconds = 5.0
+		except Exception:
 			self._sla_seconds = 5.0
-			self._start_times = { }
-			self._start_datetimes = { }
-			self._results = [ ]
+		
+		self._start_times = { }
+		self._start_datetimes = { }
+		self._results = [ ]
 	
 	@property
 	def sla_seconds( self ) -> float:
 		"""Return the configured per-label SLA threshold.
 
 		Purpose:
-			Expose the active SLA threshold to batch processors and report builders.
-
-		
+			Expose the SLA threshold used by start/stop timing and summary acceptance
+			calculations.
 
 		Returns:
-			float: SLA threshold in seconds used by this monitor instance.
+			float: SLA threshold in seconds.
 		"""
 		return self._sla_seconds
 	
 	@property
 	def results( self ) -> List[ LabelPerformanceResult ]:
-		"""Return all collected per-label performance results.
+		"""Return collected per-label performance results.
 
 		Purpose:
-			Expose completed timing results generated by ``stop`` while preserving the existing
-			monitor usage pattern.
-
-		
+			Expose timing results collected by this monitor instance.
 
 		Returns:
-			List[LabelPerformanceResult]: Collected timing results.
+			List[LabelPerformanceResult]: Collected per-label performance results.
 		"""
 		return self._results
-	
-	def reset( self ) -> None:
-		"""Clear active timers and collected timing results.
-
-		Purpose:
-			Reset the monitor so the same instance can be reused for a new benchmark, smoke test, or
-			batch run without carrying forward previous timing results.
-
-		
-
-		Returns:
-			None.
-		"""
-		try:
-			self._start_times = { }
-			self._start_datetimes = { }
-			self._results = [ ]
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'reset( self ) -> None'
-			Logger( ).write( error )
-			return None
 	
 	def start( self, file_name: str ) -> None:
 		"""Start timing one label file.
 
 		Purpose:
-			Store both a high-resolution ``time.perf_counter`` value and a human-readable
-			``datetime`` timestamp for the supplied file name. The high-resolution value is used for
-			elapsed-time calculation, while the datetime value is retained for reporting.
+			Record both a high-resolution start time and a human-readable start timestamp for the
+			supplied file name. Repeated calls for the same file name overwrite the active start
+			time for that key.
 
 		Args:
-			file_name (str): Label file name being processed.
+			file_name (str): Label file name or identifier to time.
 
 		Returns:
 			None.
 		"""
 		try:
 			throw_if( 'file_name', file_name )
-			
 			self._start_times[ file_name ] = time.perf_counter( )
 			self._start_datetimes[ file_name ] = datetime.now( )
 		except Exception as e:
@@ -568,44 +771,69 @@ class PerformanceMonitor( ):
 			return None
 	
 	def stop( self, file_name: str ) -> LabelPerformanceResult:
-		"""Stop timing one label file and create an SLA performance result.
+		"""Stop timing one label file and create a performance result.
 
 		Purpose:
-			Look up the file's start time and start timestamp, calculate elapsed processing seconds,
-			create a ``LabelPerformanceResult``, append it to the monitor's collected results, and
-			remove active start entries for the file. If no start entry exists, the method preserves
-			the original fallback behavior by using the current time, which produces a near-zero
-			elapsed duration.
+			Read the active start time for the supplied file name, calculate elapsed processing
+			seconds, determine whether the label met the configured SLA threshold, create a
+			``LabelPerformanceResult``, store the result, and remove the active start time. If no
+			start time exists, a zero-second reviewer-safe warning result is returned.
 
 		Args:
-			file_name (str): Label file name being processed.
+			file_name (str): Label file name or identifier to stop timing.
 
 		Returns:
-			LabelPerformanceResult: Per-label performance result. If timing fails, the exception is
-			logged, a warning fallback is appended, and that fallback is returned.
+			LabelPerformanceResult: Per-label performance result.
 		"""
 		try:
 			throw_if( 'file_name', file_name )
 			
-			started = self._start_times.get( file_name, time.perf_counter( ) )
-			started_on = self._start_datetimes.get( file_name, datetime.now( ) )
 			completed_on = datetime.now( )
-			seconds = time.perf_counter( ) - started
+			started_on = self._start_datetimes.get( file_name, completed_on )
+			started = self._start_times.get( file_name, None )
 			
-			result = self.create_result(
+			if started is None:
+				result = LabelPerformanceResult(
+					file_name=file_name,
+					processing_seconds=0.0,
+					sla_seconds=self._sla_seconds,
+					within_sla=False,
+					status=STATUS_WARNING,
+					message='Performance timer was not started before stop was called.',
+					started_on=started_on,
+					completed_on=completed_on
+				)
+				self._results.append( result )
+				return result
+			
+			processing_seconds = max( 0.0, time.perf_counter( ) - started )
+			within_sla = processing_seconds <= self._sla_seconds
+			status = STATUS_PASS if within_sla else STATUS_WARNING
+			
+			if within_sla:
+				message = (
+						f'Processed in {processing_seconds:.3f} seconds, within the '
+						f'{self._sla_seconds:.3f}-second SLA.'
+				)
+			else:
+				message = (
+						f'Processed in {processing_seconds:.3f} seconds, exceeding the '
+						f'{self._sla_seconds:.3f}-second SLA.'
+				)
+			
+			result = LabelPerformanceResult(
 				file_name=file_name,
-				processing_seconds=seconds,
+				processing_seconds=processing_seconds,
+				sla_seconds=self._sla_seconds,
+				within_sla=within_sla,
+				status=status,
+				message=message,
 				started_on=started_on,
 				completed_on=completed_on
 			)
-			
 			self._results.append( result )
-			
-			if file_name in self._start_times:
-				del self._start_times[ file_name ]
-			
-			if file_name in self._start_datetimes:
-				del self._start_datetimes[ file_name ]
+			self._start_times.pop( file_name, None )
+			self._start_datetimes.pop( file_name, None )
 			
 			return result
 		except Exception as e:
@@ -614,99 +842,52 @@ class PerformanceMonitor( ):
 			error.module = __name__
 			error.method = 'stop( self, file_name: str ) -> LabelPerformanceResult'
 			Logger( ).write( error )
-			result = LabelPerformanceResult(
+			return LabelPerformanceResult(
 				file_name=file_name,
 				processing_seconds=0.0,
 				sla_seconds=self._sla_seconds,
 				within_sla=False,
 				status=STATUS_WARNING,
-				message='Processing time could not be measured.'
+				message='Performance timing failed.',
+				started_on=datetime.now( ),
+				completed_on=datetime.now( )
 			)
-			
-			self._results.append( result )
-			return result
-	
-	def create_result( self, file_name: str, processing_seconds: float, started_on: datetime,
-			completed_on: datetime ) -> LabelPerformanceResult:
-		"""Create a per-label performance result from elapsed processing time.
-
-		Purpose:
-			Evaluate whether the supplied elapsed seconds are within the configured SLA threshold
-			and build a ``LabelPerformanceResult`` with status, message, timestamps, and timing
-			metadata. Passing results use ``STATUS_PASS`` and exceeded results use
-			``STATUS_WARNING`` in accordance with the established behavior.
-
-		Args:
-			file_name (str): Label file name associated with the timing result.
-			processing_seconds (float): Elapsed processing time in seconds.
-			started_on (datetime): Processing start timestamp.
-			completed_on (datetime): Processing completion timestamp.
-
-		Returns:
-			LabelPerformanceResult: Per-label SLA result. If result creation fails, the exception is
-			logged and a warning fallback result is returned.
-		"""
-		try:
-			throw_if( 'file_name', file_name )
-			throw_if( 'started_on', started_on )
-			throw_if( 'completed_on', completed_on )
-			
-			seconds = max( 0.0, float( processing_seconds ) )
-			within_sla = seconds <= self._sla_seconds
-			status = STATUS_PASS if within_sla else STATUS_WARNING
-			
-			message = (
-					f'Processed within {self._sla_seconds:g}-second target.'
-					if within_sla
-					else f'Exceeded {self._sla_seconds:g}-second target by '
-					     f'{seconds - self._sla_seconds:.3f} seconds.'
-			)
-			
-			return LabelPerformanceResult( file_name=file_name, processing_seconds=seconds,
-				sla_seconds=self._sla_seconds, within_sla=within_sla,
-				status=status, message=message, started_on=started_on,
-				completed_on=completed_on )
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'create_result( self, *args ) -> LabelPerformanceResult'
-			Logger( ).write( error )
-			return LabelPerformanceResult( file_name=file_name, processing_seconds=0.0,
-				sla_seconds=self._sla_seconds, within_sla=False,
-				status=STATUS_WARNING, message='Performance result creation failed.' )
 	
 	def create_acceptance_result( self, total_files: int, average_seconds: float,
 			p95_seconds: float, sla_breach_rate: float ) -> PerformanceAcceptanceResult:
 		"""Create formal performance acceptance evidence.
 
 		Purpose:
-			Compare measured batch timing values against configured acceptance thresholds and return
-			a structured acceptance result. Empty result sets are marked ``Not Evaluated``. Non-empty
-			result sets are marked ``Met`` only when average seconds, p95 seconds, and breach rate
-			all meet their configured targets.
+			Compare average seconds, p95 seconds, and SLA breach rate against configured
+			acceptance thresholds. The result marks performance as ``Met`` only when all evaluated
+			criteria pass. Empty timing sets are marked ``Not Evaluated``.
 
 		Args:
-			total_files (int): Number of timed label files.
-			average_seconds (float): Average elapsed processing time.
-			p95_seconds (float): Ninety-fifth percentile elapsed processing time.
-			sla_breach_rate (float): Fraction of labels that exceeded the SLA threshold.
+			total_files (int): Number of timed files.
+			average_seconds (float): Average processing seconds.
+			p95_seconds (float): P95 processing seconds.
+			sla_breach_rate (float): Fraction of labels exceeding the SLA threshold.
 
 		Returns:
-			PerformanceAcceptanceResult: Formal SLA acceptance result.
+			PerformanceAcceptanceResult: Formal performance acceptance result.
 		"""
 		try:
-			average_target = get_config_float( 'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS',
-				self._sla_seconds )
-			
-			p95_target = get_config_float( 'BATCH_ACCEPTANCE_MAX_P95_SECONDS',
-				self._sla_seconds )
-			
+			average_target = get_config_float(
+				'BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS',
+				self._sla_seconds
+			)
+			p95_target = get_config_float(
+				'BATCH_ACCEPTANCE_MAX_P95_SECONDS',
+				self._sla_seconds
+			)
 			max_breach_rate = get_config_float( 'BATCH_ACCEPTANCE_MAX_BREACH_RATE', 0.0 )
 			
 			if total_files <= 0:
-				return PerformanceAcceptanceResult( total_files=0, average_seconds=0.0,
-					p95_seconds=0.0, sla_breach_rate=0.0,
+				return PerformanceAcceptanceResult(
+					total_files=0,
+					average_seconds=0.0,
+					p95_seconds=0.0,
+					sla_breach_rate=0.0,
 					average_target_seconds=average_target,
 					p95_target_seconds=p95_target,
 					max_breach_rate=max_breach_rate,
@@ -765,23 +946,24 @@ class PerformanceMonitor( ):
 			)
 	
 	def summarize( self,
-			results: List[ LabelPerformanceResult ] | None = None ) -> BatchPerformanceSummary:
+			results: Optional[ List[ LabelPerformanceResult ] ] = None ) -> BatchPerformanceSummary:
 		"""Summarize per-label performance results at the batch level.
 
 		Purpose:
-			Summarize either an explicit list of timing results or the monitor's collected internal
-			results. The summary calculates total file count, average seconds, maximum seconds,
-			minimum seconds, median seconds, p50, p90, p95, number of results within SLA, number of
-			SLA breaches, breach rate, and formal performance acceptance status. Empty result sets
-			return a valid zero-valued summary using the configured SLA threshold.
+			Summarize either an explicit list of timing results or the monitor's collected
+			internal results. The summary calculates total file count, average seconds, maximum
+			seconds, minimum seconds, median seconds, p50, p90, p95, number of results within
+			SLA, number of SLA breaches, breach rate, and formal performance acceptance status.
+			Empty result sets return a valid zero-valued summary using the configured SLA
+			threshold.
 
 		Args:
-			results (List[LabelPerformanceResult] | None): Optional results to summarize. When
-				``None``, the monitor's collected results are summarized.
+			results (Optional[List[LabelPerformanceResult]]): Optional results to summarize.
+				When ``None``, the monitor's collected results are summarized.
 
 		Returns:
-			BatchPerformanceSummary: Batch performance summary. If summarization fails, the
-			exception is logged and a zero-valued summary fallback is returned.
+			BatchPerformanceSummary: Batch performance summary. If summarization fails, a
+			zero-valued summary fallback is returned.
 		"""
 		try:
 			active_results = results if results is not None else self._results
@@ -815,14 +997,12 @@ class PerformanceMonitor( ):
 					max( 0.0, float( result.processing_seconds ) )
 					for result in active_results
 			]
-			
 			total_files = len( active_results )
 			within_sla_count = sum(
 				1
 				for result in active_results
 				if result.within_sla
 			)
-			
 			breach_count = total_files - within_sla_count
 			breach_rate = breach_count / total_files if total_files else 0.0
 			average_seconds = sum( seconds ) / total_files
@@ -858,14 +1038,12 @@ class PerformanceMonitor( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'summarize( self, results: List[LabelPerformanceResult] | None = None ) -> BatchPerformanceSummary'
+			error.method = 'summarize( self, *args ) -> BatchPerformanceSummary'
 			Logger( ).write( error )
-			
 			acceptance_result = PerformanceAcceptanceResult(
 				status='Not Evaluated',
-				message='Performance summary could not be calculated.'
+				message='Performance summary could not be created.'
 			)
-			
 			return BatchPerformanceSummary(
 				results=[ ],
 				total_files=0,
@@ -883,27 +1061,24 @@ class PerformanceMonitor( ):
 				acceptance_result=acceptance_result
 			)
 	
-	def result_records( self, results: List[ LabelPerformanceResult ] | None = None ) -> List[
+	def result_records( self,
+			results: Optional[ List[ LabelPerformanceResult ] ] = None ) -> List[
 		Dict[ str, object ] ]:
-		"""Convert performance results into flat records for display or export.
+		"""Convert per-label performance results into flat records.
 
 		Purpose:
-			Convert either an explicit list of performance results or the monitor's collected
-			internal results into flat dictionaries by delegating to each result's ``to_record``
-			method. The output is suitable for DataFrame display, CSV export, JSON export, or
-			report-writing workflows.
+			Convert either explicitly supplied timing results or internally collected timing
+			results into dictionaries suitable for DataFrame construction, CSV export, and
+			reporting.
 
 		Args:
-			results (List[LabelPerformanceResult] | None): Optional results to convert. When
-				``None``, the monitor's collected results are converted.
+			results (Optional[List[LabelPerformanceResult]]): Optional results to convert.
 
 		Returns:
-			List[Dict[str, object]]: Flat performance records. If conversion fails, the exception is
-			logged and an empty list is returned.
+			List[Dict[str, object]]: Per-label performance records.
 		"""
 		try:
 			active_results = results if results is not None else self._results
-			
 			return [
 					result.to_record( )
 					for result in active_results
@@ -915,3 +1090,80 @@ class PerformanceMonitor( ):
 			error.method = 'result_records( self, *args ) -> List[Dict[str, object]]'
 			Logger( ).write( error )
 			return [ ]
+	
+	def to_dataframe( self,
+			results: Optional[ List[ LabelPerformanceResult ] ] = None ) -> pd.DataFrame:
+		"""Convert per-label performance results into a DataFrame.
+
+		Purpose:
+			Build a DataFrame from per-label timing records for display, CSV export, and
+			stakeholder evidence.
+
+		Args:
+			results (Optional[List[LabelPerformanceResult]]): Optional results to convert.
+
+		Returns:
+			pd.DataFrame: Per-label performance DataFrame.
+		"""
+		try:
+			return pd.DataFrame( self.result_records( results ) )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'to_dataframe( self, *args ) -> pd.DataFrame'
+			Logger( ).write( error )
+			return pd.DataFrame( )
+	
+	def summary_dataframe( self,
+			results: Optional[ List[ LabelPerformanceResult ] ] = None ) -> pd.DataFrame:
+		"""Convert summary performance metrics into a one-row DataFrame.
+
+		Purpose:
+			Summarize timing results and return the batch-level performance summary as a one-row
+			DataFrame.
+
+		Args:
+			results (Optional[List[LabelPerformanceResult]]): Optional results to summarize.
+
+		Returns:
+			pd.DataFrame: One-row performance summary DataFrame.
+		"""
+		try:
+			return self.summarize( results ).to_dataframe( )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'summary_dataframe( self, *args ) -> pd.DataFrame'
+			Logger( ).write( error )
+			return pd.DataFrame( )
+	
+	def acceptance_record( self,
+			results: Optional[ List[ LabelPerformanceResult ] ] = None ) -> Dict[ str, object ]:
+		"""Return compact performance acceptance evidence.
+
+		Purpose:
+			Summarize timing results and return compact acceptance evidence for dashboards,
+			exports, and stakeholder acceptance checks.
+
+		Args:
+			results (Optional[List[LabelPerformanceResult]]): Optional results to summarize.
+
+		Returns:
+			Dict[str, object]: Compact performance acceptance record.
+		"""
+		try:
+			return self.summarize( results ).to_acceptance_record( )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'acceptance_record( self, *args ) -> Dict[str, object]'
+			Logger( ).write( error )
+			return {
+					'SLA Tested': False,
+					'Under Five Seconds Per Label': False,
+					'Meets Performance Acceptance': False,
+					'Performance Evidence Message': 'Performance acceptance record could not be created.'
+			}

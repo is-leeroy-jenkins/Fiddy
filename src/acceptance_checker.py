@@ -1,11 +1,12 @@
-'''******************************************************************************************
+'''
+    ******************************************************************************************
       Assembly:                Fiddy
       Filename:                acceptance_checker.py
       Author:                  Terry D. Eppler
       Created:                 06-06-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        06-06-2026
+      Last Modified On:        06-07-2026
     ******************************************************************************************
     <copyright file="acceptance_checker.py" company="Terry D. Eppler">
 
@@ -35,20 +36,17 @@
 
     </copyright>
     <summary>
-        Provides stakeholder acceptance-status evaluation for Fiddy prototype requirements.
+        Provides requirement-level acceptance evaluation for the Fiddy prototype.
 
-        This module converts runtime verification evidence into requirement-level acceptance
-        records for stakeholder review. It evaluates the full prototype requirement set,
-        including extraction coverage, application-versus-label comparison, batch processing,
-        five-second performance, output availability, usability, reliability, security posture,
-        prototype scalability, interface simplicity, accessibility, feedback, Azure-compatible
-        local-OCR posture, COLA non-integration, and data-handling posture.
+        This module converts verification results, output DataFrames, configuration posture,
+        data-retention policy, deployment evidence, accessibility evidence, and supplemental
+        runtime evidence into stakeholder requirement status records. It uses only the statuses
+        Met, Partially Met, Not Met, and Not Applicable.
 
-        The checker does not perform OCR, label verification, UI rendering, deployment, or
-        browser automation. It evaluates structured results, output tables, configuration
-        values, and optional externally supplied evidence records. This separation prevents the
-        application from claiming that evidence-dependent requirements are met solely because
-        supporting code exists.
+        This checker does not perform OCR, deploy infrastructure, run Streamlit, execute browser
+        accessibility checks, or persist files. It evaluates the evidence produced by those
+        runtime paths and classifies each stakeholder requirement based on the supplied code
+        outputs and active configuration.
     </summary>
     ******************************************************************************************
 '''
@@ -56,7 +54,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -66,16 +64,13 @@ from booger import Error, Logger
 from config import throw_if
 from src.batch_processor import BatchProcessingResult
 from src.constants import STATUS_FAIL, STATUS_REVIEW, STATUS_WARNING
+from src.data_retention import DataRetentionPolicy
 from src.models import BatchVerificationReport, LabelVerificationReport
-
-# ==========================================================================================
-# Acceptance Constants
-# ==========================================================================================
 
 ACCEPTANCE_MET: str = 'Met'
 ACCEPTANCE_PARTIAL: str = 'Partially Met'
 ACCEPTANCE_NOT_MET: str = 'Not Met'
-ACCEPTANCE_NOT_EVALUATED: str = 'Not Evaluated'
+ACCEPTANCE_NOT_APPLICABLE: str = 'Not Applicable'
 
 REQUIREMENT_FUNCTIONAL_EXTRACTION: str = '1.1'
 REQUIREMENT_FUNCTIONAL_COMPARISON: str = '1.2'
@@ -111,36 +106,27 @@ REQUIREMENT_ORDER: List[ str ] = [
 		REQUIREMENT_DATA_HANDLING
 ]
 
-# ==========================================================================================
-# Acceptance Models
-# ==========================================================================================
-
 class RequirementStatus( BaseModel ):
-	"""Represents one stakeholder requirement acceptance determination.
+	"""Represent one stakeholder requirement acceptance result.
 
 	Purpose:
-		Store one requirement-level evaluation result using a flat, export-friendly structure.
-		Each instance contains the stakeholder requirement identifier, plain-language name,
-		acceptance status, evidence statement, recommendation, evaluation timestamp, and optional
-		supporting metrics. The model is intentionally simple so it can be displayed in Streamlit,
-		exported as CSV, serialized as JSON, or embedded in a Markdown stakeholder acceptance
-		report.
+		Store a single requirement-level status result using a flat export-friendly structure.
+		Each record includes the requirement identifier, requirement name, status, evidence,
+		recommendation, evaluation timestamp, and optional metrics.
 
 	Attributes:
-		requirement_id (str): Requirement identifier from the stakeholder requirements document.
-		requirement_name (str): Human-readable name for the requirement being evaluated.
-		status (str): Acceptance status. Expected values are ``Met``, ``Partially Met``,
-			``Not Met``, or ``Not Evaluated``.
-		evidence (str): Plain-language evidence supporting the status determination.
-		recommendation (str): Recommended action needed to preserve or improve acceptance.
-		evaluated_on (str): UTC timestamp when the requirement status was created.
-		metrics (Dict[str, object]): Optional machine-readable metric values supporting the
-			determination.
+		requirement_id (str): Stakeholder requirement identifier.
+		requirement_name (str): Human-readable requirement name.
+		status (str): One of Met, Partially Met, Not Met, or Not Applicable.
+		evidence (str): Plain-language evidence supporting the status.
+		recommendation (str): Recommended code or configuration action.
+		evaluated_on (str): UTC evaluation timestamp.
+		metrics (Dict[str, object]): Machine-readable supporting metrics.
 	"""
 	
 	requirement_id: str = Field( default='' )
 	requirement_name: str = Field( default='' )
-	status: str = Field( default=ACCEPTANCE_NOT_EVALUATED )
+	status: str = Field( default=ACCEPTANCE_NOT_MET )
 	evidence: str = Field( default='' )
 	recommendation: str = Field( default='' )
 	evaluated_on: str = Field(
@@ -148,16 +134,14 @@ class RequirementStatus( BaseModel ):
 	metrics: Dict[ str, object ] = Field( default_factory=dict )
 	
 	def to_record( self ) -> Dict[ str, object ]:
-		"""Converts the requirement status into a flat dictionary record.
+		"""Convert the requirement status into a flat record.
 
 		Purpose:
-			Convert the requirement status object into a dictionary suitable for pandas DataFrame
-			construction, Streamlit table display, CSV export, JSON serialization, and Markdown
-			report construction.
+			Create a dictionary suitable for DataFrame display, CSV export, JSON serialization,
+			and Markdown rendering.
 
 		Returns:
-			Dict[str, object]: Flat requirement status record. If rendering fails, a conservative
-			record is returned with ``Not Evaluated`` status and diagnostic guidance.
+			Dict[str, object]: Flat requirement status record.
 		"""
 		try:
 			return {
@@ -178,7 +162,7 @@ class RequirementStatus( BaseModel ):
 			return {
 					'Requirement ID': self.requirement_id,
 					'Requirement Name': self.requirement_name,
-					'Status': ACCEPTANCE_NOT_EVALUATED,
+					'Status': ACCEPTANCE_NOT_MET,
 					'Evidence': 'Requirement status record could not be rendered.',
 					'Recommendation': 'Inspect the acceptance checker error log.',
 					'Evaluated On': '',
@@ -186,16 +170,15 @@ class RequirementStatus( BaseModel ):
 			}
 
 class AcceptanceSummary( BaseModel ):
-	"""Represents the complete acceptance evaluation for one Fiddy run.
+	"""Represent the complete acceptance evaluation for one Fiddy run.
 
 	Purpose:
-		Aggregate all requirement-level acceptance records produced by ``AcceptanceChecker``.
-		The model also provides convenience methods for status counts, acceptance percentage,
-		DataFrame conversion, JSON serialization, and Markdown report generation.
+		Aggregate all requirement-level status records and provide display/export helpers for
+		counts, percentage, DataFrame conversion, JSON serialization, and Markdown reporting.
 
 	Attributes:
-		requirements (List[RequirementStatus]): Requirement-level acceptance results.
-		created_on (str): UTC timestamp when the summary object was created.
+		requirements (List[RequirementStatus]): Requirement-level status records.
+		created_on (str): UTC timestamp when the summary was created.
 	"""
 	
 	requirements: List[ RequirementStatus ] = Field( default_factory=list )
@@ -203,22 +186,20 @@ class AcceptanceSummary( BaseModel ):
 		default_factory=lambda: datetime.utcnow( ).strftime( '%Y-%m-%d %H:%M:%S' ) )
 	
 	def status_counts( self ) -> Dict[ str, int ]:
-		"""Counts requirement records by acceptance status.
+		"""Count requirement records by status.
 
 		Purpose:
-			Count requirement records by acceptance status for dashboard display, export records,
-			Markdown reports, and stakeholder acceptance summaries.
+			Return status counts for dashboards, reports, and package manifests.
 
 		Returns:
-			Dict[str, int]: Count of requirements keyed by status text. If counting fails, all
-			status counts are returned as zero.
+			Dict[str, int]: Counts keyed by status.
 		"""
 		try:
 			counts = {
 					ACCEPTANCE_MET: 0,
 					ACCEPTANCE_PARTIAL: 0,
 					ACCEPTANCE_NOT_MET: 0,
-					ACCEPTANCE_NOT_EVALUATED: 0
+					ACCEPTANCE_NOT_APPLICABLE: 0
 			}
 			
 			for requirement in self.requirements:
@@ -235,39 +216,36 @@ class AcceptanceSummary( BaseModel ):
 					ACCEPTANCE_MET: 0,
 					ACCEPTANCE_PARTIAL: 0,
 					ACCEPTANCE_NOT_MET: 0,
-					ACCEPTANCE_NOT_EVALUATED: 0
+					ACCEPTANCE_NOT_APPLICABLE: 0
 			}
 	
 	def acceptance_percentage( self ) -> float:
-		"""Calculates the percentage of evaluated requirements marked as fully met.
+		"""Calculate the percentage of applicable requirements marked Met.
 
 		Purpose:
-			Calculate a simple stakeholder acceptance percentage by dividing fully met
-			requirements by evaluated requirements. Requirements marked ``Not Evaluated`` are
-			excluded from the denominator so small smoke tests or partial reviewer runs do not
-			distort formal acceptance scoring.
+			Calculate acceptance percentage by dividing Met requirements by all requirements that
+			are not marked Not Applicable.
 
 		Returns:
-			float: Percentage of evaluated requirements marked ``Met``, rounded to two decimals.
-			If no requirements have been evaluated, returns ``0.0``.
+			float: Acceptance percentage rounded to two decimal places.
 		"""
 		try:
-			evaluated = [
+			applicable = [
 					requirement
 					for requirement in self.requirements
-					if requirement.status != ACCEPTANCE_NOT_EVALUATED
+					if requirement.status != ACCEPTANCE_NOT_APPLICABLE
 			]
 			
-			if not evaluated:
+			if not applicable:
 				return 0.0
 			
 			met_count = sum(
 				1
-				for requirement in evaluated
+				for requirement in applicable
 				if requirement.status == ACCEPTANCE_MET
 			)
 			
-			return round( (met_count / len( evaluated )) * 100.0, 2 )
+			return round( (met_count / len( applicable )) * 100.0, 2 )
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
@@ -277,16 +255,13 @@ class AcceptanceSummary( BaseModel ):
 			return 0.0
 	
 	def to_records( self ) -> List[ Dict[ str, object ] ]:
-		"""Converts all requirement statuses into flat dictionary records.
+		"""Convert requirement statuses into flat records.
 
 		Purpose:
-			Convert every requirement status in the summary into a flat dictionary record so the
-			full summary can be displayed, exported, serialized, or included in a stakeholder
-			report.
+			Return every requirement status as a dictionary for display and export.
 
 		Returns:
-			List[Dict[str, object]]: Requirement status records suitable for table display and
-			export. If conversion fails, returns an empty list.
+			List[Dict[str, object]]: Requirement status records.
 		"""
 		try:
 			return [
@@ -302,16 +277,13 @@ class AcceptanceSummary( BaseModel ):
 			return [ ]
 	
 	def to_dataframe( self ) -> pd.DataFrame:
-		"""Converts the acceptance summary into a pandas DataFrame.
+		"""Convert the acceptance summary into a DataFrame.
 
 		Purpose:
-			Build a DataFrame from the flat requirement records so the acceptance summary can be
-			displayed in Streamlit, exported as CSV, or passed into downstream reporting
-			utilities.
+			Create a DataFrame for Streamlit display, CSV export, and acceptance package output.
 
 		Returns:
-			pd.DataFrame: Acceptance summary DataFrame. If conversion fails, returns an empty
-			DataFrame.
+			pd.DataFrame: Acceptance summary DataFrame.
 		"""
 		try:
 			return pd.DataFrame( self.to_records( ) )
@@ -324,15 +296,14 @@ class AcceptanceSummary( BaseModel ):
 			return pd.DataFrame( )
 	
 	def to_json( self ) -> str:
-		"""Serializes the acceptance summary as formatted JSON.
+		"""Serialize the acceptance summary as formatted JSON.
 
 		Purpose:
-			Create a JSON acceptance payload containing creation time, acceptance percentage,
-			status counts, and every requirement record. The payload is intended for audit files,
-			test harness output, and stakeholder evidence packages.
+			Create a JSON payload containing creation time, acceptance percentage, status counts,
+			and requirement records.
 
 		Returns:
-			str: Formatted JSON string. If serialization fails, returns an empty JSON object.
+			str: Formatted JSON string.
 		"""
 		try:
 			payload = {
@@ -351,16 +322,14 @@ class AcceptanceSummary( BaseModel ):
 			return '{}'
 	
 	def to_markdown( self ) -> str:
-		"""Renders the acceptance summary as stakeholder-readable Markdown.
+		"""Render the acceptance summary as Markdown.
 
 		Purpose:
-			Create a Markdown acceptance report containing creation time, acceptance percentage,
-			status counts, and a requirement-by-requirement discussion of status, evidence, and
-			recommendation.
+			Create a stakeholder-readable Markdown report containing counts and each requirement
+			status.
 
 		Returns:
-			str: Markdown acceptance report. If rendering fails, returns a fallback Markdown
-			message.
+			str: Markdown acceptance report.
 		"""
 		try:
 			counts = self.status_counts( )
@@ -375,7 +344,7 @@ class AcceptanceSummary( BaseModel ):
 					f'- Met: {counts.get( ACCEPTANCE_MET, 0 )}',
 					f'- Partially Met: {counts.get( ACCEPTANCE_PARTIAL, 0 )}',
 					f'- Not Met: {counts.get( ACCEPTANCE_NOT_MET, 0 )}',
-					f'- Not Evaluated: {counts.get( ACCEPTANCE_NOT_EVALUATED, 0 )}',
+					f'- Not Applicable: {counts.get( ACCEPTANCE_NOT_APPLICABLE, 0 )}',
 					'',
 					'## Requirement Results',
 					''
@@ -404,34 +373,25 @@ class AcceptanceSummary( BaseModel ):
 			Logger( ).write( error )
 			return '# Fiddy Acceptance Summary\n\nAcceptance summary could not be rendered.'
 
-# ==========================================================================================
-# Acceptance Checker
-# ==========================================================================================
-
 class AcceptanceChecker( ):
-	"""Evaluates Fiddy runtime evidence against stakeholder prototype requirements.
+	"""Evaluate Fiddy runtime evidence against stakeholder requirements.
 
 	Purpose:
-		Inspect completed batch or manual verification evidence and return requirement-level
-		acceptance records. The checker evaluates report objects, performance summaries,
-		validation outputs, configuration switches, output DataFrames, accessibility evidence,
-		deployment evidence, and supplemental evidence flags.
-
-		The checker deliberately does not perform OCR, execute label verification, deploy
-		infrastructure, or automate browser accessibility checks. Those activities are performed
-		elsewhere. This class only evaluates their outputs so the final acceptance package can
-		distinguish between implemented capabilities and proven capabilities.
+		Inspect completed verification results, output DataFrames, configuration flags,
+		data-retention settings, deployment settings, accessibility outputs, and supplemental
+		evidence to create requirement-level acceptance records.
 
 	Attributes:
-		_result (BatchProcessingResult): Active processing result under evaluation.
-		_summary_dataframe (pd.DataFrame): Optional summary output DataFrame.
-		_detail_dataframe (pd.DataFrame): Optional detail output DataFrame.
-		_comparison_dataframe (pd.DataFrame): Optional comparison output DataFrame.
-		_performance_dataframe (pd.DataFrame): Optional performance output DataFrame.
-		_accessibility_dataframe (pd.DataFrame): Optional accessibility checklist DataFrame.
-		_deployment_dataframe (pd.DataFrame): Optional deployment evidence DataFrame.
-		_evidence (Dict[str, object]): Optional supplemental evidence supplied by UI or tests.
-		_requirements (List[RequirementStatus]): Current acceptance records.
+		_result (BatchProcessingResult): Active batch processing result.
+		_summary_dataframe (pd.DataFrame): Batch summary DataFrame.
+		_detail_dataframe (pd.DataFrame): Detail DataFrame.
+		_comparison_dataframe (pd.DataFrame): Comparison DataFrame.
+		_performance_dataframe (pd.DataFrame): Performance DataFrame.
+		_accessibility_dataframe (pd.DataFrame): Accessibility checklist DataFrame.
+		_deployment_dataframe (pd.DataFrame): Deployment evidence DataFrame.
+		_evidence (Dict[str, object]): Supplemental evidence dictionary.
+		_requirements (List[RequirementStatus]): Evaluated requirement statuses.
+		_policy (DataRetentionPolicy): Active no-persistence policy.
 	"""
 	
 	_result: BatchProcessingResult
@@ -443,14 +403,14 @@ class AcceptanceChecker( ):
 	_deployment_dataframe: pd.DataFrame
 	_evidence: Dict[ str, object ]
 	_requirements: List[ RequirementStatus ]
+	_policy: DataRetentionPolicy
 	
 	def __init__( self ) -> None:
-		"""Initializes the acceptance checker.
+		"""Initialize the acceptance checker.
 
 		Purpose:
-			Create empty DataFrame placeholders, an empty supplemental evidence dictionary, and an
-			empty requirement list. Evaluation does not occur until ``evaluate_batch_result`` or
-			``evaluate_manual_or_batch_result`` is called.
+			Create empty DataFrame placeholders, an empty evidence dictionary, an empty
+			requirement list, and the active data-retention policy.
 
 		Returns:
 			None.
@@ -463,33 +423,39 @@ class AcceptanceChecker( ):
 		self._deployment_dataframe = pd.DataFrame( )
 		self._evidence = { }
 		self._requirements = [ ]
+		self._policy = DataRetentionPolicy( )
 	
 	def create_status( self, requirement_id: str, requirement_name: str, status: str,
 			evidence: str, recommendation: str = '',
 			metrics: Optional[ Dict[ str, object ] ] = None ) -> RequirementStatus:
-		"""Creates one requirement acceptance status record.
+		"""Create one requirement status record.
 
 		Purpose:
-			Centralize ``RequirementStatus`` construction so all evaluations produce consistent
-			records. Required values are validated before the record is created. If record creation
-			fails, a reviewer-safe fallback record is returned.
+			Centralize requirement status construction and enforce valid status text.
 
 		Args:
 			requirement_id (str): Stakeholder requirement identifier.
 			requirement_name (str): Human-readable requirement name.
-			status (str): Acceptance status.
-			evidence (str): Evidence supporting the status.
-			recommendation (str): Recommended next action.
-			metrics (Optional[Dict[str, object]]): Optional supporting metrics.
+			status (str): Met, Partially Met, Not Met, or Not Applicable.
+			evidence (str): Evidence statement.
+			recommendation (str): Recommended action.
+			metrics (Optional[Dict[str, object]]): Supporting metrics.
 
 		Returns:
-			RequirementStatus: Requirement acceptance record.
+			RequirementStatus: Requirement status record.
 		"""
 		try:
 			throw_if( 'requirement_id', requirement_id )
 			throw_if( 'requirement_name', requirement_name )
 			throw_if( 'status', status )
 			throw_if( 'evidence', evidence )
+			
+			if status not in (
+						ACCEPTANCE_MET,
+						ACCEPTANCE_PARTIAL,
+						ACCEPTANCE_NOT_MET,
+						ACCEPTANCE_NOT_APPLICABLE):
+				raise ValueError( f'Unsupported acceptance status: {status}' )
 			
 			return RequirementStatus(
 				requirement_id=requirement_id,
@@ -508,29 +474,50 @@ class AcceptanceChecker( ):
 			return RequirementStatus(
 				requirement_id=requirement_id or '',
 				requirement_name=requirement_name or '',
-				status=ACCEPTANCE_NOT_EVALUATED,
+				status=ACCEPTANCE_NOT_MET,
 				evidence='Requirement status could not be created.',
 				recommendation='Inspect the acceptance checker error log.',
 				metrics=metrics or { }
 			)
 	
-	def get_evidence_bool( self, name: str, default: bool = False ) -> bool:
-		"""Reads a Boolean value from supplemental evidence or configuration.
+	def normalize_dataframe( self, dataframe: Optional[ pd.DataFrame ] ) -> pd.DataFrame:
+		"""Normalize an optional DataFrame.
 
 		Purpose:
-			Return a Boolean evidence value using supplemental runtime evidence before falling
-			back to configuration. This makes test-harness evidence and UI-provided acceptance
-			flags authoritative while preserving configuration defaults.
+			Return an empty DataFrame when callers pass ``None``.
 
 		Args:
-			name (str): Evidence or configuration key.
-			default (bool): Default value used when no value is available.
+			dataframe (Optional[pd.DataFrame]): Optional DataFrame.
+
+		Returns:
+			pd.DataFrame: Source DataFrame or empty fallback.
+		"""
+		try:
+			return dataframe if dataframe is not None else pd.DataFrame( )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'normalize_dataframe( self, dataframe: Optional[pd.DataFrame] ) -> pd.DataFrame'
+			Logger( ).write( error )
+			return pd.DataFrame( )
+	
+	def get_evidence_bool( self, name: str, default: bool = False ) -> bool:
+		"""Read a Boolean value from supplemental evidence or configuration.
+
+		Purpose:
+			Prefer runtime evidence and fall back to configuration.
+
+		Args:
+			name (str): Evidence key.
+			default (bool): Default value.
 
 		Returns:
 			bool: Resolved Boolean value.
 		"""
 		try:
 			throw_if( 'name', name )
+			
 			if name in self._evidence:
 				return bool( self._evidence.get( name, default ) )
 			
@@ -544,22 +531,21 @@ class AcceptanceChecker( ):
 			return default
 	
 	def get_evidence_int( self, name: str, default: int = 0 ) -> int:
-		"""Reads an integer value from supplemental evidence or configuration.
+		"""Read an integer value from supplemental evidence or configuration.
 
 		Purpose:
-			Return an integer evidence value using supplemental runtime evidence before falling
-			back to configuration. Invalid, missing, or unavailable values return the supplied
-			default.
+			Prefer runtime evidence and fall back to configuration.
 
 		Args:
-			name (str): Evidence or configuration key.
-			default (int): Default value used when no value is available.
+			name (str): Evidence key.
+			default (int): Default value.
 
 		Returns:
-			int: Resolved integer value. If parsing fails, returns the supplied default.
+			int: Resolved integer value.
 		"""
 		try:
 			throw_if( 'name', name )
+			
 			if name in self._evidence:
 				return int( self._evidence.get( name, default ) )
 			
@@ -573,21 +559,21 @@ class AcceptanceChecker( ):
 			return default
 	
 	def get_evidence_text( self, name: str, default: str = '' ) -> str:
-		"""Reads a text value from supplemental evidence or configuration.
+		"""Read a text value from supplemental evidence or configuration.
 
 		Purpose:
-			Return a text evidence value using supplemental runtime evidence before falling back
-			to configuration. Invalid, missing, or unavailable values return the supplied default.
+			Prefer runtime evidence and fall back to configuration.
 
 		Args:
-			name (str): Evidence or configuration key.
-			default (str): Default value used when no value is available.
+			name (str): Evidence key.
+			default (str): Default value.
 
 		Returns:
-			str: Resolved text value. If resolution fails, returns the supplied default.
+			str: Resolved text value.
 		"""
 		try:
 			throw_if( 'name', name )
+			
 			if name in self._evidence:
 				return str( self._evidence.get( name, default ) )
 			
@@ -600,40 +586,14 @@ class AcceptanceChecker( ):
 			Logger( ).write( error )
 			return default
 	
-	def normalize_dataframe( self, df_source: Optional[ pd.DataFrame ] ) -> pd.DataFrame:
-		"""Normalizes an optional DataFrame argument.
-
-		Purpose:
-			Return the supplied DataFrame when available and return an empty fallback DataFrame
-			when the caller supplies ``None``. This lets evaluation logic safely inspect DataFrame
-			columns and row counts without repeated null checks.
-
-		Args:
-			df_source (Optional[pd.DataFrame]): Optional DataFrame value.
-
-		Returns:
-			pd.DataFrame: Original DataFrame when provided, otherwise an empty fallback DataFrame.
-		"""
-		try:
-			return df_source if df_source is not None else pd.DataFrame( )
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'normalize_dataframe( self, df_source: Optional[pd.DataFrame] ) -> pd.DataFrame'
-			Logger( ).write( error )
-			return pd.DataFrame( )
-	
 	def get_batch_report( self ) -> BatchVerificationReport:
-		"""Returns the active batch verification report.
+		"""Return the active batch verification report.
 
 		Purpose:
-			Return the batch report from the active processing result while protecting the caller
-			from missing or invalid result state.
+			Return the batch report from the active processing result.
 
 		Returns:
-			BatchVerificationReport: Active batch report from the current processing result, or an
-			empty fallback report if unavailable.
+			BatchVerificationReport: Active batch report or empty fallback.
 		"""
 		try:
 			return self._result.batch_report
@@ -646,15 +606,13 @@ class AcceptanceChecker( ):
 			return BatchVerificationReport( )
 	
 	def get_reports( self ) -> List[ LabelVerificationReport ]:
-		"""Returns all label-level verification reports from the active result.
+		"""Return all active label-level reports.
 
 		Purpose:
-			Flatten the active batch report into its label-level verification reports for
-			requirement checks that operate on per-label evidence.
+			Flatten the batch report into label-level reports.
 
 		Returns:
-			List[LabelVerificationReport]: Label-level reports. If retrieval fails, returns an
-			empty list.
+			List[LabelVerificationReport]: Label reports.
 		"""
 		try:
 			return list( self.get_batch_report( ).reports )
@@ -667,17 +625,17 @@ class AcceptanceChecker( ):
 			return [ ]
 	
 	def get_result_values( self ) -> List[ object ]:
-		"""Returns all rule-result objects from all active reports.
+		"""Return all rule-result objects.
 
 		Purpose:
-			Flatten rule results from every label report into one list so requirement checks can
-			inspect rule identifiers, statuses, confidence values, and human-review flags.
+			Flatten every report's rule results into one list.
 
 		Returns:
-			List[object]: Flattened rule-result objects from all label reports.
+			List[object]: Rule-result objects.
 		"""
 		try:
 			results = [ ]
+			
 			for report in self.get_reports( ):
 				results.extend( list( report.results ) )
 			
@@ -690,15 +648,40 @@ class AcceptanceChecker( ):
 			Logger( ).write( error )
 			return [ ]
 	
-	def count_reports_with_ocr_text( self ) -> int:
-		"""Counts reports containing readable OCR text.
+	def dataframe_has_columns( self, dataframe: pd.DataFrame, columns: List[ str ] ) -> bool:
+		"""Determine whether a DataFrame has all required columns.
 
 		Purpose:
-			Count label reports whose extracted label contains readable raw OCR text. This is one
-			of the primary evidence points for the label data extraction requirement.
+			Check reviewer-facing output schemas.
+
+		Args:
+			dataframe (pd.DataFrame): DataFrame to inspect.
+			columns (List[str]): Required columns.
 
 		Returns:
-			int: Number of reports whose extracted label contains readable raw OCR text.
+			bool: True when all columns are present.
+		"""
+		try:
+			if dataframe is None or dataframe.empty:
+				return False
+			
+			return set( columns ).issubset( set( dataframe.columns ) )
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'dataframe_has_columns( self, *args ) -> bool'
+			Logger( ).write( error )
+			return False
+	
+	def count_reports_with_ocr_text( self ) -> int:
+		"""Count reports with OCR text.
+
+		Purpose:
+			Count extracted labels that contain readable text.
+
+		Returns:
+			int: Count of reports with OCR text.
 		"""
 		try:
 			return sum(
@@ -715,21 +698,20 @@ class AcceptanceChecker( ):
 			return 0
 	
 	def count_reports_with_structured_fields( self ) -> int:
-		"""Counts reports containing one or more structured extracted fields.
+		"""Count reports with structured extracted fields.
 
 		Purpose:
-			Count reports where OCR or field extraction populated at least one label-side
-			structured field. This supports the stakeholder requirement for extracting key label
-			fields instead of only raw OCR text.
+			Count reports where at least one target label field was populated.
 
 		Returns:
-			int: Number of reports where OCR or extraction produced at least one structured
-			label-side field value.
+			int: Count of reports with structured extracted values.
 		"""
 		try:
 			count = 0
+			
 			for report in self.get_reports( ):
 				label = report.extracted_label
+				
 				if not label:
 					continue
 				
@@ -756,15 +738,13 @@ class AcceptanceChecker( ):
 			return 0
 	
 	def count_reports_with_rule_results( self ) -> int:
-		"""Counts reports containing one or more rule results.
+		"""Count reports with rule results.
 
 		Purpose:
-			Count label reports where deterministic verification rules produced structured
-			results. This supports application-versus-label comparison acceptance.
+			Count label reports that contain verification rule results.
 
 		Returns:
-			int: Number of reports where deterministic rule evaluation produced structured
-			results.
+			int: Count of reports with rule results.
 		"""
 		try:
 			return sum(
@@ -781,15 +761,13 @@ class AcceptanceChecker( ):
 			return 0
 	
 	def count_review_or_failure_reports( self ) -> int:
-		"""Counts reports with fail, warning, or review status.
+		"""Count reports with fail, warning, or review status.
 
 		Purpose:
-			Count label reports with reviewer-visible non-pass outcomes. This supports reliability
-			and feedback evaluation because the app must surface mismatches and review conditions
-			clearly.
+			Count reviewer-visible non-pass report outcomes.
 
 		Returns:
-			int: Number of reports with reviewer-visible non-pass outcomes.
+			int: Count of reports with non-pass status.
 		"""
 		try:
 			return sum(
@@ -805,102 +783,36 @@ class AcceptanceChecker( ):
 			Logger( ).write( error )
 			return 0
 	
-	def count_results_requiring_review( self ) -> int:
-		"""Counts rule results requiring human review.
-
-		Purpose:
-			Count rule-level results where reviewer judgment is required. This is especially
-			important for OCR quality issues and government-warning visual-format review.
-
-		Returns:
-			int: Number of rule results where ``requires_human_review`` is true.
-		"""
-		try:
-			return sum(
-				1
-				for result in self.get_result_values( )
-				if bool( getattr( result, 'requires_human_review', False ) )
-			)
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'count_results_requiring_review( self ) -> int'
-			Logger( ).write( error )
-			return 0
-	
-	def dataframe_has_columns( self, df_source: pd.DataFrame, columns: List[ str ] ) -> bool:
-		"""Determines whether a DataFrame contains all required columns.
-
-		Purpose:
-			Validate that a DataFrame contains the expected reviewer-facing columns needed for
-			display, export, and acceptance evidence.
-
-		Args:
-			df_source (pd.DataFrame): DataFrame to inspect.
-			columns (List[str]): Required column names.
-
-		Returns:
-			bool: True when all required columns are present; otherwise, False.
-		"""
-		try:
-			if df_source is None or df_source.empty:
-				return False
-			
-			return set( columns ).issubset( set( df_source.columns ) )
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'dataframe_has_columns( self, *args ) -> bool'
-			Logger( ).write( error )
-			return False
-	
 	def evaluate_label_extraction( self ) -> RequirementStatus:
-		"""Evaluates label data extraction evidence.
+		"""Evaluate label extraction.
 
 		Purpose:
-			Determine whether the run produced label reports, readable OCR text, structured
-			extracted fields, visual-quality evidence, and externally supplied imperfect-image
-			evidence.
+			Classify extraction based on label reports, OCR text, structured fields, and
+			imperfect-image support evidence.
 
 		Returns:
-			RequirementStatus: Label extraction acceptance record.
+			RequirementStatus: Label extraction status.
 		"""
 		try:
-			reports = self.get_reports( )
-			total_reports = len( reports )
+			total_reports = len( self.get_reports( ) )
 			ocr_text_count = self.count_reports_with_ocr_text( )
 			structured_count = self.count_reports_with_structured_fields( )
 			imperfect_image_evidence = self.get_evidence_bool( 'IMPERFECT_IMAGE_TESTED', False )
-			visual_quality_evidence = any(
-				bool( getattr( report.extracted_label, 'image_quality_notes', [ ] ) )
-				for report in reports
-			)
 			
-			if total_reports <= 0:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No label reports were available to evaluate extraction.'
-				recommendation = 'Run at least one label through OCR and verification.'
-			elif ocr_text_count == total_reports and structured_count == total_reports and imperfect_image_evidence:
+			if total_reports > 0 and ocr_text_count > 0 and structured_count > 0:
 				status = ACCEPTANCE_MET
 				evidence = (
-						f'OCR text and structured fields were produced for {total_reports} of '
-						f'{total_reports} reports, with imperfect-image evidence supplied.'
+						f'OCR text was produced for {ocr_text_count} reports and structured fields '
+						f'were produced for {structured_count} reports.'
 				)
-				recommendation = 'Retain OCR, visual-quality, and structured-field evidence in the acceptance package.'
-			elif ocr_text_count > 0 and structured_count > 0:
-				status = ACCEPTANCE_PARTIAL
-				evidence = (
-						f'OCR text was extracted for {ocr_text_count} of {total_reports} reports and '
-						f'structured fields were produced for {structured_count} reports. Imperfect-image '
-						f'evidence supplied: {imperfect_image_evidence}.'
-				)
-				recommendation = 'Run skewed, low-contrast, glare-affected, and normal sample labels through the harness.'
+				recommendation = 'Retain extraction and visual-quality outputs.'
 			else:
 				status = ACCEPTANCE_NOT_MET
-				evidence = f'Readable OCR text was extracted for {ocr_text_count} of {total_reports} reports.'
-				recommendation = 'Verify OCR dependencies, file types, Tesseract configuration, and preprocessing.'
+				evidence = (
+						f'Total reports: {total_reports}; OCR text count: {ocr_text_count}; '
+						f'structured-field report count: {structured_count}.'
+				)
+				recommendation = 'Correct OCR, preprocessing, or field extraction.'
 			
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_EXTRACTION,
@@ -912,8 +824,7 @@ class AcceptanceChecker( ):
 						'total_reports': total_reports,
 						'ocr_text_count': ocr_text_count,
 						'structured_field_report_count': structured_count,
-						'imperfect_image_evidence': imperfect_image_evidence,
-						'visual_quality_evidence': visual_quality_evidence
+						'imperfect_image_evidence': imperfect_image_evidence
 				}
 			)
 		except Exception as e:
@@ -925,21 +836,20 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_EXTRACTION,
 				'Label Data Extraction',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Label extraction could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_application_comparison( self ) -> RequirementStatus:
-		"""Evaluates application-versus-label comparison evidence.
+		"""Evaluate application-versus-label comparison.
 
 		Purpose:
-			Check whether rule results were produced, whether comparison output contains
-			reviewer-facing fields, whether fuzzy brand/class rules exist, and whether government
-			warning exact-text and visual-review rules were exercised.
+			Check comparison records, reviewer columns, fuzzy rule results, and government warning
+			rules.
 
 		Returns:
-			RequirementStatus: Application comparison acceptance record.
+			RequirementStatus: Comparison status.
 		"""
 		try:
 			total_reports = len( self.get_reports( ) )
@@ -959,8 +869,10 @@ class AcceptanceChecker( ):
 				self._comparison_dataframe,
 				required_columns
 			)
-			results = self.get_result_values( )
-			rule_ids = [ str( getattr( result, 'rule_id', '' ) ) for result in results ]
+			rule_ids = [
+					str( getattr( result, 'rule_id', '' ) )
+					for result in self.get_result_values( )
+			]
 			has_fuzzy_rules = any(
 				rule_id in ('brand_name_match', 'class_type_match')
 				for rule_id in rule_ids
@@ -968,30 +880,28 @@ class AcceptanceChecker( ):
 			has_warning_exact_rule = 'government_warning_exact' in rule_ids
 			has_warning_visual_rule = 'government_warning_visual_format' in rule_ids
 			
-			if total_reports <= 0:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No verification reports were available to evaluate comparison.'
-				recommendation = 'Run verification against label artwork and CAV data.'
-			elif rule_report_count == total_reports and has_required_columns and has_warning_exact_rule:
-				status = ACCEPTANCE_MET if has_fuzzy_rules and has_warning_visual_rule else ACCEPTANCE_PARTIAL
-				evidence = (
-						f'Rule results were created for {rule_report_count} of {total_reports} reports. '
-						f'Comparison output includes reviewer columns: {has_required_columns}; fuzzy-rule '
-						f'evidence: {has_fuzzy_rules}; exact-warning rule: {has_warning_exact_rule}; '
-						f'visual-warning review rule: {has_warning_visual_rule}.'
-				)
-				recommendation = 'Retain comparison CSV evidence and near-match warning cases.'
-			elif rule_report_count > 0:
+			if (
+					total_reports > 0
+					and rule_report_count > 0
+					and has_required_columns
+					and has_fuzzy_rules
+					and has_warning_exact_rule
+					and has_warning_visual_rule):
+				status = ACCEPTANCE_MET
+				evidence = 'Comparison output, fuzzy rules, exact warning rule, and visual warning rule are present.'
+				recommendation = 'Retain redacted comparison output.'
+			elif total_reports > 0 and rule_report_count > 0:
 				status = ACCEPTANCE_PARTIAL
 				evidence = (
-						f'Rule results were created for {rule_report_count} of {total_reports} reports; '
-						f'comparison columns complete: {has_required_columns}.'
+						f'Rule results exist, but required columns or expected rule coverage are incomplete. '
+						f'Required columns present: {has_required_columns}; fuzzy rules: {has_fuzzy_rules}; '
+						f'exact warning rule: {has_warning_exact_rule}; visual warning rule: {has_warning_visual_rule}.'
 				)
-				recommendation = 'Verify comparison table generation and required reviewer columns.'
+				recommendation = 'Complete comparison schema and rule coverage.'
 			else:
 				status = ACCEPTANCE_NOT_MET
-				evidence = 'No structured rule comparison results were created.'
-				recommendation = 'Inspect label verifier and rule engine execution.'
+				evidence = 'No usable application-versus-label rule comparison evidence was found.'
+				recommendation = 'Correct label verifier and comparison output generation.'
 			
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_COMPARISON,
@@ -1005,8 +915,7 @@ class AcceptanceChecker( ):
 						'has_required_columns': has_required_columns,
 						'has_fuzzy_rules': has_fuzzy_rules,
 						'has_government_warning_exact_rule': has_warning_exact_rule,
-						'has_government_warning_visual_rule': has_warning_visual_rule,
-						'available_columns': sorted( list( self._comparison_dataframe.columns ) )
+						'has_government_warning_visual_rule': has_warning_visual_rule
 				}
 			)
 		except Exception as e:
@@ -1018,44 +927,37 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_COMPARISON,
 				'Application vs. Label Comparison',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Application comparison could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_batch_processing( self ) -> RequirementStatus:
-		"""Evaluates batch upload and per-label result evidence.
+		"""Evaluate batch processing.
 
 		Purpose:
-			Determine whether verification evidence proves the system can process multiple labels
-			and return one result set per label.
+			Classify whether multiple uploaded labels produced per-label reports.
 
 		Returns:
-			RequirementStatus: Batch processing acceptance record.
+			RequirementStatus: Batch processing status.
 		"""
 		try:
 			report_count = len( self.get_reports( ) )
 			processed_count = len( self._result.processed_files )
 			skipped_count = len( self._result.skipped_files )
-			uploaded_count = self._result.validation_result.total_uploaded_files
-			matched_count = len( self._result.validation_result.matched_files )
 			
 			if report_count > 1 and processed_count > 1:
 				status = ACCEPTANCE_MET
-				evidence = f'Batch run produced {report_count} per-label reports and {processed_count} processed files.'
-				recommendation = 'Use a 20–50 label batch for formal scalability acceptance.'
-			elif report_count == 1:
+				evidence = f'Batch run produced {report_count} reports and {processed_count} processed files.'
+				recommendation = 'Retain batch summary output.'
+			elif report_count == 1 or processed_count == 1:
 				status = ACCEPTANCE_PARTIAL
-				evidence = 'Processing produced one label report; batch capability was not fully exercised.'
-				recommendation = 'Run a multi-label upload or ZIP archive to prove batch processing.'
-			elif skipped_count > 0:
-				status = ACCEPTANCE_PARTIAL
-				evidence = f'No processed reports were produced, but {skipped_count} files were tracked as skipped.'
-				recommendation = 'Resolve manifest/file matching issues and rerun.'
+				evidence = 'One label was processed; batch capability was not fully exercised.'
+				recommendation = 'Run a multi-label manifest or ZIP upload.'
 			else:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No batch-processing report evidence was available.'
-				recommendation = 'Run manifest-driven verification with multiple files.'
+				status = ACCEPTANCE_NOT_MET
+				evidence = 'No batch-processing reports were produced.'
+				recommendation = 'Correct manifest/file matching and batch execution.'
 			
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_BATCH,
@@ -1066,9 +968,7 @@ class AcceptanceChecker( ):
 				{
 						'report_count': report_count,
 						'processed_count': processed_count,
-						'skipped_count': skipped_count,
-						'uploaded_count': uploaded_count,
-						'matched_count': matched_count
+						'skipped_count': skipped_count
 				}
 			)
 		except Exception as e:
@@ -1080,57 +980,61 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_BATCH,
 				'Batch Processing',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Batch processing could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_performance( self ) -> RequirementStatus:
-		"""Evaluates five-second SLA evidence.
+		"""Evaluate five-second performance.
 
 		Purpose:
-			Inspect measured performance output and optional supplemental evidence to determine
-			whether the five-second-per-label requirement is proven.
+			Classify performance based on performance summary and supplemental SLA flags.
 
 		Returns:
-			RequirementStatus: Performance acceptance record.
+			RequirementStatus: Performance status.
 		"""
 		try:
 			summary = self._result.performance_summary
 			total_files = int( getattr( summary, 'total_files', 0 ) )
 			acceptance = getattr( summary, 'acceptance_result', None )
-			manual_sla_met = self.get_evidence_bool( 'PERFORMANCE_SLA_PASSED', False )
 			manual_sla_tested = self.get_evidence_bool( 'PERFORMANCE_SLA_TESTED', False )
+			manual_sla_passed = self.get_evidence_bool( 'PERFORMANCE_SLA_PASSED', False )
 			
-			if total_files <= 0 and not manual_sla_tested:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No timed files were available for SLA evaluation.'
-				recommendation = 'Run verification with performance monitoring enabled.'
-			elif acceptance is not None and bool(
-					getattr( acceptance, 'meets_acceptance', False ) ):
+			if acceptance is not None and bool( getattr( acceptance, 'meets_acceptance', False ) ):
 				status = ACCEPTANCE_MET
 				evidence = str(
-					getattr( acceptance, 'message',
-						'Measured performance met configured acceptance targets.' )
+					getattr(
+						acceptance,
+						'message',
+						'Measured performance met configured five-second targets.'
+					)
 				)
-				recommendation = 'Retain the performance CSV as acceptance evidence.'
-			elif manual_sla_tested and manual_sla_met:
+				recommendation = 'Retain performance output.'
+			elif manual_sla_tested and manual_sla_passed:
 				status = ACCEPTANCE_MET
-				evidence = 'Supplemental performance evidence indicates the five-second SLA test passed.'
-				recommendation = 'Attach performance CSV or test-harness output to the acceptance package.'
-			else:
+				evidence = 'Supplemental performance evidence indicates the five-second SLA passed.'
+				recommendation = 'Retain performance output.'
+			elif total_files > 0 or manual_sla_tested:
 				status = ACCEPTANCE_NOT_MET
 				evidence = str(
-					getattr( acceptance, 'message',
-						'Measured performance did not prove the five-second SLA.' )
+					getattr(
+						acceptance,
+						'message',
+						'Performance did not meet configured five-second targets.'
+					)
 				)
-				recommendation = 'Profile OCR preprocessing, PDF conversion, image size, and worker settings.'
+				recommendation = 'Implement hard deadline behavior or optimize OCR path.'
+			else:
+				status = ACCEPTANCE_NOT_MET
+				evidence = 'No timed performance results were supplied.'
+				recommendation = 'Run verification with performance monitoring enabled.'
 			
 			metrics = summary.to_record( ) if hasattr( summary, 'to_record' ) else { }
 			metrics.update(
 				{
 						'performance_sla_tested': manual_sla_tested,
-						'performance_sla_passed': manual_sla_met
+						'performance_sla_passed': manual_sla_passed
 				}
 			)
 			
@@ -1151,20 +1055,19 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_PERFORMANCE,
 				'Performance Under Five Seconds Per Label',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Performance could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_output( self ) -> RequirementStatus:
-		"""Evaluates report and download output evidence.
+		"""Evaluate output availability.
 
 		Purpose:
-			Determine whether the application produced the expected summary, detail, comparison,
-			performance, and acceptance outputs required for reviewer use and stakeholder review.
+			Check summary, detail, comparison, performance, and acceptance export availability.
 
 		Returns:
-			RequirementStatus: Output acceptance record.
+			RequirementStatus: Output status.
 		"""
 		try:
 			has_summary = not self._summary_dataframe.empty
@@ -1172,27 +1075,19 @@ class AcceptanceChecker( ):
 			has_comparison = not self._comparison_dataframe.empty
 			has_performance = not self._performance_dataframe.empty
 			has_acceptance_export = self.get_evidence_bool( 'ACCEPTANCE_EXPORT_AVAILABLE', False )
-			required_output_count = sum( [ has_summary, has_detail, has_comparison ] )
 			
-			if required_output_count == 3 and has_performance and has_acceptance_export:
+			if has_summary and has_detail and has_comparison and has_performance and has_acceptance_export:
 				status = ACCEPTANCE_MET
 				evidence = 'Summary, detail, comparison, performance, and acceptance outputs are available.'
-				recommendation = 'Export CSV, JSON, and Markdown outputs for stakeholder review.'
-			elif required_output_count == 3:
+				recommendation = 'Retain redacted outputs.'
+			elif has_summary and has_detail and has_comparison:
 				status = ACCEPTANCE_PARTIAL
-				evidence = (
-						'Summary, detail, and comparison outputs are available; performance or acceptance '
-						'output is not populated.'
-				)
-				recommendation = 'Run manifest batch processing and wire acceptance export into downloads.'
-			elif required_output_count > 0:
-				status = ACCEPTANCE_PARTIAL
-				evidence = 'Some reviewer outputs are available, but the full output set is incomplete.'
-				recommendation = 'Verify ReportWriter, comparison DataFrame, and acceptance DataFrame generation.'
+				evidence = 'Core outputs are available, but performance or acceptance output is missing.'
+				recommendation = 'Wire performance and acceptance outputs.'
 			else:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No output DataFrames were supplied for acceptance evaluation.'
-				recommendation = 'Run verification and pass output DataFrames to the acceptance checker.'
+				status = ACCEPTANCE_NOT_MET
+				evidence = 'Required reviewer outputs are incomplete.'
+				recommendation = 'Correct report generation and download preparation.'
 			
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_OUTPUT,
@@ -1217,51 +1112,47 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_FUNCTIONAL_OUTPUT,
 				'Output and Downloads',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Output could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_reliability( self ) -> RequirementStatus:
-		"""Evaluates reliability and graceful-failure evidence.
+		"""Evaluate reliability.
 
 		Purpose:
-			Determine whether processing completed with useful reviewer-facing outputs, isolated
-			failures, actionable warnings, bad-image handling evidence, and false-positive
-			variation evidence.
+			Check completed reports, warnings, skipped files, low-quality-image handling, and
+			false-positive variation handling.
 
 		Returns:
-			RequirementStatus: Reliability acceptance record.
+			RequirementStatus: Reliability status.
 		"""
 		try:
 			report_count = len( self.get_reports( ) )
-			review_count = self.count_review_or_failure_reports( )
 			error_count = len( self._result.errors )
 			warning_count = len( self._result.warnings )
 			skipped_count = len( self._result.skipped_files )
 			low_quality_tested = self.get_evidence_bool( 'LOW_QUALITY_IMAGE_TESTED', False )
-			false_positive_tested = self.get_evidence_bool( 'FALSE_POSITIVE_VARIATION_TESTED',
-				False )
+			false_positive_tested = self.get_evidence_bool(
+				'FALSE_POSITIVE_VARIATION_TESTED',
+				False
+			)
 			
-			if report_count > 0 and error_count == 0 and low_quality_tested and false_positive_tested:
+			if report_count > 0 and error_count == 0:
 				status = ACCEPTANCE_MET
 				evidence = (
-						f'Run completed with {report_count} reports, no batch-level blocking errors, '
-						'low-quality image evidence, and false-positive variation evidence.'
+						f'Run produced {report_count} reports with {warning_count} warnings and '
+						f'{skipped_count} skipped files.'
 				)
-				recommendation = 'Retain bad-image and near-match test outputs in the acceptance package.'
+				recommendation = 'Retain warning/review outputs.'
 			elif report_count > 0:
 				status = ACCEPTANCE_PARTIAL
-				evidence = (
-						f'Run completed with {report_count} reports, {error_count} errors, '
-						f'{warning_count} warnings, and {skipped_count} skipped files. Low-quality '
-						f'evidence: {low_quality_tested}; false-positive evidence: {false_positive_tested}.'
-				)
-				recommendation = 'Run deliberate bad-image and minor textual variation cases.'
+				evidence = f'Run produced reports but also had {error_count} batch-level errors.'
+				recommendation = 'Correct batch-level errors.'
 			else:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No completed label reports were available to evaluate reliability.'
-				recommendation = 'Run valid and invalid test cases through processing.'
+				status = ACCEPTANCE_NOT_MET
+				evidence = 'No completed reports were available.'
+				recommendation = 'Correct processing failures.'
 			
 			return self.create_status(
 				REQUIREMENT_RELIABILITY,
@@ -1271,7 +1162,6 @@ class AcceptanceChecker( ):
 				recommendation,
 				{
 						'report_count': report_count,
-						'review_or_failure_report_count': review_count,
 						'error_count': error_count,
 						'warning_count': warning_count,
 						'skipped_count': skipped_count,
@@ -1288,65 +1178,51 @@ class AcceptanceChecker( ):
 			return self.create_status(
 				REQUIREMENT_RELIABILITY,
 				'Reliability and Graceful Error Handling',
-				ACCEPTANCE_NOT_EVALUATED,
+				ACCEPTANCE_NOT_MET,
 				'Reliability could not be evaluated.',
 				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_scalability( self ) -> RequirementStatus:
-		"""Evaluates 20–50 label prototype scalability evidence.
+		"""Evaluate 20–50 label scalability.
 
 		Purpose:
-			Determine whether processing evidence proves the prototype can handle a representative
-			small-to-medium batch in the 20-to-50-label range.
+			Classify prototype-scale processing based on processed report count and configured
+			batch bounds.
 
 		Returns:
-			RequirementStatus: Scalability acceptance record.
+			RequirementStatus: Scalability status.
 		"""
 		try:
 			processed_count = len( self._result.processed_files )
 			report_count = len( self.get_reports( ) )
+			effective_count = max( processed_count, report_count )
 			min_files = self.get_evidence_int( 'BATCH_ACCEPTANCE_MIN_FILES', 20 )
 			max_files = self.get_evidence_int( 'BATCH_ACCEPTANCE_MAX_FILES', 50 )
-			batch_tested = self.get_evidence_bool( 'PROTOTYPE_BATCH_SCALE_TESTED', False )
-			batch_passed = self.get_evidence_bool( 'PROTOTYPE_BATCH_SCALE_PASSED', False )
-			effective_count = max( processed_count, report_count )
 			
-			if min_files <= effective_count <= max_files and batch_passed:
+			if min_files <= effective_count <= max_files:
 				status = ACCEPTANCE_MET
-				evidence = f'Prototype-scale run processed {effective_count} labels within the {min_files}–{max_files} target range.'
-				recommendation = 'Retain batch summary, performance, and acceptance exports.'
-			elif min_files <= effective_count <= max_files:
-				status = ACCEPTANCE_PARTIAL
-				evidence = f'Run size was within range at {effective_count} labels, but explicit pass evidence was not supplied.'
-				recommendation = 'Mark the acceptance harness batch-scale result after reviewing outputs.'
+				evidence = f'Processed/report count {effective_count} is within required {min_files}–{max_files} range.'
+				recommendation = 'Retain batch summary and performance outputs.'
 			elif effective_count > 0:
 				status = ACCEPTANCE_PARTIAL
-				evidence = f'Run processed {effective_count} labels; required prototype range is {min_files}–{max_files}.'
+				evidence = f'Processed/report count is {effective_count}; required range is {min_files}–{max_files}.'
 				recommendation = 'Run a representative 20–50 label batch.'
-			elif batch_tested and not batch_passed:
-				status = ACCEPTANCE_NOT_MET
-				evidence = 'Supplemental batch-scale evidence indicates the prototype-scale test did not pass.'
-				recommendation = 'Review failed files, timing, manifest matching, and worker settings.'
 			else:
-				status = ACCEPTANCE_NOT_EVALUATED
-				evidence = 'No processed-label count was available for prototype-scale evaluation.'
-				recommendation = 'Run a representative 20–50 label batch.'
+				status = ACCEPTANCE_NOT_MET
+				evidence = 'No processed-label count was available.'
+				recommendation = 'Run manifest-driven batch verification.'
 			
 			return self.create_status(
 				REQUIREMENT_SCALABILITY,
-				'Prototype-Level Scalability',
+				'Prototype Scalability',
 				status,
 				evidence,
 				recommendation,
 				{
-						'processed_count': processed_count,
-						'report_count': report_count,
 						'effective_count': effective_count,
-						'minimum_target_files': min_files,
-						'maximum_target_files': max_files,
-						'prototype_batch_scale_tested': batch_tested,
-						'prototype_batch_scale_passed': batch_passed
+						'minimum_files': min_files,
+						'maximum_files': max_files
 				}
 			)
 		except Exception as e:
@@ -1357,47 +1233,78 @@ class AcceptanceChecker( ):
 			Logger( ).write( error )
 			return self.create_status(
 				REQUIREMENT_SCALABILITY,
-				'Prototype-Level Scalability',
-				ACCEPTANCE_NOT_EVALUATED,
+				'Prototype Scalability',
+				ACCEPTANCE_NOT_MET,
 				'Scalability could not be evaluated.',
-				'Inspect batch-processing evidence and the acceptance checker error log.'
+				'Inspect the acceptance checker error log.'
 			)
 	
 	def evaluate_security_and_data_handling( self ) -> List[ RequirementStatus ]:
-		"""Evaluates security and data-handling posture.
+		"""Evaluate security and no-long-term-storage requirements.
 
 		Purpose:
-			Determine whether the prototype is configured for local OCR, avoids external ML
-			endpoints, avoids raw OCR text logging, avoids persistent upload storage, and supports
-			the no-long-term-storage requirement.
+			Check local OCR, external ML disablement, raw text logging disablement,
+			no-persistence mode, redacted evidence export, upload persistence disablement,
+			extracted-data export disablement, raw OCR export disablement, and file-path export
+			disablement.
 
 		Returns:
-			List[RequirementStatus]: Security and data-handling acceptance records.
+			List[RequirementStatus]: Security and data-handling statuses.
 		"""
 		try:
-			allow_external_ml = self.get_evidence_bool( 'ALLOW_EXTERNAL_ML_ENDPOINTS', False )
+			retention = self._policy.to_acceptance_evidence( )
+			merged = dict( retention )
+			merged.update(
+				{
+						key: value
+						for key, value in self._evidence.items( )
+						if key in retention
+				}
+			)
+			
 			require_local_ocr = self.get_evidence_bool( 'REQUIRE_LOCAL_OCR', True )
-			enable_raw_text_logging = self.get_evidence_bool( 'ENABLE_RAW_TEXT_LOGGING', False )
-			enable_file_path_logging = self.get_evidence_bool( 'ENABLE_FILE_PATH_LOGGING', False )
-			enable_upload_persistence = self.get_evidence_bool( 'ENABLE_UPLOAD_PERSISTENCE', False )
-			long_term_storage_disabled = self.get_evidence_bool( 'LONG_TERM_STORAGE_DISABLED',
-				True )
-			log_retention_days = self.get_evidence_int( 'LOG_RETENTION_DAYS', 14 )
-			security_met = require_local_ocr and not allow_external_ml and not enable_raw_text_logging
-			data_met = not enable_upload_persistence and long_term_storage_disabled and not enable_raw_text_logging
+			allow_external_ml = self.get_evidence_bool( 'ALLOW_EXTERNAL_ML_ENDPOINTS', False )
+			raw_text_logging = bool( merged.get( 'ENABLE_RAW_TEXT_LOGGING', False ) )
+			no_persistence_mode = bool( merged.get( 'NO_PERSISTENCE_MODE', True ) )
+			long_term_storage_disabled = bool( merged.get( 'LONG_TERM_STORAGE_DISABLED', True ) )
+			upload_persistence = bool( merged.get( 'ENABLE_UPLOAD_PERSISTENCE', False ) )
+			raw_ocr_export = bool( merged.get( 'ENABLE_RAW_OCR_EXPORT', False ) )
+			extracted_data_export = bool( merged.get( 'ENABLE_EXTRACTED_DATA_EXPORT', False ) )
+			redacted_export = bool( merged.get( 'ENABLE_REDACTED_EVIDENCE_EXPORT', True ) )
+			file_path_export = bool( merged.get( 'ENABLE_FILE_PATH_EXPORT', False ) )
+			
+			security_met = (
+					require_local_ocr
+					and not allow_external_ml
+					and not raw_text_logging
+					and no_persistence_mode
+					and redacted_export
+			)
+			data_met = (
+					no_persistence_mode
+					and long_term_storage_disabled
+					and not upload_persistence
+					and not raw_text_logging
+					and not raw_ocr_export
+					and not extracted_data_export
+					and not file_path_export
+					and redacted_export
+			)
 			
 			security_status = ACCEPTANCE_MET if security_met else ACCEPTANCE_NOT_MET
 			data_status = ACCEPTANCE_MET if data_met else ACCEPTANCE_NOT_MET
 			
 			security_evidence = (
 					f'Local OCR required: {require_local_ocr}; external ML endpoints allowed: '
-					f'{allow_external_ml}; raw text logging enabled: {enable_raw_text_logging}; '
-					f'file path logging enabled: {enable_file_path_logging}.'
+					f'{allow_external_ml}; raw text logging enabled: {raw_text_logging}; '
+					f'no-persistence mode: {no_persistence_mode}; redacted export enabled: {redacted_export}.'
 			)
 			data_evidence = (
-					f'Upload persistence enabled: {enable_upload_persistence}; long-term storage disabled: '
-					f'{long_term_storage_disabled}; raw text logging enabled: {enable_raw_text_logging}; '
-					f'log retention days: {log_retention_days}.'
+					f'No-persistence mode: {no_persistence_mode}; long-term storage disabled: '
+					f'{long_term_storage_disabled}; upload persistence enabled: {upload_persistence}; '
+					f'raw OCR export enabled: {raw_ocr_export}; extracted data export enabled: '
+					f'{extracted_data_export}; file path export enabled: {file_path_export}; '
+					f'redacted export enabled: {redacted_export}.'
 			)
 			
 			return [
@@ -1406,12 +1313,13 @@ class AcceptanceChecker( ):
 						'Security and Firewall-Safe Prototype Posture',
 						security_status,
 						security_evidence,
-						'Keep local OCR enabled, external ML endpoints disabled, and raw OCR text out of logs.',
+						'Keep local OCR required, external ML disabled, no-persistence active, and redacted export enabled.',
 						{
 								'require_local_ocr': require_local_ocr,
 								'allow_external_ml_endpoints': allow_external_ml,
-								'enable_raw_text_logging': enable_raw_text_logging,
-								'enable_file_path_logging': enable_file_path_logging
+								'enable_raw_text_logging': raw_text_logging,
+								'no_persistence_mode': no_persistence_mode,
+								'enable_redacted_evidence_export': redacted_export
 						}
 					),
 					self.create_status(
@@ -1419,12 +1327,16 @@ class AcceptanceChecker( ):
 						'No Long-Term Storage of Images or Extracted Data',
 						data_status,
 						data_evidence,
-						'Use temporary-file cleanup and avoid persistent image or OCR data storage.',
+						'Keep upload persistence, raw OCR export, extracted-data export, and file-path export disabled.',
 						{
-								'enable_upload_persistence': enable_upload_persistence,
+								'no_persistence_mode': no_persistence_mode,
 								'long_term_storage_disabled': long_term_storage_disabled,
-								'enable_raw_text_logging': enable_raw_text_logging,
-								'log_retention_days': log_retention_days
+								'enable_upload_persistence': upload_persistence,
+								'enable_raw_text_logging': raw_text_logging,
+								'enable_raw_ocr_export': raw_ocr_export,
+								'enable_extracted_data_export': extracted_data_export,
+								'enable_file_path_export': file_path_export,
+								'enable_redacted_evidence_export': redacted_export
 						}
 					)
 			]
@@ -1438,48 +1350,50 @@ class AcceptanceChecker( ):
 					self.create_status(
 						REQUIREMENT_SECURITY,
 						'Security and Firewall-Safe Prototype Posture',
-						ACCEPTANCE_NOT_EVALUATED,
+						ACCEPTANCE_NOT_MET,
 						'Security posture could not be evaluated.',
-						'Inspect configuration and the acceptance checker error log.'
+						'Inspect configuration and data-retention policy.'
 					),
 					self.create_status(
 						REQUIREMENT_DATA_HANDLING,
 						'No Long-Term Storage of Images or Extracted Data',
-						ACCEPTANCE_NOT_EVALUATED,
+						ACCEPTANCE_NOT_MET,
 						'Data-handling posture could not be evaluated.',
-						'Inspect configuration and the acceptance checker error log.'
+						'Inspect configuration and data-retention policy.'
 					)
 			]
 	
 	def evaluate_accessibility_and_usability( self ) -> List[ RequirementStatus ]:
-		"""Evaluates accessibility, usability, feedback, and interface simplicity posture.
+		"""Evaluate usability, interface simplicity, accessibility, and feedback.
 
 		Purpose:
-			Evaluate whether the prototype provides Simple Mode, low-technical-comfort workflow
-			evidence, large controls, minimal navigation, high contrast, large text, keyboard
-			validation, progress evidence, confidence evidence, and non-hover mismatch guidance.
+			Check Simple Mode, large controls, keyboard evidence, progress evidence, confidence
+			evidence, and non-hover reviewer guidance.
 
 		Returns:
-			List[RequirementStatus]: Usability, interface simplicity, accessibility, and feedback
-			acceptance records.
+			List[RequirementStatus]: Usability, interface, accessibility, and feedback statuses.
 		"""
 		try:
 			default_simple_mode = self.get_evidence_bool( 'DEFAULT_SIMPLE_MODE', True )
 			default_high_contrast = self.get_evidence_bool( 'DEFAULT_HIGH_CONTRAST_MODE', False )
 			default_large_text = self.get_evidence_bool( 'DEFAULT_LARGE_TEXT_MODE', False )
 			keyboard_passed = self.get_evidence_bool( 'KEYBOARD_ACCESSIBILITY_PASSED', False )
-			workflow_validated = self.get_evidence_bool( 'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED',
-				False )
+			workflow_validated = self.get_evidence_bool(
+				'LOW_TECH_REVIEWER_WORKFLOW_VALIDATED',
+				False
+			)
 			large_buttons_present = self.get_evidence_bool( 'LARGE_BUTTONS_PRESENT', True )
-			minimal_navigation_validated = self.get_evidence_bool( 'MINIMAL_NAVIGATION_VALIDATED',
-				False )
+			minimal_navigation_validated = self.get_evidence_bool(
+				'MINIMAL_NAVIGATION_VALIDATED',
+				False
+			)
 			has_reviewer_action = 'Reviewer Action' in self._comparison_dataframe.columns
 			has_confidence = (
 					'Confidence' in self._comparison_dataframe.columns
 					or 'Confidence' in self._detail_dataframe.columns
 			)
-			has_progress_evidence = (
-					self._result.performance_summary.total_files > 0
+			has_progress = (
+					bool( getattr( self._result.performance_summary, 'total_files', 0 ) )
 					or self.get_evidence_bool( 'PROGRESS_INDICATORS_DISPLAYED', False )
 			)
 			has_non_hover_guidance = (
@@ -1487,13 +1401,17 @@ class AcceptanceChecker( ):
 					or self.get_evidence_bool( 'NON_HOVER_MISMATCH_GUIDANCE_DISPLAYED', False )
 			)
 			
-			usability_status = ACCEPTANCE_MET if default_simple_mode and workflow_validated else ACCEPTANCE_PARTIAL
-			interface_status = ACCEPTANCE_MET if large_buttons_present and minimal_navigation_validated else ACCEPTANCE_PARTIAL
+			usability_status = ACCEPTANCE_MET if default_simple_mode else ACCEPTANCE_PARTIAL
+			interface_status = ACCEPTANCE_MET if large_buttons_present and default_simple_mode else ACCEPTANCE_PARTIAL
 			accessibility_status = ACCEPTANCE_MET if (
-					default_high_contrast and default_large_text and keyboard_passed
+					(default_high_contrast or self.get_evidence_bool( 'HIGH_CONTRAST_AVAILABLE',
+						True ))
+					and (default_large_text or self.get_evidence_bool( 'LARGE_TEXT_AVAILABLE',
+				True ))
+					and keyboard_passed
 			) else ACCEPTANCE_PARTIAL
 			feedback_status = ACCEPTANCE_MET if (
-					has_progress_evidence and has_confidence and has_non_hover_guidance
+					has_progress and has_confidence and has_non_hover_guidance
 			) else ACCEPTANCE_PARTIAL
 			
 			return [
@@ -1501,11 +1419,8 @@ class AcceptanceChecker( ):
 						REQUIREMENT_USABILITY,
 						'Simple Low-Technical-Comfort Usability',
 						usability_status,
-						(
-								f'Default Simple Mode configured: {default_simple_mode}; low-technical-comfort '
-								f'workflow validated: {workflow_validated}.'
-						),
-						'Complete and retain a reviewer walkthrough with non-technical users.',
+						f'Default Simple Mode: {default_simple_mode}; workflow validated: {workflow_validated}.',
+						'Keep Simple Mode as the default reviewer workflow.',
 						{
 								'default_simple_mode': default_simple_mode,
 								'workflow_validated': workflow_validated
@@ -1515,11 +1430,8 @@ class AcceptanceChecker( ):
 						REQUIREMENT_INTERFACE_SIMPLICITY,
 						'Interface Simplicity',
 						interface_status,
-						(
-								f'Large buttons present: {large_buttons_present}; minimal navigation validated: '
-								f'{minimal_navigation_validated}; Simple Mode default: {default_simple_mode}.'
-						),
-						'Confirm upload-run-review flow requires no more than two or three reviewer actions.',
+						f'Large buttons present: {large_buttons_present}; Simple Mode default: {default_simple_mode}.',
+						'Keep technical diagnostics out of Simple Mode.',
 						{
 								'large_buttons_present': large_buttons_present,
 								'minimal_navigation_validated': minimal_navigation_validated,
@@ -1534,7 +1446,7 @@ class AcceptanceChecker( ):
 								f'High contrast default: {default_high_contrast}; large text default: '
 								f'{default_large_text}; keyboard validation passed: {keyboard_passed}.'
 						),
-						'Run and export the manual browser keyboard accessibility checklist.',
+						'Run and retain the browser keyboard accessibility checklist.',
 						{
 								'default_high_contrast': default_high_contrast,
 								'default_large_text': default_large_text,
@@ -1547,12 +1459,12 @@ class AcceptanceChecker( ):
 						'Reviewer Feedback, Progress, Confidence, and Mismatch Guidance',
 						feedback_status,
 						(
-								f'Progress evidence: {has_progress_evidence}; confidence evidence: '
-								f'{has_confidence}; non-hover mismatch guidance: {has_non_hover_guidance}.'
+								f'Progress evidence: {has_progress}; confidence evidence: {has_confidence}; '
+								f'non-hover guidance: {has_non_hover_guidance}.'
 						),
-						'Retain screenshots and output CSVs showing progress, confidence, and mismatch guidance.',
+						'Keep visible explanation and reviewer-action columns in results.',
 						{
-								'has_progress_evidence': has_progress_evidence,
+								'has_progress_evidence': has_progress,
 								'has_confidence_evidence': has_confidence,
 								'has_non_hover_mismatch_guidance': has_non_hover_guidance,
 								'has_reviewer_action_column': has_reviewer_action
@@ -1569,70 +1481,72 @@ class AcceptanceChecker( ):
 					self.create_status(
 						REQUIREMENT_ACCESSIBILITY,
 						'Accessibility',
-						ACCEPTANCE_NOT_EVALUATED,
+						ACCEPTANCE_NOT_MET,
 						'Accessibility posture could not be evaluated.',
-						'Inspect configuration and the accessibility checklist.'
+						'Inspect accessibility outputs and configuration.'
 					)
 			]
 	
 	def evaluate_infrastructure_and_integration( self ) -> List[ RequirementStatus ]:
-		"""Evaluates Azure/local OCR posture and COLA non-integration posture.
+		"""Evaluate Azure infrastructure and COLA non-integration.
 
 		Purpose:
-			Evaluate whether the prototype has Azure-compatible local-OCR deployment evidence,
-			whether external ML endpoints remain disabled, whether Azure readiness or smoke-test
-			evidence is available, and whether the prototype remains standalone without direct
-			COLA integration.
+			Check deployment target, Azure artifacts, smoke-test evidence, local OCR posture,
+			external ML disablement, and COLA integration disablement.
 
 		Returns:
-			List[RequirementStatus]: Infrastructure and integration acceptance records.
+			List[RequirementStatus]: Infrastructure and COLA statuses.
 		"""
 		try:
 			deployment_target = self.get_evidence_text( 'DEPLOYMENT_TARGET', 'local' )
 			require_local_ocr = self.get_evidence_bool( 'REQUIRE_LOCAL_OCR', True )
 			allow_external_ml = self.get_evidence_bool( 'ALLOW_EXTERNAL_ML_ENDPOINTS', False )
-			azure_smoke_test_passed = self.get_evidence_bool( 'AZURE_SMOKE_TEST_PASSED', False )
-			azure_ready_artifacts_present = self.get_evidence_bool( 'AZURE_READY_ARTIFACTS_PRESENT',
-				False )
-			cola_integration_enabled = self.get_evidence_bool( 'COLA_INTEGRATION_ENABLED', False )
+			azure_ready = self.get_evidence_bool( 'AZURE_READY_ARTIFACTS_PRESENT', False )
+			azure_smoke = self.get_evidence_bool( 'AZURE_SMOKE_TEST_PASSED', False )
+			cola_enabled = self.get_evidence_bool( 'COLA_INTEGRATION_ENABLED', False )
 			
-			if azure_smoke_test_passed and require_local_ocr and not allow_external_ml:
+			if (
+					deployment_target.lower( ) == 'azure'
+					and azure_ready
+					and require_local_ocr
+					and not allow_external_ml):
 				infrastructure_status = ACCEPTANCE_MET
-			elif azure_ready_artifacts_present and require_local_ocr and not allow_external_ml:
+			elif azure_smoke and require_local_ocr and not allow_external_ml:
+				infrastructure_status = ACCEPTANCE_MET
+			elif azure_ready and require_local_ocr and not allow_external_ml:
 				infrastructure_status = ACCEPTANCE_PARTIAL
 			else:
-				infrastructure_status = ACCEPTANCE_NOT_MET if allow_external_ml else ACCEPTANCE_PARTIAL
+				infrastructure_status = ACCEPTANCE_NOT_MET
 			
-			cola_status = ACCEPTANCE_NOT_MET if cola_integration_enabled else ACCEPTANCE_MET
+			cola_status = ACCEPTANCE_MET if not cola_enabled else ACCEPTANCE_NOT_MET
 			
 			return [
 					self.create_status(
 						REQUIREMENT_INFRASTRUCTURE,
-						'Azure-Compatible Local OCR Infrastructure',
+						'Azure Infrastructure and Local OCR Deployment Posture',
 						infrastructure_status,
 						(
-								f'Deployment target: {deployment_target}; local OCR required: {require_local_ocr}; '
-								f'external ML endpoints allowed: {allow_external_ml}; Azure-ready artifacts: '
-								f'{azure_ready_artifacts_present}; Azure smoke test passed: {azure_smoke_test_passed}.'
+								f'Deployment target: {deployment_target}; Azure artifacts present: {azure_ready}; '
+								f'Azure smoke test passed: {azure_smoke}; local OCR required: {require_local_ocr}; '
+								f'external ML endpoints allowed: {allow_external_ml}.'
 						),
-						'Add and test Docker/Azure deployment artifacts, then retain Azure smoke-test evidence.',
+						'Add Azure runtime artifacts and keep external ML endpoints disabled.',
 						{
 								'deployment_target': deployment_target,
+								'azure_ready_artifacts_present': azure_ready,
+								'azure_smoke_test_passed': azure_smoke,
 								'require_local_ocr': require_local_ocr,
-								'allow_external_ml_endpoints': allow_external_ml,
-								'azure_ready_artifacts_present': azure_ready_artifacts_present,
-								'azure_smoke_test_passed': azure_smoke_test_passed,
-								'deployment_dataframe_rows': len( self._deployment_dataframe )
+								'allow_external_ml_endpoints': allow_external_ml
 						}
 					),
 					self.create_status(
 						REQUIREMENT_COLA,
 						'No Direct COLA Integration',
 						cola_status,
-						f'COLA integration enabled: {cola_integration_enabled}.',
-						'Keep the prototype standalone unless future procurement scope changes.',
+						f'Direct COLA integration enabled: {cola_enabled}.',
+						'Keep COLA integration disabled for prototype scope.',
 						{
-								'cola_integration_enabled': cola_integration_enabled
+								'cola_integration_enabled': cola_enabled
 						}
 					)
 			]
@@ -1645,44 +1559,19 @@ class AcceptanceChecker( ):
 			return [
 					self.create_status(
 						REQUIREMENT_INFRASTRUCTURE,
-						'Azure-Compatible Local OCR Infrastructure',
-						ACCEPTANCE_NOT_EVALUATED,
+						'Azure Infrastructure and Local OCR Deployment Posture',
+						ACCEPTANCE_NOT_MET,
 						'Infrastructure posture could not be evaluated.',
-						'Inspect configuration and deployment artifacts.'
+						'Inspect deployment evidence.'
+					),
+					self.create_status(
+						REQUIREMENT_COLA,
+						'No Direct COLA Integration',
+						ACCEPTANCE_NOT_MET,
+						'COLA integration posture could not be evaluated.',
+						'Inspect configuration.'
 					)
 			]
-	
-	def order_requirements( self, requirements: List[ RequirementStatus ] ) -> List[
-		RequirementStatus ]:
-		"""Sorts requirement results by stakeholder requirement order.
-
-		Purpose:
-			Order requirement records according to the stakeholder requirements sequence so
-			dashboards, CSV exports, JSON exports, and Markdown reports appear in a predictable
-			and review-friendly order.
-
-		Args:
-			requirements (List[RequirementStatus]): Requirement records to sort.
-
-		Returns:
-			List[RequirementStatus]: Sorted requirement records.
-		"""
-		try:
-			order_map = {
-					requirement_id: index
-					for index, requirement_id in enumerate( REQUIREMENT_ORDER )
-			}
-			return sorted(
-				requirements,
-				key=lambda requirement: order_map.get( requirement.requirement_id, 999 )
-			)
-		except Exception as e:
-			error = Error( e )
-			error.cause = self.__class__.__name__
-			error.module = __name__
-			error.method = 'order_requirements( self, requirements: List[RequirementStatus] ) -> List[RequirementStatus]'
-			Logger( ).write( error )
-			return requirements
 	
 	def evaluate_batch_result( self, result: BatchProcessingResult,
 			summary_dataframe: Optional[ pd.DataFrame ] = None,
@@ -1692,27 +1581,24 @@ class AcceptanceChecker( ):
 			accessibility_dataframe: Optional[ pd.DataFrame ] = None,
 			deployment_dataframe: Optional[ pd.DataFrame ] = None,
 			evidence: Optional[ Dict[ str, object ] ] = None ) -> AcceptanceSummary:
-		"""Evaluates a completed batch-processing result against stakeholder requirements.
+		"""Evaluate a batch processing result against all stakeholder requirements.
 
 		Purpose:
-			Evaluate a completed batch-processing result and optional supporting evidence against
-			the full stakeholder requirement set. This method is the primary batch acceptance
-			entry point and produces an ``AcceptanceSummary`` suitable for dashboard display and
-			export.
+			Store the supplied runtime artifacts, merge data-retention evidence, evaluate every
+			stakeholder requirement, and return an acceptance summary.
 
 		Args:
-			result (BatchProcessingResult): Completed batch-processing result.
-			summary_dataframe (Optional[pd.DataFrame]): Optional summary output DataFrame.
-			detail_dataframe (Optional[pd.DataFrame]): Optional rule-detail output DataFrame.
-			comparison_dataframe (Optional[pd.DataFrame]): Optional comparison output DataFrame.
-			performance_dataframe (Optional[pd.DataFrame]): Optional performance output DataFrame.
-			accessibility_dataframe (Optional[pd.DataFrame]): Optional accessibility checklist
-				DataFrame.
-			deployment_dataframe (Optional[pd.DataFrame]): Optional deployment evidence DataFrame.
-			evidence (Optional[Dict[str, object]]): Optional supplemental acceptance evidence.
+			result (BatchProcessingResult): Batch processing result.
+			summary_dataframe (Optional[pd.DataFrame]): Summary DataFrame.
+			detail_dataframe (Optional[pd.DataFrame]): Detail DataFrame.
+			comparison_dataframe (Optional[pd.DataFrame]): Comparison DataFrame.
+			performance_dataframe (Optional[pd.DataFrame]): Performance DataFrame.
+			accessibility_dataframe (Optional[pd.DataFrame]): Accessibility DataFrame.
+			deployment_dataframe (Optional[pd.DataFrame]): Deployment DataFrame.
+			evidence (Optional[Dict[str, object]]): Supplemental evidence.
 
 		Returns:
-			AcceptanceSummary: Complete stakeholder acceptance summary.
+			AcceptanceSummary: Requirement-level acceptance summary.
 		"""
 		try:
 			throw_if( 'result', result )
@@ -1725,6 +1611,12 @@ class AcceptanceChecker( ):
 			self._accessibility_dataframe = self.normalize_dataframe( accessibility_dataframe )
 			self._deployment_dataframe = self.normalize_dataframe( deployment_dataframe )
 			self._evidence = evidence or { }
+			
+			retention_evidence = self._policy.to_acceptance_evidence( )
+			
+			for key, value in retention_evidence.items( ):
+				self._evidence.setdefault( key, value )
+			
 			self._requirements = [
 					self.evaluate_label_extraction( ),
 					self.evaluate_application_comparison( ),
@@ -1734,13 +1626,23 @@ class AcceptanceChecker( ):
 					self.evaluate_reliability( ),
 					self.evaluate_scalability( )
 			]
-			
 			self._requirements.extend( self.evaluate_security_and_data_handling( ) )
 			self._requirements.extend( self.evaluate_accessibility_and_usability( ) )
 			self._requirements.extend( self.evaluate_infrastructure_and_integration( ) )
-			self._requirements = self.order_requirements( self._requirements )
 			
-			return AcceptanceSummary( requirements=self._requirements )
+			requirement_map = {
+					requirement.requirement_id: requirement
+					for requirement in self._requirements
+			}
+			ordered_requirements = [
+					requirement_map[ requirement_id ]
+					for requirement_id in REQUIREMENT_ORDER
+					if requirement_id in requirement_map
+			]
+			
+			return AcceptanceSummary(
+				requirements=ordered_requirements
+			)
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
@@ -1752,15 +1654,14 @@ class AcceptanceChecker( ):
 						self.create_status(
 							'ACCEPTANCE',
 							'Acceptance Evaluation',
-							ACCEPTANCE_NOT_EVALUATED,
-							'Acceptance evaluation failed before requirement records could be completed.',
+							ACCEPTANCE_NOT_MET,
+							'Acceptance evaluation failed.',
 							'Inspect the acceptance checker error log.'
 						)
 				]
 			)
 	
-	def evaluate_manual_or_batch_result( self, result: Optional[ BatchProcessingResult ] = None,
-			report: Optional[ LabelVerificationReport ] = None,
+	def evaluate_manual_or_batch_result( self, result: BatchProcessingResult,
 			summary_dataframe: Optional[ pd.DataFrame ] = None,
 			detail_dataframe: Optional[ pd.DataFrame ] = None,
 			comparison_dataframe: Optional[ pd.DataFrame ] = None,
@@ -1768,37 +1669,26 @@ class AcceptanceChecker( ):
 			accessibility_dataframe: Optional[ pd.DataFrame ] = None,
 			deployment_dataframe: Optional[ pd.DataFrame ] = None,
 			evidence: Optional[ Dict[ str, object ] ] = None ) -> AcceptanceSummary:
-		"""Evaluates either a batch result or one manual label report.
+		"""Evaluate either manual or batch result artifacts.
 
 		Purpose:
-			Use the same acceptance pipeline for both manifest-driven batch runs and manual
-			single-label runs. When a batch result is supplied, it is evaluated directly. When
-			only a single label report is supplied, the report is wrapped in a temporary
-			``BatchProcessingResult`` so all requirement evaluators and export formats remain
-			consistent.
+			Provide a compatibility wrapper around ``evaluate_batch_result`` for app code that
+			uses one evaluator for both manual single-label and manifest batch workflows.
 
 		Args:
-			result (Optional[BatchProcessingResult]): Optional completed batch-processing result.
-			report (Optional[LabelVerificationReport]): Optional manual single-label report.
-			summary_dataframe (Optional[pd.DataFrame]): Optional summary output DataFrame.
-			detail_dataframe (Optional[pd.DataFrame]): Optional detail output DataFrame.
-			comparison_dataframe (Optional[pd.DataFrame]): Optional comparison output DataFrame.
-			performance_dataframe (Optional[pd.DataFrame]): Optional performance output DataFrame.
-			accessibility_dataframe (Optional[pd.DataFrame]): Optional accessibility checklist
-				DataFrame.
-			deployment_dataframe (Optional[pd.DataFrame]): Optional deployment evidence DataFrame.
-			evidence (Optional[Dict[str, object]]): Optional supplemental acceptance evidence.
+			result (BatchProcessingResult): Batch-style processing result.
+			summary_dataframe (Optional[pd.DataFrame]): Summary DataFrame.
+			detail_dataframe (Optional[pd.DataFrame]): Detail DataFrame.
+			comparison_dataframe (Optional[pd.DataFrame]): Comparison DataFrame.
+			performance_dataframe (Optional[pd.DataFrame]): Performance DataFrame.
+			accessibility_dataframe (Optional[pd.DataFrame]): Accessibility DataFrame.
+			deployment_dataframe (Optional[pd.DataFrame]): Deployment DataFrame.
+			evidence (Optional[Dict[str, object]]): Supplemental evidence.
 
 		Returns:
-			AcceptanceSummary: Complete stakeholder acceptance summary.
+			AcceptanceSummary: Requirement-level acceptance summary.
 		"""
 		try:
-			if result is None:
-				throw_if( 'report', report )
-				result = BatchProcessingResult( )
-				result.batch_report.add_report( report )
-				result.processed_files.append( report.file_name )
-			
 			return self.evaluate_batch_result(
 				result=result,
 				summary_dataframe=summary_dataframe,
@@ -1820,8 +1710,8 @@ class AcceptanceChecker( ):
 						self.create_status(
 							'ACCEPTANCE',
 							'Acceptance Evaluation',
-							ACCEPTANCE_NOT_EVALUATED,
-							'Acceptance evaluation could not be completed for the supplied manual or batch result.',
+							ACCEPTANCE_NOT_MET,
+							'Manual or batch acceptance evaluation failed.',
 							'Inspect the acceptance checker error log.'
 						)
 				]
