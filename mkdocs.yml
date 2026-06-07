@@ -14,15 +14,15 @@ theme:
 nav:
   - Home: index.md
   - Installation: INSTALLATION.md
+  - Architecture: ARCHITECTURE.md
   - User Guide: USER_GUIDE.md
   - Examples: EXAMPLES.md
-  - Architecture: ARCHITECTURE.md
   - API Reference: API.md
   - Acceptance: ACCEPTANCE.md
   - Accessibility: ACCESSIBILITY.md
   - Azure Deployment: AZURE_DEPLOYMENT.md
-  - Poppler Setup: PATH-POPPLER.md
   - Development: DEVELOPMENT.md
+  - Poppler Setup: PATH-POPPLER.md
 
 plugins:
   - search

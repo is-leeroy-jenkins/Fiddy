@@ -13,17 +13,19 @@ Azure-compatible deployment boundary.
 
 ## Runtime Boundary
 
-```text
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      AZURE-COMPATIBLE RUNTIME BOUNDARY                       │
-├──────────────────────────────────────────────────────────────────────────────┤
-│ Local OCR and deterministic rule execution                                   │
-│ No external machine-learning endpoint dependency                             │
-│ Standalone operation without direct COLA writeback                           │
-│ Temporary upload handling during the active review session                   │
-│ Reports generated only through reviewer-initiated downloads                  │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+Fiddy runs inside a local or Azure-compatible runtime boundary. The prototype keeps OCR, rule
+execution, temporary upload handling, and reviewer-initiated reporting inside the application
+boundary.
+
+| Boundary Control | Implementation |
+|---|---|
+| Local OCR execution | Label text extraction runs through local OCR tooling rather than an external OCR endpoint. |
+| Deterministic rule execution | Field comparison, fuzzy matching, warning validation, and review routing run inside the application. |
+| No external ML endpoint dependency | The prototype does not require an external machine-learning endpoint for core operation. |
+| No direct COLA writeback | Fiddy accepts manifest or manual CAV-style input and does not write results back to COLA. |
+| Temporary upload handling | Uploaded files are handled during the active review workflow rather than stored as long-term records. |
+| Reviewer-initiated reports | Reports are generated through explicit reviewer download actions. |
+
 
 ## Major Components
 
