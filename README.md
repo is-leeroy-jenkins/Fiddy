@@ -184,10 +184,10 @@ acceptance evidence, and deployment boundary.
 
 ## 🧩 Patterns Used
 
-Fiddy was intentionally designed around simple, durable, and auditable patterns. The goal was not to
-over-engineer the prototype, but to show how a working AI-assisted application can be structured so
-that the workflow remains understandable to reviewers, maintainable for developers, and defensible
-in a federal environment.
+Fiddy was intentionally designed around simple, durable, and auditable patterns. The goal was 
+to provide a flexible framework of basic components using patterns that can be easily reconfigured 
+into working AI-assisted solution to common problem across multiple domains and usecases while being
+simple for users, maintainable for developers, and defensible in a federal environment.
 
 | Pattern               | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
 |-----------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -246,10 +246,10 @@ Download outputs
 
 Fiddy supports both reviewer-friendly operation and technical inspection.
 
-| Mode                                                                           | Purpose                                                                                                                                                |
-|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Simple Mode                                                                    | Keeps the workflow focused on upload, run, review, and download.                                                                                       |
-| Advanced Mode                                                                  | Exposes manifest preview, file matching, OCR diagnostics, image-quality diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
+| Mode       | Purpose                                                                                                                                                |
+|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Simple     | Keeps the workflow focused on upload, run, review, and download.                                                                                       |
+| Advanced   | Exposes manifest preview, file matching, OCR diagnostics, image-quality diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
 
 Simple Mode is intended for routine reviewer use. Advanced Mode is intended for testing,
 troubleshooting, demonstration, acceptance review, and technical evaluation.
