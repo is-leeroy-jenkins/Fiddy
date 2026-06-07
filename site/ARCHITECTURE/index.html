@@ -13,10 +13,10 @@
       
       
       
-        <link rel="prev" href="../EXAMPLES/">
+        <link rel="prev" href="../INSTALLATION/">
       
       
-        <link rel="next" href="../API/">
+        <link rel="next" href="../USER_GUIDE/">
       
       
         
@@ -253,60 +253,6 @@
       
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../USER_GUIDE/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    User Guide
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../EXAMPLES/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Examples
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
     
   
   
@@ -450,6 +396,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../USER_GUIDE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../EXAMPLES/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../API/" class="md-nav__link">
         
   
@@ -558,14 +558,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../PATH-POPPLER/" class="md-nav__link">
+      <a href="../DEVELOPMENT/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Poppler Setup
+    Development
   
 
     
@@ -585,14 +585,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../DEVELOPMENT/" class="md-nav__link">
+      <a href="../PATH-POPPLER/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Development
+    Poppler Setup
   
 
     
@@ -725,17 +725,43 @@ Azure-compatible deployment boundary.</p>
 </p>
 
 <h2 id="runtime-boundary">Runtime Boundary<a class="headerlink" href="#runtime-boundary" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code>┌─────────────────────────────────────────────────────────────────────────────┐
-│                      AZURE-COMPATIBLE RUNTIME BOUNDARY                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ Local OCR and deterministic rule execution                                  │
-│ No external machine-learning endpoint dependency                            │
-│ Standalone operation without direct COLA writeback                          │
-│ Temporary upload handling during the active review session                  │
-│ Reports generated only through reviewer-initiated downloads                 │
-└─────────────────────────────────────────────────────────────────────────────┘
-</code></pre></div>
-
+<p>Fiddy runs inside a local or Azure-compatible runtime boundary. The prototype keeps OCR, rule
+execution, temporary upload handling, and reviewer-initiated reporting inside the application
+boundary.</p>
+<table>
+<thead>
+<tr>
+<th>Boundary Control</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local OCR execution</td>
+<td>Label text extraction runs through local OCR tooling rather than an external OCR endpoint.</td>
+</tr>
+<tr>
+<td>Deterministic rule execution</td>
+<td>Field comparison, fuzzy matching, warning validation, and review routing run inside the application.</td>
+</tr>
+<tr>
+<td>No external ML endpoint dependency</td>
+<td>The prototype does not require an external machine-learning endpoint for core operation.</td>
+</tr>
+<tr>
+<td>No direct COLA writeback</td>
+<td>Fiddy accepts manifest or manual CAV-style input and does not write results back to COLA.</td>
+</tr>
+<tr>
+<td>Temporary upload handling</td>
+<td>Uploaded files are handled during the active review workflow rather than stored as long-term records.</td>
+</tr>
+<tr>
+<td>Reviewer-initiated reports</td>
+<td>Reports are generated through explicit reviewer download actions.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="major-components">Major Components<a class="headerlink" href="#major-components" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
