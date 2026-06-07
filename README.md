@@ -162,7 +162,7 @@ acceptance evidence, and deployment boundary.
   <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
 </p>
 
-### Runtime Boundary
+### Runtime Boundaries
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -242,7 +242,7 @@ Review field-level results
 Download outputs
 ```
 
-## 🖥️ Simple and Advanced Mode
+## 🖥️ Simple & Advanced Modes
 
 Fiddy supports both reviewer-friendly operation and technical inspection.
 
@@ -281,7 +281,7 @@ troubleshooting, demonstration, acceptance review, and technical evaluation.
 ## ⚠️ Warning Handling
 
 Fiddy treats the government warning as a specialized compliance check. These checks 
-are low-hanging fruit that can be translated later into control points for SOX404/FMFIA Internal Control frameworks
+are low-hanging fruit easily translated into control points used in SOX404/FMFIA Internal Control frameworks
 
 The validator distinguishes between:
 
@@ -389,7 +389,6 @@ ENABLE_RAW_OCR_EXPORT=false
 ENABLE_EXTRACTED_DATA_EXPORT=false
 ENABLE_REDACTED_EVIDENCE_EXPORT=true
 ```
-
 
 ## ☁️ Azure Readiness
 
@@ -517,7 +516,7 @@ mkdocs serve
 
 ## 📥 Installation
 
-For detailed setup instructions, see:
+For detailed setup instructions, see the Installation Guide:
 
 ```text
 docs/INSTALLATION.md
