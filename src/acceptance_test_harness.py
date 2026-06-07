@@ -938,50 +938,48 @@ class AcceptanceTestHarness( ):
 			)
 			package.performance_csv = self.write_dataframe_csv(
 				output_directory / 'fiddy_performance.csv',
-				result.dataframes.get( 'performance', pd.DataFrame( ) )
-			)
+				result.dataframes.get( 'performance', pd.DataFrame( ) ) )
+			
 			package.batch_acceptance_csv = self.write_dataframe_csv(
 				output_directory / 'fiddy_batch_acceptance.csv',
-				result.dataframes.get( 'batch_acceptance', pd.DataFrame( ) )
-			)
+				result.dataframes.get( 'batch_acceptance', pd.DataFrame( ) ) )
+			
 			package.acceptance_csv = self.write_dataframe_csv(
 				output_directory / 'fiddy_acceptance_redacted.csv',
-				result.dataframes.get( 'acceptance', pd.DataFrame( ) )
-			)
+				result.dataframes.get( 'acceptance', pd.DataFrame( ) ) )
 			
 			acceptance_dataframe = result.dataframes.get( 'acceptance', pd.DataFrame( ) )
 			package.acceptance_json = self.write_text_file(
 				output_directory / 'fiddy_acceptance_redacted.json',
-				self._policy.dataframe_to_json( acceptance_dataframe )
-			)
+				self._policy.dataframe_to_json( acceptance_dataframe ) )
+			
 			package.acceptance_markdown = self.write_text_file(
 				output_directory / 'fiddy_acceptance_report_redacted.md',
-				result.acceptance_summary.to_markdown( )
-			)
+				result.acceptance_summary.to_markdown( ) )
+			
 			package.accessibility_csv = self.write_dataframe_csv(
 				output_directory / 'fiddy_accessibility.csv',
-				result.dataframes.get( 'accessibility', pd.DataFrame( ) )
-			)
+				result.dataframes.get( 'accessibility', pd.DataFrame( ) ) )
+			
 			package.accessibility_json = self.write_text_file(
 				output_directory / 'fiddy_accessibility.json',
-				self._policy.object_to_json( result.accessibility_result )
-			)
+				self._policy.object_to_json( result.accessibility_result ) )
+			
 			package.accessibility_markdown = self.write_text_file(
 				output_directory / 'fiddy_accessibility.md',
-				result.accessibility_result.to_markdown( )
-			)
+				result.accessibility_result.to_markdown( ) )
+			
 			package.deployment_csv = self.write_dataframe_csv(
 				output_directory / 'fiddy_deployment_evidence.csv',
-				result.dataframes.get( 'deployment', pd.DataFrame( ) )
-			)
+				result.dataframes.get( 'deployment', pd.DataFrame( ) ) )
+			
 			package.deployment_json = self.write_text_file(
 				output_directory / 'fiddy_deployment_evidence.json',
-				self._policy.object_to_json( result.deployment_evidence )
-			)
+				self._policy.object_to_json( result.deployment_evidence ) )
+			
 			package.deployment_markdown = self.write_text_file(
 				output_directory / 'fiddy_deployment_evidence.md',
-				result.deployment_evidence.to_markdown( )
-			)
+				result.deployment_evidence.to_markdown( ) )
 			
 			result.package = package
 			package.package_manifest_json = self.write_text_file(
@@ -996,9 +994,7 @@ class AcceptanceTestHarness( ):
 			error.module = __name__
 			error.method = 'write_package( self, *args ) -> AcceptanceHarnessPackage'
 			Logger( ).write( error )
-			return AcceptanceHarnessPackage(
-				output_directory=str( output_directory )
-			)
+			return AcceptanceHarnessPackage( output_directory=str( output_directory ) )
 	
 	def determine_status( self, acceptance_summary: AcceptanceSummary,
 			batch_result: BatchProcessingResult ) -> str:
@@ -1124,14 +1120,10 @@ class AcceptanceTestHarness( ):
 				result.package = self.write_package( active_output, result )
 				return result
 			
-			processor = BatchProcessor(
-				max_workers=self._max_workers,
-				sla_seconds=self._sla_seconds
-			)
-			batch_result = processor.process_manifest_csv(
-				manifest_path=manifest_path,
-				file_paths=label_files
-			)
+			processor = BatchProcessor( max_workers=self._max_workers,
+				sla_seconds=self._sla_seconds )
+			batch_result = processor.process_manifest_csv( manifest_path=manifest_path,
+				file_paths=label_files )
 			
 			summary_dataframe = self.build_summary_dataframe( batch_result.batch_report )
 			detail_dataframe = self.build_detail_dataframe( batch_result.batch_report )

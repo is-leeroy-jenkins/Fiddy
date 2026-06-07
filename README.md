@@ -15,18 +15,50 @@
 [Configuration](#%EF%B8%8F-configuration) •
 [Run](#%EF%B8%8F-run-the-app)
 
-## 🚀 Overview
+## 📌 Executive Summary
 
-Fiddy is a standalone application written in python that helps alcohol-label reviewers compare
-label submissions against data. It combines an AI-assisted local OCR, deterministic
-verification rules, fuzzy matching, image-quality diagnostics, batch processing, and downloadable review outputs
-into a fast, explainable reviewer-assist workflow. Fiddy supports alcohol-label review by comparing
-application data to the text and evidence found on submitted label artwork.
+**Fiddy** is a local-first, AI-assisted prototype that helps alcohol-label reviewers compare
+submitted label artwork against expected application data. The application uses local OCR,
+deterministic validation rules, fuzzy matching, image-quality diagnostics, batch processing,
+performance monitoring, accessibility controls, and reviewer-facing exports to reduce repetitive
+manual comparison work while preserving human judgment.
 
-The reviewer can work from a CSV manifest for batch review or enter CAV-style application values
-manually for single-label review. Fiddy then extracts readable label text using local OCR, evaluates
-the label against structured application values, and produces a field-by-field review surface with
-status, severity, confidence, explanation, and recommended reviewer action.
+The prototype was designed as a practical response to a government label-review scenario where
+reviewers must inspect high volumes of submitted label artwork and verify that required fields match
+the application record. The central design decision is deliberate: **Fiddy assists review; it does
+not automate final compliance decisions.**
+
+Fiddy demonstrates how an AI-focused technical solution can be constrained, explainable, auditable,
+and deployable in a federal environment where data handling, local execution, firewall restrictions,
+accessibility, performance, and reviewer trust matter as much as model capability.
+
+
+
+## 🎯 Problem Statement
+
+Alcohol label review involves a large amount of field-by-field comparison:
+
+* Does the brand name on the label match the application?
+* Does the class or type designation match?
+* Is the alcohol by volume correct?
+* Are net contents present?
+* Is the producer, bottler, importer, or responsible party present?
+* Is country of origin present when applicable?
+* Is the mandatory government warning present and correct?
+
+Much of this work is repetitive but still requires judgment. Minor text differences may be
+acceptable in ordinary fields, while the government warning must be handled more strictly. Label
+artwork may also be imperfect: skewed, low contrast, blurry, glare-affected, or supplied as a PDF.
+
+Fiddy addresses this problem by creating a reviewer-assist workflow that:
+
+1. Extracts label evidence using local OCR.
+2. Diagnoses image-quality risk.
+3. Compares label evidence against expected application data.
+4. Flags mismatches, warnings, and uncertain items.
+5. Explains results in reviewer-facing language.
+6. Produces downloadable evidence.
+7. Keeps the final decision with the human reviewer.
 
 
 
@@ -76,579 +108,61 @@ marks the item for review and explains why.
 | Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
 | Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
 
-## Documentation
-
-Full documentation is available in the `docs/` directory and can be built with MkDocs.
-
-| Guide                                        | Purpose                                             |
-|----------------------------------------------|-----------------------------------------------------|
-| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, and dependency setup.            |
-| [Poppler Setup](docs/PATH-POPPLER.md)        | Windows Poppler PATH configuration for PDF support. |
-| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment instructions.        |
-
-## 🧠 AI-Assisted Verification
-
-Fiddy is AI-assisted, but not AI-autonomous. The application uses local OCR, image analysis, fuzzy
-matching, confidence scoring, and deterministic rules to help reviewers evaluate alcohol
-label artwork faster and more consistently.
-
-The AI-assisted pipeline consists of a LSTM-based OCR engine that performs four jobs:
-
-1. **Read the label artwork** using local OCR.
-2. **Assess image quality** so weak OCR evidence is not treated as reliable.
-3. **Compare extracted evidence** against application data using deterministic and fuzzy matching.
-4. **Route uncertainty to human review** when the system cannot responsibly make a clear
-   determination.
-
-Fiddy does not use an external generative AI endpoint, does not send labels to a public ML service,
-and does not make final compliance decisions. Its purpose is to reduce routine comparison work and
-focus reviewer attention on exceptions.
-
-| Capability                   | Description                                                                                    |
-|------------------------------|------------------------------------------------------------------------------------------------|
-| OCR extraction               | Converts label artwork into machine-readable text using local Tesseract OCR.                   |
-| Image intelligence           | Evaluates blur, contrast, glare, skew, darkness, and readability before relying on OCR output. |
-| Fuzzy matching               | Handles text variations such as punctuation, casing, spacing, and apostrophes.                 |
-| Confidence scoring           | Assigns confidence values to help reviewers understand result strength.                        |
-| Human-review safeguards      | Marks uncertain, low-quality, or visually dependent findings for manual review.                |
-| Deterministic rule reasoning | Applies transparent review logic to extracted evidence and application values.                 |
-
-
-
-## 🧭 Workflow
-
-Fiddy supports two reviewer workflows: Simple Mode and Advanced Mode
-
-### Simple Mode
-
-Simple Mode is the operational path for routine review.
-
-```text
-Upload application data and label artwork
-        ↓
-Run verification
-        ↓
-Review results and download outputs
-```
-
-Simple Mode keeps the screen focused on the reviewer’s decision surface.
-
-### Advanced Mode
-
-Advanced Mode exposes additional technical evidence when needed.
-
-```text
-Manifest preview
-Uploaded-file preview
-File matching diagnostics
-OCR text
-Image-quality diagnostics
-Rule detail
-Performance timing
-Downloadable outputs
-```
-
-Advanced Mode is useful for testing, troubleshooting, demonstration, and quality review.
-
-## 💻 Usage Examples
-
-The Streamlit interface is the primary way to use Fiddy. The following examples show how the core
-modules can also be used directly for testing, scripting, or future integration work.
-
-### Verify One Label File
-
-```python
-from pathlib import Path
-
-from src.label_verifier import AlcoholLabelVerifier
-from src.models import LabelApplication
-
-application = LabelApplication(
-	brand_name='OLD TOM DISTILLERY',
-	class_type='Kentucky Straight Bourbon Whiskey',
-	beverage_type='Distilled Spirits',
-	alcohol_content=45.0,
-	proof=90.0,
-	net_contents='750 mL',
-	producer_bottler='Old Tom Distillery LLC',
-	imported=False,
-	importer='',
-	country_of_origin='',
-	cola_id='COLA-001',
-	notes='Programmatic single-label review.'
-)
-
-label_path = Path( 'samples/old_tom_label.png' )
-
-verifier = AlcoholLabelVerifier( )
-report = verifier.verify_file( application=application,
-	file_path=label_path )
-
-print( report.file_name )
-print( report.overall_status )
-
-for result in report.results:
-	print( result.field_name, result.status,
-		result.severity, result.confidence,
-		result.message )
-```
-
-### Parse a Manifest
-
-```python
-from pathlib import Path
-
-from src.batch_manifest import BatchManifest
-
-manifest_path = Path( 'samples/alcohol_labels.csv' )
-
-manifest = BatchManifest( )
-records = manifest.load_records( manifest_path )
-
-for record in records:
-	print( record.file_name, record.brand_name, record.alcohol_content )
-```
-
-### Convert a Manifest Row to Application Data
-
-```python
-from pathlib import Path
-
-from src.batch_manifest import BatchManifest
-
-manifest_path = Path( 'samples/alcohol_labels.csv' )
-
-manifest = BatchManifest( )
-records = manifest.load_records( manifest_path )
-
-application = records[ 0 ].to_label_application( )
-
-print( application.brand_name )
-print( application.class_type )
-print( application.alcohol_content )
-```
-
-### Process a Batch
-
-```python
-from pathlib import Path
-
-from src.batch_manifest import BatchManifest
-from src.batch_processor import BatchProcessor
-
-manifest_path = Path( 'samples/alcohol_labels.csv' )
-artwork_folder = Path( 'samples/labels' )
-
-manifest = BatchManifest( )
-records = manifest.load_records( manifest_path )
-
-file_paths = [
-	path
-	for path in artwork_folder.iterdir( )
-	if path.suffix.lower( ) in (
-		'.png',
-		'.jpg',
-		'.jpeg',
-		'.webp',
-		'.bmp',
-		'.tif',
-		'.tiff',
-		'.pdf'
-	)
-]
-
-processor = BatchProcessor( )
-batch_result = processor.process_manifest_records(
-	records=records,
-	file_paths=file_paths
-)
-
-print( 'Processed:', len( batch_result.processed_files ) )
-print( 'Skipped:', len( batch_result.skipped_files ) )
-print( 'Errors:', len( batch_result.errors ) )
-
-for report in batch_result.batch_report.reports:
-	print( report.file_name, report.overall_status )
-```
-
-### Generate Review Tables
-
-```python
-from src.report_writer import ReportWriter
-
-writer = ReportWriter( )
-
-df_summary = writer.batch_to_summary_dataframe( batch_result.batch_report )
-df_details = writer.batch_to_detail_dataframe( batch_result.batch_report )
-
-print( df_summary.head( ) )
-print( df_details.head( ) )
-```
-
-### Export Results to CSV
-
-```python
-from pathlib import Path
-
-from src.report_writer import ReportWriter
-
-output_folder = Path( 'outputs' )
-output_folder.mkdir( parents=True, exist_ok=True )
-
-writer = ReportWriter( )
-
-df_summary = writer.batch_to_summary_dataframe( batch_result.batch_report )
-df_details = writer.batch_to_detail_dataframe( batch_result.batch_report )
-
-df_summary.to_csv( output_folder / 'fiddy_summary.csv', index=False )
-df_details.to_csv( output_folder / 'fiddy_details.csv', index=False )
-```
-
-### Inspect OCR Output
-
-```python
-from pathlib import Path
-
-from src.ocr_engine import OcrEngine
-
-label_path = Path( 'samples/old_tom_label.png' )
-
-ocr = OcrEngine( )
-extracted = ocr.extract_text( label_path )
-
-print( 'File:', extracted.file_name )
-print( 'OCR Engine:', extracted.ocr_engine )
-print( 'OCR Seconds:', extracted.ocr_seconds )
-
-print( 'Raw OCR Text:' )
-print( extracted.raw_text )
-
-print( 'Image Quality Notes:' )
-for note in extracted.image_quality_notes:
-	print( '-', note )
-```
-
-### Validate Government Warning Text
-
-```python
-from src.warning_validator import GovernmentWarningValidator
-
-label_text = '''
-OLD TOM DISTILLERY
-Kentucky Straight Bourbon Whiskey
-ALC. 45% BY VOL
-
-GOVERNMENT WARNING:
-(1) According to the Surgeon General, women should not drink alcoholic beverages
-during pregnancy because of the risk of birth defects.
-(2) Consumption of alcoholic beverages impairs your ability to drive a car or operate
-machinery, and may cause health problems.
-'''
-
-validator = GovernmentWarningValidator( )
-validation = validator.validate( label_text )
-results = validator.create_results( validation )
-
-for result in results:
-	print( result.rule_id, result.status, result.severity, result.message )
-```
-
-### Log an Exception Locally
-
-```python
-from booger import Error, Logger
-
-try:
-	raise ValueError( 'Example failure while processing label artwork.' )
-except Exception as e:
-	exception = Error(
-		error=e,
-		cause='Demo',
-		method='example_exception_logging',
-		module='README'
-	)
-
-	row_id = Logger( ).log( exception )
-	print( 'Logged row:', row_id )
-```
-
-## 📄 Manifest Format
-
-A manifest row represents the expected application data for one uploaded label file.
-
-Recommended CSV header:
-
-```csv
-file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes
-```
-
-Example:
-
-```csv
-file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes
-old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled Spirits,45,90,750 mL,Old Tom Distillery LLC,false,,,COLA-001,Demo record
-```
-
-### Schema
-| Column                | Description                                                                   |
-|-----------------------|-------------------------------------------------------------------------------|
-| `file_name`           | Expected uploaded label filename.                                             |
-| `brand_name`          | Expected brand name.                                                          |
-| `class_type`          | Expected class or type designation.                                           |
-| `beverage_type`       | Product category used for review context.                                     |
-| `alcohol_content`     | Expected ABV value.                                                           |
-| `proof`               | Expected proof, when applicable.                                              |
-| `net_contents`        | Expected container volume.                                                    |
-| `producer_bottler`    | Expected producer, bottler, brewer, vintner, importer, or responsible party.  |
-| `imported`            | Indicates whether imported-product review applies.                            |
-| `importer`            | Expected importer when applicable.                                            |
-| `country_of_origin`   | Expected country of origin when applicable.                                   |
-| `cola_id`             | Optional application or COLA reference.                                       |
-| `notes`               | Optional reviewer notes.                                                      |
-
-## 📊 Outputs
-
-Fiddy presents results in progressively detailed layers.
-
-### Batch Dashboard
-
-The dashboard provides a quick summary of the current review run:
-
-* Files reviewed
-* Failures
-* Warnings
-* Needs-review items
-* SLA breaches
-
-### Summary Table
-
-The summary table provides one row per processed label.
-
-### Side-by-Side Comparison
-
-The side-by-side comparison is the primary reviewer surface.
-
-| Column          | Purpose                                               |
-|-----------------|-------------------------------------------------------|
-| File Name       | Identifies the reviewed label file.                   |
-| Field           | Shows the label field being checked.                  |
-| Application     | Displays the expected application value.              |
-| Extracted       | Displays OCR-derived or rule-observed label evidence. |
-| Status          | Shows the review outcome.                             |
-| Severity        | Indicates the significance of the finding.            |
-| Confidence      | Shows the rule confidence score.                      |
-| Explanation     | Explains the finding in reviewer-facing language.     |
-| Reviewer Action | Recommends the next reviewer step.                    |
-
-#### Downloadable Files
-
-| Output          | Purpose                                              |
-|-----------------|------------------------------------------------------|
-| Summary CSV     | One row per reviewed label.                          |
-| Detail CSV      | One row per rule result.                             |
-| Comparison CSV  | Field-by-field application versus label comparison.  |
-| Performance CSV | Per-label timing data.                               |
-| JSON Report     | Structured machine-readable report.                  |
-| Markdown Report | Human-readable review report.                        |
-
-## 📥 Installation
-
-- Fiddy was built using the PyCharm IDE and using a similar tool for installation is recommended.
-- Comprehensive installation instructions can be found in
-  the [Installation Guide](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/docs/INSTALLATION.md)
-  that is provided in this repo.
-
-### Prerequisites
-
-* [Python](https://www.python.org/downloads/) 3.12 or newer
-* [Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) for OCR
-* [Poppler](https://github.com/oschwartz10612/poppler-windows) for PDF support 
-* [Git](https://git-scm.com/install/windows) for version control
-* Python virtual environment support
-
-### Clone the Repository
-
-```bash
-git clone https://github.com/is-leeroy-jenkins/Fiddy.git
-cd fiddy
-```
-
-### Create a Virtual Environment
-
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
-
-Windows Command Prompt:
-
-```cmd
-python -m venv .venv
-.venv\Scripts\activate.bat
-```
-
-macOS / Linux:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### Install Dependencies
-
-```bash
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-## 🔠 OCR Dependencies
-
-### Tesseract
-
-Windows:
-
-```powershell
-setx TESSERACT_CMD "C:\Program Files\Tesseract-OCR\tesseract.exe"
-```
-
-Ubuntu / Debian:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y tesseract-ocr
-```
-
-macOS:
-
-```bash
-brew install tesseract
-```
-
-### Poppler
-
-Ubuntu / Debian:
-
-```bash
-sudo apt-get install -y poppler-utils
-```
-
-macOS:
-
-```bash
-brew install poppler
-```
-
-Windows:
-
-Install Poppler for Windows and add the Poppler `bin` folder to `PATH`.
-- Detailed instructions on how to set environment variables can be found [here](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/PATH-POPPLER.md). 
-
-## ⚙️ Configuration
-
-Configuration details are centralized in the [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py) file.
-
-| Setting                      | Purpose                                |
-|------------------------------|----------------------------------------|
-| `APP_NAME`                   | Application name.                      |
-| `APP_TITLE`                  | Browser and Streamlit title.           |
-| `APP_ICON`                   | Page icon.                             |
-| `MAX_UPLOAD_MB`              | Upload size guardrail.                 |
-| `MAX_BATCH_FILES`            | Batch size guardrail.                  |
-| `OCR_ENGINE`                 | OCR engine identifier.                 |
-| `TESSERACT_CMD`              | Optional path to Tesseract executable. |
-| `OCR_LANGUAGE`               | OCR language.                          |
-| `OCR_TIMEOUT_SECONDS`        | OCR timeout setting.                   |
-| `BRAND_MATCH_THRESHOLD`      | Fuzzy brand threshold.                 |
-| `CLASS_TYPE_MATCH_THRESHOLD` | Fuzzy class/type threshold.            |
-| `LOW_CONFIDENCE_THRESHOLD`   | Low-confidence review threshold.       |
-| `REPORT_FILENAME_PREFIX`     | Report download filename prefix.       |
-| `LOG_PATH`                   | SQLite exception log database path.    |
-| `LOG_FILE`                   | SQLite exception table name.           |
-| `LABEL_PROCESSING_SLA_SECONDS` | Per-label processing target, defaulting to 5 seconds. |
-| `BATCH_ACCEPTANCE_MIN_FILES` | Minimum formal acceptance batch size, defaulting to 20. |
-| `BATCH_ACCEPTANCE_MAX_FILES` | Maximum prototype acceptance batch size, defaulting to 50. |
-| `BATCH_ACCEPTANCE_MAX_AVERAGE_SECONDS` | Maximum accepted average processing time. |
-| `BATCH_ACCEPTANCE_MAX_P95_SECONDS` | Maximum accepted p95 processing time. |
-| `BATCH_ACCEPTANCE_MAX_BREACH_RATE` | Maximum accepted SLA breach rate. |
-| `DEPLOYMENT_TARGET` | Deployment target label such as local or Azure. |
-| `REQUIRE_LOCAL_OCR` | Requires OCR to run locally. |
-| `ALLOW_EXTERNAL_ML_ENDPOINTS` | Allows or blocks external ML endpoints. |
-| `ENABLE_UPLOAD_PERSISTENCE` | Controls whether uploaded files may persist beyond runtime handling. |
-| `ENABLE_RAW_TEXT_LOGGING` | Controls whether raw OCR/application text may be logged. |
-| `ENABLE_FILE_PATH_LOGGING` | Controls whether raw file paths may be logged. |
-| `LOG_RETENTION_DAYS` | Local exception-log retention window. |
-| `DEFAULT_SIMPLE_MODE` | Starts the interface in Simple Mode by default. |
-| `DEFAULT_HIGH_CONTRAST_MODE` | Default high-contrast accessibility setting. |
-| `DEFAULT_LARGE_TEXT_MODE` | Default large-text accessibility setting. |
-| `REQUIRE_KEYBOARD_ACCESSIBILITY_CHECK` | Indicates whether manual keyboard accessibility validation is required. |
-
-Example `.env` file:
-
-```env
-APP_NAME=Fiddy
-APP_TITLE=Label Verification
-APP_ICON=🥃
-OCR_ENGINE=tesseract
-OCR_LANGUAGE=eng
-OCR_TIMEOUT_SECONDS=5
-BRAND_MATCH_THRESHOLD=90.0
-CLASS_TYPE_MATCH_THRESHOLD=85.0
-LOW_CONFIDENCE_THRESHOLD=70.0
-REPORT_FILENAME_PREFIX=fiddy_report
-TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
-```
-
-## 🏃 Run the App
-
-Start Fiddy:
-
-```bash
-streamlit run app.py
-```
-
-Open the local app:
-
-```text
-http://localhost:8501
-```
-
-## 🧪 Acceptance Validation
-
-Fiddy includes a lightweight acceptance-validation workflow for checking prototype requirements
-without adding a testing framework to the runtime container.
-
-Run the validation script from the project root:
-
-```bash
-python tests/acceptance_requirements_check.py
-```
-
-Recommended test coverage includes:
-
-* Manifest parsing
-* Manifest-to-file matching
-* Manual CAV entry conversion
-* ZIP extraction safety
-* OCR failure behavior
-* Image-quality diagnostics
-* Fuzzy brand matching
-* Class/type matching
-* ABV and proof comparison
-* Net contents comparison
-* Imported product logic
-* Government warning validation
-* Batch report generation
-* CSV, JSON, and Markdown downloads
-* Temporary file cleanup
-* Exception logging
-
-## 🏗️ Architecture
+## 🧠 AI-Assistance Posture
+
+Fiddy is **AI-assisted**, not **AI-autonomous**.
+
+The AI-enabled portion of the system is OCR-based extraction from label artwork. Once label text is
+extracted, Fiddy relies on deterministic validation logic, structured data models, explicit
+thresholds, and reviewer-facing explanations.
+
+This architecture reflects several practical federal AI principles:
+
+* **Human accountability remains intact.** Fiddy routes uncertain, low-confidence, or visually
+  dependent results to human review.
+* **Results are explainable.** Field-level checks include status, severity, confidence, explanation,
+  evidence, and reviewer action.
+* **AI output is bounded.** OCR output is treated as evidence, not as a final determination.
+* **External dependency risk is reduced.** The prototype does not require external machine-learning
+  endpoints.
+* **Compliance risk is surfaced.** The system distinguishes between text checks that can be
+  automated and visual checks that require reviewer confirmation.
+
+
+
+## ✨ Core Capabilities
+
+| Capability                                           | Description                                                                   |
+|------------------------------------------------------|-------------------------------------------------------------------------------|
+| Label artwork intake                                 | Accepts image files, PDFs, and ZIP archives containing label artwork.         |
+| Application data intake                              | Accepts manifest CSV uploads or manual CAV-style entry.                       |
+| Local OCR                                            | Extracts label text using local Tesseract OCR.                                |
+| PDF support                                          | Uses Poppler through `pdf2image` for PDF label artwork conversion.            |
+| Image preparation                                    | Loads, orients, resizes, preprocesses, and prepares images for OCR.           |
+| Image diagnostics                                    | Evaluates blur, glare, darkness, low contrast, skew, size, and readability.   |
+| Field extraction                                     | Extracts likely brand, class/type, ABV, net contents, producer/bottler,       
+ country, and warning text.                           |
+| Field comparison                                     | Compares expected application values against extracted or observed label      
+ evidence.                                            |
+| Fuzzy matching                                       | Handles acceptable minor text variations for ordinary fields.                 |
+| Government warning validation                        | Checks warning presence, prefix capitalization, exact text,                   
+ near-match conditions, and visual-review boundaries. |
+| Batch verification                                   | Processes matched manifest rows and uploaded label files.                     |
+| Performance monitoring                               | Records per-label timing, SLA status, and batch-level performance             
+ metrics.                                             |
+| Reviewer guidance                                    | Provides status, severity, confidence, explanation, and recommended action.   |
+| Report downloads                                     | Exports summary, detail, comparison, performance, JSON, and Markdown outputs. |
+| Accessibility controls                               | Provides Simple Mode, Advanced Mode, high contrast, large text, and           
+ keyboard guidance.                                   |
+| Evidence generation                                  | Supports acceptance, deployment, accessibility, and performance evidence      
+ outputs.                                             |
+
+
+## 🏗️ Architecture Overview
 
 Fiddy is organized as a local-first verification pipeline that separates the reviewer interface,
-ingestion workflow, OCR/image processing, verification engine, reporting layer, diagnostics, and
-Azure-compatible runtime boundary.
+upload handling, manifest parsing, OCR, image-quality analysis, deterministic rules, reporting,
+acceptance evidence, and deployment boundary.
 
 <p align="center">
   <img src="assets/images/fiddy-architecture-diagram.png" alt="Fiddy architecture diagram" width="100%">
@@ -668,143 +182,661 @@ Azure-compatible runtime boundary.
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 🧩 Components
-
-| Component                                                                                             | Role                                                                                               |
-|-------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| [app.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/app.py)                                 | Streamlit interface, workflow routing, uploads, reviewer controls, result display, and downloads.  |
-| [config.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/config.py)                              | Application settings, paths, upload limits, OCR settings, thresholds, assets, and logging paths.   |
-| [batch_manifest.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_manifest.py)          | CSV manifest parsing, validation, filename matching, and conversion to application records.        |
-| [batch_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/batch_processor.py)        | Batch orchestration, per-file isolation, skipped-file tracking, and batch result assembly.         |
-| [image_processor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/image_processor.py)        | Image loading, EXIF orientation correction, mode conversion, and OCR preparation.                  |
-| [visual_quality.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/visual_quality.py)          | Blur, contrast, glare, darkness, skew, size, and readability diagnostics.                          |
-| [ocr_engine.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/ocr_engine.py)                  | Local OCR extraction from supported image files and PDF pages.                                     |
-| [normalizer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/normalizer.py)                  | Text, punctuation, whitespace, ABV, proof, and unit normalization.                                 |
-| [label_rules.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_rules.py)                | Field-level verification rules, fuzzy matching, numeric comparison, and result creation.           |
-| [warning_validator.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/warning_validator.py)    | Government-warning presence, exact text, prefix, and visual-review handling.                       |
-| [label_verifier.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/label_verifier.py)          | Single-label OCR coordination, rule execution, and verification report creation.                   |
-| [performance_monitor.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/peformance_monitor.py) | Per-label timing and batch-level performance summaries.                                            |
-| [report_writer.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/report_writer.py)            | Summary, detail, comparison, CSV, JSON, and Markdown report generation.                            |
-| [booger.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/booger.py)                          | Optional local SQLite exception logging for diagnostics.                                           |
-| [acceptance_checker.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/acceptance_checker.py) | Evaluates runtime batch evidence against stakeholder acceptance requirements. |
-| [accessibility_checklist.py](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/src/accessibility_checklist.py) | Defines the manual accessibility checklist for keyboard navigation, high contrast, large text, result review, and downloads. |
-
-
-
-## 🗺️ Component Map
+### Component Map
 
 <p align="center">
-  <img src="assets/images/fiddy-component-map.png" alt="Fiddy architecture diagram" width="100%">
+  <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
 </p>
 
 
-## 🎮 Reviewer Controls
 
-Fiddy includes reviewer controls for usability and accessibility:
+## 🧩 Design Patterns Used
 
-* Simple Mode
-* Advanced Mode
-* High-contrast mode
-* Large-text mode
-* Clear upload labels
-* Large primary action button
-* Reviewer-facing explanations
-* Confidence and severity indicators
+Fiddy was intentionally structured around simple, auditable design patterns that are appropriate for
+a prototype expected to demonstrate technical judgment.
 
+| Pattern                                                                                       | Where It Appears                                                          | Why It Matters            |
+|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------|---------------------------|
+| Pipeline Pattern                                                                              | Upload → preprocess → OCR → extract → compare → report                    | Keeps the review          
+ workflow easy to understand, test, and explain.                                               |
+| Facade Pattern                                                                                |
+ `AlcoholLabelVerifier`                                                                        |
+ Hides OCR, extraction, and rule orchestration behind a simple verification interface.         |
+| Strategy Pattern                                                                              | Field-specific checks in `AlcoholLabelRules` and warning checks in        
+ `GovernmentWarningValidator`                                                                  | Allows rule behavior to vary by field while preserving                    
+ a common result contract.                                                                     |
+| Adapter Pattern                                                                               |
+ `BatchManifestRecord.to_label_application()`                                                  |
+ Converts manifest rows into the application model expected by the verifier.                   |
+| DTO / Pydantic Model Pattern                                                                  | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`,                 
+ `LabelVerificationReport`, `BatchVerificationReport`                                          | Keeps data movement explicit, typed,                                      
+ serializable, and testable.                                                                   |
+| Policy Object Pattern                                                                         |
+ `DataRetentionPolicy`                                                                         |
+ Centralizes redaction and no-persistence decisions instead of scattering them through exports. |
+| Observer / Callback Pattern                                                                   | OCR and batch progress callbacks                                          | Decouples processing from 
+ Streamlit display concerns.                                                                   |
+| Evidence Package Pattern                                                                      | `AcceptanceChecker`, `AcceptanceTestHarness`, `ReportWriter`,             
+ `DeploymentEvidenceChecker`                                                                   | Converts runtime behavior into reviewable                                 
+ acceptance evidence.                                                                          |
+| Defensive Boundary Pattern                                                                    | Upload validation, ZIP safety checks, sanitized logging, fallback         
+ reports                                                                                       | Prevents bad inputs or OCR failures from crashing the reviewer workflow.  |
+| Human-in-the-Loop Pattern                                                                     | `Needs Review`, visual warning checks, reviewer action text               |
+ Preserves reviewer judgment where automation cannot responsibly decide.                       |
+
+## 🧭 Core Workflow
+
+Fiddy supports two primary reviewer workflows.
+
+### Manifest Batch Workflow
+
+```text
+Upload manifest CSV
+        ↓
+Upload label artwork files or ZIP archive
+        ↓
+Confirm file matching and readiness
+        ↓
+Run local OCR and deterministic validation
+        ↓
+Review dashboard and side-by-side comparison
+        ↓
+Download summary, detail, comparison, performance, JSON, or Markdown outputs
+```
+
+### Manual CAV Workflow
+
+```text
+Upload label artwork
+        ↓
+Enter expected CAV-style application values
+        ↓
+Run local OCR and deterministic validation
+        ↓
+Review field-level results
+        ↓
+Download outputs
+```
+
+## 🖥️ Simple Mode and Advanced Mode
+
+Fiddy supports both reviewer-friendly operation and technical inspection.
+
+| Mode | Purpose |
+| . . . . - | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . |
+| Simple Mode | Keeps the workflow focused on upload, run, review, and download. |
+| Advanced Mode | Exposes manifest preview, file matching, OCR diagnostics, image-quality
+diagnostics, rule detail, worker controls, SLA tuning, and performance timing. |
+
+Simple Mode is intended for routine reviewer use. Advanced Mode is intended for testing,
+troubleshooting, demonstration, acceptance review, and technical evaluation.
+
+.
+
+## 📋 Requirement Traceability
+
+| Requirement Area | Fiddy Implementation |
+| . . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . - |
+| Label data extraction | `src/ocr_engine.py`, `src/image_processor.py`,
+`src/label_field_extractor.py`, `src/models.py` |
+| OCR on imperfect images | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,
+image-quality diagnostics |
+| Application versus label comparison | `src/label_rules.py`, `src/label_verifier.py`, side-by-side
+comparison table |
+| Fuzzy matching | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules |
+| Government warning exact review | `src/warning_validator.py`, strict normalized warning
+comparison |
+| Batch upload | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in
+`app.py`          |
+| Per-label results | `BatchVerificationReport`, summary/detail/comparison tables |
+| Five-second performance target | `src/performance_monitor.py`, SLA configuration, performance
+exports |
+| Reviewer outputs | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads |
+| Usability | Simple Mode, clear labels, large action controls, minimal routine workflow |
+| Reliability | OCR fallback reports, image-quality warnings, missing/skipped file handling |
+| Security | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports |
+| Prototype scalability | Parallel batch processing and 20–50 file acceptance posture |
+| Accessibility | High contrast, large text, keyboard guidance, accessibility checklist |
+| Azure readiness | Dockerfile, startup script, local OCR dependencies, Azure deployment
+documentation |
+| No COLA integration | Manifest/manual CAV input only; no COLA writeback |
+| No long-term storage | Temporary upload handling and data-retention policy controls |
+
+.
+
+## ⚠️ Government Warning Handling
+
+Fiddy treats the government warning as a specialized compliance check.
+
+The validator distinguishes between:
+
+* Warning text missing.
+* Warning prefix present.
+* Required all-caps prefix present.
+* Exact standard warning text present.
+* Near match requiring review.
+* Visual-format confirmation required.
+
+Fiddy deliberately does **not** claim that OCR text alone can prove visual properties such as
+boldness, font size, prominence, contrast, or whether the warning is hidden. Those conditions are
+surfaced as reviewer-confirmation items.
+
+.
+
+## ⏱️ Performance and Acceptance Evidence
+
+Fiddy records per-label timing and batch-level timing metrics.
+
+Performance evidence may include:
+
+* Processing seconds.
+* SLA seconds.
+* Within-SLA status.
+* SLA breach seconds.
+* Average seconds.
+* Median seconds.
+* P95 seconds.
+* SLA breach count.
+* SLA breach rate.
+* Throughput.
+* Performance acceptance status.
+
+The default prototype target is:
+
+```text
+LABEL_PROCESSING_SLA_SECONDS = 5.0
+```
+
+Fiddy also includes acceptance-oriented components designed to turn runtime behavior into reviewable
+evidence.
+
+| Component | Purpose |
+| . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . -- |
+| `src/acceptance_checker.py`      | Evaluates stakeholder requirement status from runtime
+evidence. |
+| `src/acceptance_test_harness.py` | Runs non-UI acceptance checks and generates redacted evidence
+packages. |
+| `src/accessibility_checklist.py` | Produces accessibility checklist evidence. |
+| `src/deployment_evidence.py`     | Evaluates Azure, local-OCR, endpoint, COLA, and data-handling
+posture. |
+| `src/performance_monitor.py`     | Generates SLA and timing evidence. |
+| `src/report_writer.py`           | Produces redacted summary, detail, JSON, Markdown, and CSV
+outputs. |
+
+.
+
+## 🧪 Synthetic Data Generation
+
+Fiddy includes controls for generating synthetic demonstration data under:
+
+```text
+samples/
+├── labels/
+└── manifests/
+```
+
+The synthetic-data feature is intended to support repeatable, non-sensitive prototype
+demonstrations. Generated files should represent fictional alcohol-label scenarios such as:
+
+* Clean passing labels.
+* Fuzzy brand variations.
+* ABV mismatches.
+* Missing or altered government warnings.
+* Low-contrast labels.
+* Skewed labels.
+* Glare-like images.
+* Missing net contents.
+* Imported-product cases.
+
+Synthetic data is for demonstration and testing only. It should not be treated as production data,
+official TTB records, or real COLA application data.
+
+.
 
 ## 🔐 Security and Data Handling
 
-Fiddy is a standalone prototype and is not an official US Treasury Compliance System.
+Fiddy follows a conservative prototype security posture.
 
-The application processes uploaded files through temporary runtime handling. Uploaded labels and
-extracted ZIP contents are not intentionally retained as long-term records. Review outputs are
-generated for download only when the reviewer chooses to export them.
+The application:
 
-Fiddy does not:
+* Runs OCR locally.
+* Avoids external machine-learning endpoints by default.
+* Does not require COLA credentials.
+* Does not write results back to COLA.
+* Handles uploaded files through temporary runtime storage.
+* Uses sanitized exception logging.
+* Redacts sensitive fields in evidence exports by default.
+* Avoids intentional long-term storage of uploaded label artwork or raw OCR content.
 
-* Require COLA credentials
-* Write results back to COLA
-* Call external ML endpoints
-* Persist uploaded label artwork as a long-term application record
+Recommended prototype settings include:
 
-For production use, Fiddy should be deployed behind an approved access-control layer and reviewed
-for upload scanning, audit logging, records retention, monitoring, and security configuration.
-
-
-
-## ☁️ Azure Deployment 
-
-Fiddy can run as a standalone Streamlit workload in Azure. The runtime should include Python,
-Tesseract OCR, and Poppler if PDF processing is enabled.
-
-Suitable deployment paths include:
-
-* Azure App Service for Containers
-* Azure Container Apps
-* Azure VM-hosted Streamlit
-* Internal Azure-hosted application service
-
-### Example Dockerfile
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        tesseract-ocr \
-        poppler-utils \
-        libglib2.0-0 \
-        libgl1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-EXPOSE 8501
-
-CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501"]
+```env
+REQUIRE_LOCAL_OCR=true
+ALLOW_EXTERNAL_ML_ENDPOINTS=false
+ENABLE_UPLOAD_PERSISTENCE=false
+ENABLE_RAW_TEXT_LOGGING=false
+ENABLE_FILE_PATH_LOGGING=false
+ENABLE_RAW_OCR_EXPORT=false
+ENABLE_EXTRACTED_DATA_EXPORT=false
+ENABLE_REDACTED_EVIDENCE_EXPORT=true
 ```
 
+.
 
+## ☁️ Azure Deployment Readiness
 
-## 📈 Performance
+Fiddy is designed to run as a standalone Streamlit workload in an Azure-compatible container.
 
-Fiddy records timing for label processing and batch execution. Performance results are available in
-the interface and can be exported.
+The containerized runtime should include:
 
-Runtime depends on:
+* Python.
+* Streamlit.
+* Tesseract OCR.
+* Poppler.
+* Fiddy source code.
+* Local runtime configuration.
 
-* Image size
-* Image quality
-* PDF conversion overhead
-* OCR complexity
-* CPU resources
-* Batch size
-* Deployment runtime sizing
+Suitable prototype deployment targets include:
 
-Representative testing should be completed in the target runtime before publishing production
-performance commitments.
+* Azure Container Apps.
+* Azure App Service for Containers.
+* Azure VM-hosted Streamlit.
+* Internal Azure-hosted application service.
 
+Fiddy does not require an external OCR endpoint or external ML endpoint for prototype operation.
 
+.
 
-## ⚠️ Limitations
+## 📦 Downloadable Local Release
 
-Known limitations include:
+A packaged local release is provided through the GitHub Releases section for reviewers who prefer to
+download a runnable copy instead of cloning the repository.
 
-* OCR can struggle with stylized fonts, curved labels, glare, low resolution, and severe image
-  distortion.
-* Visual formatting of the government warning may require human confirmation.
-* Direct COLA integration is not included.
-* Official case management is not included.
-* Authentication and role-based authorization are not built into the prototype.
-* Production records-retention workflows are not implemented.
-* Queue-based large-scale processing is outside the prototype scope.
-* Production performance commitments require testing in the final runtime.
+The source repository remains the authoritative project record. The release package is intended as a
+convenience artifact for local evaluation and demonstration.
+
+Suggested release name:
+
+```text
+Fiddy v2
+```
+
+Suggested release artifact:
+
+```text
+Fiddy-v2-local.zip
+```
+
+.
+
+## 📁 Repository Structure
+
+```text
+Fiddy/
+├── app.py
+├── booger.py
+├── config.py
+├── Dockerfile
+├── mkdocs.yml
+├── requirements.txt
+├── requirements-docs.txt
+├── startup.sh
+├── assets/
+│   └── images/
+├── docs/
+│   ├── ACCEPTANCE.md
+│   ├── ACCESSIBILITY.md
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── AZURE_DEPLOYMENT.md
+│   ├── DEVELOPMENT.md
+│   ├── INSTALLATION.md
+│   ├── PATH-POPPLER.md
+│   └── USER_GUIDE.md
+├── samples/
+│   ├── labels/
+│   └── manifests/
+├── src/
+│   ├── acceptance_checker.py
+│   ├── acceptance_test_harness.py
+│   ├── accessibility_checklist.py
+│   ├── batch_manifest.py
+│   ├── batch_processor.py
+│   ├── constants.py
+│   ├── data_retention.py
+│   ├── deployment_evidence.py
+│   ├── image_processor.py
+│   ├── label_field_extractor.py
+│   ├── label_rules.py
+│   ├── label_verifier.py
+│   ├── models.py
+│   ├── normalizer.py
+│   ├── ocr_engine.py
+│   ├── performance_monitor.py
+│   ├── report_writer.py
+│   ├── visual_quality.py
+│   └── warning_validator.py
+└── tests/
+```
+
+.
+
+## 📚 Documentation
+
+Full documentation is available in the `docs/` directory and can be built with MkDocs.
+
+| Guide | Purpose |
+| . . . . . . . . . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . -- |
+| [Installation](docs/INSTALLATION.md)         | Local Python, OCR, dependency, and runtime setup. |
+| [User Guide](docs/USER_GUIDE.md)             | Reviewer workflow for running Fiddy. |
+| [Architecture](docs/ARCHITECTURE.md)         | Architecture, components, design patterns, and data
+flow. |
+| [API Reference](docs/API.md)                 | MkDocs/mkdocstrings API reference generated from
+docstrings. |
+| [Acceptance](docs/ACCEPTANCE.md)             | Acceptance posture, evidence, and validation
+workflow. |
+| [Accessibility](docs/ACCESSIBILITY.md)       | Accessibility features and manual validation
+checklist. |
+| [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment guidance. |
+| [Development](docs/DEVELOPMENT.md)           | Development workflow, validation, logging, and
+contribution discipline. |
+| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF
+support. |
+
+Build documentation:
+
+```powershell
+mkdocs build
+```
+
+Preview documentation locally:
+
+```powershell
+mkdocs serve
+```
+
+.
+
+## 📥 Installation
+
+For detailed setup instructions, see:
+
+```text
+docs/INSTALLATION.md
+```
+
+### Prerequisites
+
+* Python 3.11 or newer.
+* Tesseract OCR.
+* Poppler for PDF support.
+* Git.
+* Python virtual environment support.
+
+### Quick Start
+
+```powershell
+git clone <repository-url> fiddy
+cd fiddy
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+.
+
+## ⚙️ Configuration
+
+Configuration is centralized in `config.py` and may be supplemented by a local `.env` file.
+
+Common settings include:
+
+| Setting | Purpose |
+| . . . . . . . . . . | . . . . . . . . . . . . . . |
+| `APP_NAME`                     | Application name. |
+| `APP_TITLE`                    | Browser and Streamlit title. |
+| `MAX_UPLOAD_MB`                | Upload size guardrail. |
+| `MAX_BATCH_FILES`              | Maximum batch upload size. |
+| `MAX_PARALLEL_WORKERS`         | Worker count for batch processing. |
+| `OCR_ENGINE`                   | OCR engine identifier. |
+| `TESSERACT_CMD`                | Optional path to the Tesseract executable. |
+| `OCR_LANGUAGE`                 | OCR language. |
+| `OCR_TIMEOUT_SECONDS`          | OCR timeout threshold. |
+| `BRAND_MATCH_THRESHOLD`        | Fuzzy brand-match threshold. |
+| `CLASS_TYPE_MATCH_THRESHOLD`   | Fuzzy class/type threshold. |
+| `LOW_CONFIDENCE_THRESHOLD`     | Low-confidence review threshold. |
+| `LABEL_PROCESSING_SLA_SECONDS` | Per-label processing target. |
+| `REPORT_FILENAME_PREFIX`       | Download filename prefix. |
+| `LOG_PATH`                     | SQLite exception log database path. |
+| `LOG_FILE`                     | SQLite exception log table name. |
+
+Example `.env`:
+
+```env
+APP_NAME=Fiddy
+APP_TITLE=Fiddy
+APP_ICON=🥃
+OCR_ENGINE=tesseract
+OCR_LANGUAGE=eng
+OCR_TIMEOUT_SECONDS=5
+MAX_UPLOAD_MB=25
+MAX_BATCH_FILES=50
+MAX_PARALLEL_WORKERS=4
+BRAND_MATCH_THRESHOLD=90.0
+CLASS_TYPE_MATCH_THRESHOLD=85.0
+LOW_CONFIDENCE_THRESHOLD=70.0
+LABEL_PROCESSING_SLA_SECONDS=5.0
+REPORT_FILENAME_PREFIX=fiddy_report
+LOG_PATH=logging/Exceptions.db
+LOG_FILE=Exceptions
+```
+
+On Windows, if Tesseract is not already on `PATH`:
+
+```env
+TESSERACT_CMD=C:\Program Files\Tesseract-OCR\tesseract.exe
+```
+
+.
+
+## 📄 Manifest Format
+
+A manifest row represents expected application data for one uploaded label file.
+
+Recommended CSV header:
+
+```csv
+file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes,government_warning
+```
+
+Example:
+
+```csv
+file_name,brand_name,class_type,beverage_type,alcohol_content,proof,net_contents,producer_bottler,imported,importer,country_of_origin,cola_id,notes,government_warning
+old_tom_label.png,OLD TOM DISTILLERY,Kentucky Straight Bourbon Whiskey,Distilled Spirits,45,90,750 mL,Old Tom Distillery LLC,false,,,COLA-001,Demo record,"GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems."
+```
+
+### Manifest Columns
+
+| Column | Description |
+| . . . . . . -- | . . . . . . . . . . . . . . . . . . . . . . . . . - |
+| `file_name`          | Expected uploaded label filename. |
+| `brand_name`         | Expected brand name. |
+| `class_type`         | Expected class or type designation. |
+| `beverage_type`      | Product category used for review context. |
+| `alcohol_content`    | Expected ABV value. |
+| `proof`              | Expected proof value when applicable. |
+| `net_contents`       | Expected container volume. |
+| `producer_bottler`   | Expected producer, bottler, brewer, vintner, importer, or responsible
+party. |
+| `imported`           | Indicates whether imported-product review applies. |
+| `importer`           | Expected importer when applicable. |
+| `country_of_origin`  | Expected country of origin when applicable. |
+| `cola_id`            | Optional application or COLA reference. |
+| `notes`              | Optional reviewer notes. |
+| `government_warning` | Expected government-warning text. |
+
+.
+
+## 📊 Outputs
+
+Fiddy presents results in progressively detailed layers.
+
+### Batch Dashboard
+
+The dashboard provides a quick summary of the current review run:
+
+* Files reviewed.
+* Failures.
+* Warnings.
+* Needs-review items.
+* SLA breaches.
+
+### Summary Table
+
+The summary table provides one row per processed label.
+
+### Side-by-Side Comparison
+
+The side-by-side comparison is the primary reviewer surface.
+
+| Column | Purpose |
+| . . . . . | . . . . . . . . . . . . . . . . . -- |
+| File Name | Identifies the reviewed label file. |
+| Field | Shows the label field being checked. |
+| Application | Displays the expected application value. |
+| Extracted | Displays OCR-derived or rule-observed label evidence. |
+| Status | Shows the review outcome. |
+| Severity | Indicates the significance of the finding. |
+| Confidence | Shows the rule confidence score. |
+| Explanation | Explains the finding in reviewer-facing language. |
+| Reviewer Action | Recommends the next reviewer step. |
+
+### Downloadable Files
+
+| Output | Purpose |
+| . . . . . | . . . . . . . . . . . . . . . . . |
+| Summary CSV | One row per reviewed label. |
+| Detail CSV | One row per rule result. |
+| Comparison CSV | Field-by-field application-versus-label comparison. |
+| Performance CSV | Per-label timing data. |
+| JSON Report | Structured machine-readable report. |
+| Markdown Report | Human-readable review report. |
+
+.
+
+## ✅ Run Validation
+
+Before demonstration or commit, run:
+
+```powershell
+python -m compileall app.py config.py booger.py src
+mkdocs build
+```
+
+Then run the application locally:
+
+```powershell
+streamlit run app.py
+```
+
+For container validation:
+
+```powershell
+docker build -t fiddy:local .
+docker run --rm -p 8501:8501 fiddy:local
+```
+
+Open:
+
+```text
+http://localhost:8501
+```
+
+.
+
+## 🧾 Demonstration Checklist
+
+Before presenting Fiddy:
+
+* The app starts locally.
+* MkDocs builds successfully.
+* Manifest upload works.
+* Label image upload works.
+* ZIP upload works.
+* PDF processing works when Poppler is installed.
+* Verification completes.
+* Batch dashboard renders.
+* Side-by-side comparison renders.
+* Confidence scores appear.
+* Reviewer actions appear.
+* Downloads are available.
+* Simple Mode works.
+* Advanced Mode works.
+* High Contrast works.
+* Large Text works.
+* Keyboard navigation is manually checked.
+* No raw OCR text or manifest rows are written to logs.
+* Container build completes.
+* Container run opens the app.
+* Representative batch timing evidence is generated.
+
+.
+
+## ⚖️ Trade-Offs and Limitations
+
+Fiddy is a working prototype, not a production compliance system.
+
+The implementation intentionally prioritizes a clean, runnable core application over ambitious
+features that would be incomplete or inappropriate for the prototype scope.
+
+Known trade-offs and limitations include:
+
+* OCR quality depends on submitted label quality.
+* OCR text alone cannot prove visual properties such as boldness, font size, visual prominence, or
+  hidden placement.
+* Government-warning visual-format checks require human confirmation.
+* The prototype does not integrate directly with COLA.
+* The prototype does not write results back to any official workflow system.
+* The prototype does not require external ML endpoints.
+* Synthetic demonstration data is fictional and is not a substitute for formal production testing.
+* Formal acceptance evidence requires representative runtime data.
+* Azure deployment readiness is documented, but production deployment would require agency-specific
+  security review.
+* Large-scale production processing would require queueing, monitoring, authentication,
+  authorization, audit logging, and records-retention controls.
+
+These trade-offs are deliberate. They keep the prototype focused on the core review problem:
+extracting label evidence, comparing it to application data, flagging exceptions, and helping
+reviewers decide what needs attention.
+
+.
+
+## 🛣️ Future Production Path
+
+A production version of Fiddy could extend the prototype through:
+
+* Approved identity and access management.
+* Formal audit logging.
+* Secure upload scanning.
+* Records-retention integration.
+* Queue-based batch processing.
+* Human-review assignment workflow.
+* COLA read integration.
+* COLA writeback only after authorization and governance approval.
+* Improved layout detection.
+* Specialized OCR tuning for alcohol labels.
+* Model and rule performance monitoring.
+* Continuous accessibility testing.
+* FedRAMP-aligned deployment controls.
 
 ## 👶 Dependencies
 

@@ -87,10 +87,6 @@ ACCESSIBILITY_STATUS_PARTIAL: str = 'Partially Met'
 ACCESSIBILITY_STATUS_NOT_MET: str = 'Not Met'
 ACCESSIBILITY_STATUS_NOT_EVALUATED: str = 'Not Evaluated'
 
-# ==========================================================================================
-# Accessibility Models
-# ==========================================================================================
-
 class AccessibilityChecklistItem( BaseModel ):
 	"""Represent one accessibility validation checklist item.
 
@@ -605,10 +601,6 @@ class AccessibilityChecklistResult( BaseModel ):
 			error.method = 'to_markdown( self ) -> str'
 			Logger( ).write( error )
 			return '# Fiddy Accessibility Checklist\n\nAccessibility report could not be rendered.'
-
-# ==========================================================================================
-# Accessibility Checklist Builder
-# ==========================================================================================
 
 class AccessibilityChecklist( ):
 	"""Build and evaluate Fiddy's manual accessibility checklist.
