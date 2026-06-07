@@ -15,7 +15,7 @@
 [Configuration](#%EF%B8%8F-configuration) •
 [Run](#%EF%B8%8F-run-the-app)
 
-## 📌 Executive Summary
+## 📌 Overview
 
 **Fiddy** is a local-first, AI-assisted prototype that helps alcohol-label reviewers compare
 submitted label artwork against expected application data. The application uses local OCR,
@@ -34,7 +34,7 @@ accessibility, performance, and reviewer trust matter as much as model capabilit
 
 
 
-## 🎯 Problem Statement
+## 🎯 Issue
 
 Alcohol label review involves a large amount of field-by-field comparison:
 
@@ -108,9 +108,9 @@ to read, or if a visual condition requires judgment, Fiddy marks the item for re
 | Local diagnostics       | Supports optional SQLite exception logging for troubleshooting.                         |
 | Azure fit               | Runs as a standalone local-first workload suitable for Azure-hosted deployment.         |
 
-## 🧠 AI-Assistance Posture
+## 🧠 AI-Assisted Posture
 
-Fiddy is **AI-assisted**, not **AI-autonomous**.
+Fiddy is **AI-assisted**, **_not_** **AI-autonomous**.
 
 The AI-enabled portion of the system is OCR-based extraction from label artwork. Once label text is
 extracted, Fiddy relies on deterministic validation logic, structured data models, explicit
@@ -189,19 +189,19 @@ over-engineer the prototype, but to show how a working AI-assisted application c
 that the workflow remains understandable to reviewers, maintainable for developers, and defensible
 in a federal environment.
 
-| Pattern                        | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
-|--------------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Pipeline Pattern**           | Upload → normalize → preprocess → OCR → extract → compare → report                                             | Organizes the review process as a clear sequence of independently testable steps. This mirrors the reviewer workflow and makes failures easier to isolate.                   |
-| **Facade Pattern**             | `AlcoholLabelVerifier`                                                                                         | Provides a single high-level verification interface while hiding the internal coordination of OCR, field extraction, rule execution, and report construction.                |
-| **Strategy Pattern**           | `AlcoholLabelRules`, `GovernmentWarningValidator`                                                              | Keeps field-specific validation logic separated so brand matching, ABV checks, net-contents checks, importer checks, and government-warning checks can evolve independently. |
-| **Adapter Pattern**            | `BatchManifestRecord.to_label_application()`                                                                   | Converts CSV manifest rows into the `LabelApplication` model expected by the verification engine. This keeps spreadsheet intake separate from rule execution.                |
-| **DTO Pattern**                | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`, `LabelVerificationReport`, `BatchVerificationReport` | Uses explicit structured models to move data between layers safely and predictably. This supports validation, serialization, exports, and testability.                       |
-| **Policy Object Pattern**      | `DataRetentionPolicy`                                                                                          | Centralizes redaction, export, and no-persistence decisions so sensitive-data handling is consistent across reports, acceptance evidence, and generated outputs.             |
-| **Service Object Pattern**     | `OcrEngine`, `ImageProcessor`, `VisualQualityAnalyzer`, `ReportWriter`, `PerformanceMonitor`                   | Encapsulates focused business or infrastructure operations in dedicated classes instead of concentrating logic in the Streamlit UI.                                          |
-| **Observer-Callback Pattern**  | OCR and batch progress callbacks                                                                               | Allows processing services to report progress without depending directly on Streamlit. This keeps UI concerns separate from processing logic.                                |
-| **Evidence Package Pattern**   | `AcceptanceChecker`, `AcceptanceTestHarness`, `DeploymentEvidenceChecker`, `AccessibilityChecklist`            | Converts runtime behavior into reviewable evidence for stakeholder acceptance, performance validation, deployment readiness, and accessibility review.                       |
-| **Defensive Boundary Pattern** | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
-| **Human-in-the-Loop Pattern**  | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
+| Pattern                  | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
+|--------------------------|----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Pipelining**           | Upload → normalize → preprocess → OCR → extract → compare → report                                             | Organizes the review process as a clear sequence of independently testable steps. This mirrors the reviewer workflow and makes failures easier to isolate.                   |
+| **Facades**              | `AlcoholLabelVerifier`                                                                                         | Provides a single high-level verification interface while hiding the internal coordination of OCR, field extraction, rule execution, and report construction.                |
+| **Strategy**             | `AlcoholLabelRules`, `GovernmentWarningValidator`                                                              | Keeps field-specific validation logic separated so brand matching, ABV checks, net-contents checks, importer checks, and government-warning checks can evolve independently. |
+| **Adapter**              | `BatchManifestRecord.to_label_application()`                                                                   | Converts CSV manifest rows into the `LabelApplication` model expected by the verification engine. This keeps spreadsheet intake separate from rule execution.                |
+| **Data Transfer Object** | `LabelApplication`, `ExtractedLabel`, `LabelCheckResult`, `LabelVerificationReport`, `BatchVerificationReport` | Uses explicit structured models to move data between layers safely and predictably. This supports validation, serialization, exports, and testability.                       |
+| **Policy**               | `DataRetentionPolicy`                                                                                          | Centralizes redaction, export, and no-persistence decisions so sensitive-data handling is consistent across reports, acceptance evidence, and generated outputs.             |
+| **Service**              | `OcrEngine`, `ImageProcessor`, `VisualQualityAnalyzer`, `ReportWriter`, `PerformanceMonitor`                   | Encapsulates focused business or infrastructure operations in dedicated classes instead of concentrating logic in the Streamlit UI.                                          |
+| **Observer-Callback**    | OCR and batch progress callbacks                                                                               | Allows processing services to report progress without depending directly on Streamlit. This keeps UI concerns separate from processing logic.                                |
+| **Evidence**             | `AcceptanceChecker`, `AcceptanceTestHarness`, `DeploymentEvidenceChecker`, `AccessibilityChecklist`            | Converts runtime behavior into reviewable evidence for stakeholder acceptance, performance validation, deployment readiness, and accessibility review.                       |
+| **Defensive Boundary**   | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
+| **Human-in-the-Loop**    | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
 
 These patterns support the central engineering posture of Fiddy: **use AI where it helps extract
 evidence, use deterministic rules where explainability matters, and route uncertainty back to the
@@ -212,7 +212,7 @@ reviewer.**
 
 Fiddy supports two primary reviewer workflows.
 
-### Manifest Batch Workflow
+###  Batch Workflow
 
 ```text
 Upload manifest CSV
@@ -228,7 +228,7 @@ Review dashboard and side-by-side comparison
 Download summary, detail, comparison, performance, JSON, or Markdown outputs
 ```
 
-### Manual CAV Workflow
+### Manual Workflow
 
 ```text
 Upload label artwork
@@ -242,7 +242,7 @@ Review field-level results
 Download outputs
 ```
 
-## 🖥️ Simple Mode and Advanced Mode
+## 🖥️ Simple and Advanced Mode
 
 Fiddy supports both reviewer-friendly operation and technical inspection.
 
@@ -257,31 +257,31 @@ troubleshooting, demonstration, acceptance review, and technical evaluation.
 
 ## 📋 Requirement Traceability
 
-| Requirement Area                                | Fiddy Implementation                                                                |
-|-------------------------------------------------|-------------------------------------------------------------------------------------|
-| Label data extraction                           | `src/ocr_engine.py`, `src/image_processor.py`,                                      
- `src/label_field_extractor.py`, `src/models.py` |
-| OCR on imperfect images                         | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,                        image-quality diagnostics                       |
-| Application versus label comparison             | `src/label_rules.py`, `src/label_verifier.py`, side-by-side                          comparison table                                |
-| Fuzzy matching                                  | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules                      |
-| Government warning exact review                 | `src/warning_validator.py`, strict normalized warning                                comparison                                      |
-| Batch upload                                    | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in         `app.py`                                        |
-| Per-label results                               | `BatchVerificationReport`, summary/detail/comparison tables                         |
-| Five-second performance target                  | `src/performance_monitor.py`, SLA configuration, performance                         exports                                         |
-| Reviewer outputs                                | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads                  |
-| Usability                                       | Simple Mode, clear labels, large action controls, minimal routine workflow          |
-| Reliability                                     | OCR fallback reports, image-quality warnings, missing/skipped file handling         |
-| Security                                        | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports |
-| Prototype scalability                           | Parallel batch processing and 20–50 file acceptance posture                         |
-| Accessibility                                   | High contrast, large text, keyboard guidance, accessibility checklist               |
-| Azure readiness                                 | Dockerfile, startup script, local OCR dependencies, Azure deployment                 documentation                                   |
-| No COLA integration                             | Manifest/manual CAV input only; no COLA writeback                                   |
-| No long-term storage                            | Temporary upload handling and data-retention policy controls                        |
+| Requirement Area                                | Fiddy Implementation                                                                                           |
+|-------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
+| Label data extraction                           | `src/ocr_engine.py`, `src/image_processor.py`, `src/label_field_extractor.py`, `src/models.py`                 |
+| OCR on imperfect images                         | `src/image_processor.py`, `src/visual_quality.py`, OCR notes,                        image-quality diagnostics |
+| Application versus label comparison             | `src/label_rules.py`, `src/label_verifier.py`, side-by-side                          comparison table          |
+| Fuzzy matching                                  | `rapidfuzz`, `TextNormalizer`, brand/class/type matching rules                                                 |
+| Government warning exact review                 | `src/warning_validator.py`, strict normalized warning                                comparison                |
+| Batch upload                                    | `src/batch_manifest.py`, `src/batch_processor.py`, ZIP extraction support in         `app.py`                  |
+| Per-label results                               | `BatchVerificationReport`, summary/detail/comparison tables                                                    |
+| Five-second performance target                  | `src/performance_monitor.py`, SLA configuration, performance                         exports                   |
+| Reviewer outputs                                | Streamlit dashboard, comparison table, CSV/JSON/Markdown downloads                                             |
+| Usability                                       | Simple Mode, clear labels, large action controls, minimal routine workflow                                     |
+| Reliability                                     | OCR fallback reports, image-quality warnings, missing/skipped file handling                                    |
+| Security                                        | Local OCR, no external ML endpoint requirement, sanitized logging, redacted exports                            |
+| Prototype scalability                           | Parallel batch processing and 20–50 file acceptance posture                                                    |
+| Accessibility                                   | High contrast, large text, keyboard guidance, accessibility checklist                                          |
+| Azure readiness                                 | Dockerfile, startup script, local OCR dependencies, Azure deployment                 documentation             |
+| No COLA integration                             | Manifest/manual CAV input only; no COLA writeback                                                              |
+| No long-term storage                            | Temporary upload handling and data-retention policy controls                                                   |
 
 
-## ⚠️ Government Warning Handling
+## ⚠️ Warning Handling
 
-Fiddy treats the government warning as a specialized compliance check.
+Fiddy treats the government warning as a specialized compliance check. These checks 
+are low-hanging fruit that can be translated later into control points for SOX404/FMFIA Internal Control frameworks
 
 The validator distinguishes between:
 
@@ -304,9 +304,9 @@ Fiddy records per-label timing and batch-level timing metrics.
 Performance evidence may include:
 
 * Processing seconds.
-* SLA seconds.
-* Within-SLA status.
-* SLA breach seconds.
+* SLA seconds (5).
+* Within-SLA status (<=5).
+* SLA breach seconds (>=5).
 * Average seconds.
 * Median seconds.
 * P95 seconds.
@@ -362,7 +362,7 @@ Synthetic data is for demonstration and testing only. It should not be treated a
 official TTB records, or real COLA application data.
 
 
-## 🔐 Security and Data Handling
+## 🔐 Security & Data Handling
 
 Fiddy follows a conservative prototype security posture.
 
@@ -391,7 +391,7 @@ ENABLE_REDACTED_EVIDENCE_EXPORT=true
 ```
 
 
-## ☁️ Azure Deployment Readiness
+## ☁️ Azure Readiness
 
 Fiddy is designed to run as a standalone Streamlit workload in an Azure-compatible container.
 
@@ -414,7 +414,7 @@ Suitable prototype deployment targets include:
 Fiddy does not require an external OCR endpoint or external ML endpoint for prototype operation.
 
 
-## 📦 Downloadable Local Release
+## 📦 Local Release
 
 A packaged local release is provided through the GitHub Releases section for reviewers who prefer to
 download a runnable copy instead of cloning the repository.
@@ -500,7 +500,7 @@ Full documentation is available in the `docs/` directory and can be built with M
 | [Accessibility](docs/ACCESSIBILITY.md)       | Accessibility features and manual validation checklist.                                            |
 | [Azure Deployment](docs/AZURE_DEPLOYMENT.md) | Container and Azure deployment guidance.                                                           |
 | [Development](docs/DEVELOPMENT.md)           | Development workflow, validation, logging, and contribution discipline.                            |
-| [Poppler PATH Setup](docs/PATH-POPPLER.md)   | Windows Poppler PATH configuration for PDF support.                                                |
+| [Poppler Setup](docs/PATH-POPPLER.md)        | Windows Poppler PATH configuration for PDF support.                                                |
 
 Build documentation:
 
