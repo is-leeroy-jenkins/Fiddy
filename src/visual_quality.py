@@ -66,20 +66,17 @@ from src.constants import (
 	STATUS_WARNING
 )
 
-# ==========================================================================================
-# Visual Quality Models
-# ==========================================================================================
-
 class VisualQualityResult( BaseModel ):
 	"""Represent visual-quality measurements and review flags for one label image.
 
-	The ``VisualQualityResult`` model stores image-readability measurements produced by
-	``VisualQualityAnalyzer``. It captures dimensions, brightness, contrast, blur, glare,
-	darkness, skew, an approximate readability score, reviewer-facing status and severity, and
-	lists of warnings and recommendations.
-
-	The model is used by OCR and reporting workflows to explain why OCR may have low confidence,
-	why human review may be needed, or why a clearer label image should be requested.
+	Purpose:
+		The ``VisualQualityResult`` model stores image-readability measurements produced by
+		``VisualQualityAnalyzer``. It captures dimensions, brightness, contrast, blur, glare,
+		darkness, skew, an approximate readability score, reviewer-facing status and severity, and
+		lists of warnings and recommendations.
+	
+		The model is used by OCR and reporting workflows to explain why OCR may have low confidence,
+		why human review may be needed, or why a clearer label image should be requested.
 
 	Attributes:
 		file_name (str): Uploaded or logical file name associated with the analyzed image.
@@ -116,10 +113,11 @@ class VisualQualityResult( BaseModel ):
 	def to_record( self ) -> Dict[ str, object ]:
 		"""Convert the visual-quality result into a flat display/export record.
 
-		This method converts the structured visual-quality result into a dictionary suitable for
-		Streamlit tables, pandas DataFrames, CSV export, JSON export, or report-writing
-		workflows. Numeric measurements are rounded to three decimal places for compact display.
-		Warning and recommendation lists are joined into semicolon-delimited strings.
+		Purpose:
+			This method converts the structured visual-quality result into a dictionary suitable for
+			Streamlit tables, pandas DataFrames, CSV export, JSON export, or report-writing
+			workflows. Numeric measurements are rounded to three decimal places for compact display.
+			Warning and recommendation lists are joined into semicolon-delimited strings.
 
 		Returns:
 			Dict[str, object]: Flat visual-quality result record. If conversion fails, the
@@ -166,22 +164,20 @@ class VisualQualityResult( BaseModel ):
 					'Recommendations': 'Review label manually or request clearer artwork.'
 			}
 
-# ==========================================================================================
-# Visual Quality Analyzer
-# ==========================================================================================
 
 class VisualQualityAnalyzer( ):
 	"""Analyze label artwork for OCR readability risks.
 
-	The ``VisualQualityAnalyzer`` class measures basic image-quality characteristics that can
-	reduce OCR reliability. It supports file-based and in-memory PIL image analysis, applies
-	EXIF orientation correction, converts images to RGB and grayscale arrays, calculates
-	brightness, contrast, blur, glare ratio, dark ratio, skew angle, and a composite readability
-	score, then produces reviewer-facing warnings and recommendations.
-
-	The analyzer is intentionally deterministic and lightweight. It does not make regulatory
-	determinations; it identifies visual conditions that may require manual review, clearer
-	artwork, better lighting, deskewing, or direct digital label files.
+	Purpose:
+		The ``VisualQualityAnalyzer`` class measures basic image-quality characteristics that can
+		reduce OCR reliability. It supports file-based and in-memory PIL image analysis, applies
+		EXIF orientation correction, converts images to RGB and grayscale arrays, calculates
+		brightness, contrast, blur, glare ratio, dark ratio, skew angle, and a composite readability
+		score, then produces reviewer-facing warnings and recommendations.
+	
+		The analyzer is intentionally deterministic and lightweight. It does not make regulatory
+		determinations; it identifies visual conditions that may require manual review, clearer
+		artwork, better lighting, deskewing, or direct digital label files.
 
 	Attributes:
 		_image (Image.Image): PIL image currently being analyzed.
@@ -215,9 +211,10 @@ class VisualQualityAnalyzer( ):
 			maximum_skew_angle: float = 8.0 ) -> None:
 		"""Initialize visual-quality thresholds used for OCR readability assessment.
 
-		The constructor stores the image-size, contrast, blur, glare, darkness, and skew
-		thresholds used by warning evaluation and readability scoring. It also initializes empty
-		warning and recommendation collections for the first analysis run.
+		Purpose:
+			The constructor stores the image-size, contrast, blur, glare, darkness, and skew
+			thresholds used by warning evaluation and readability scoring. It also initializes empty
+			warning and recommendation collections for the first analysis run.
 
 		Args:
 			minimum_width (int): Minimum preferred image width.
@@ -244,9 +241,10 @@ class VisualQualityAnalyzer( ):
 	def load_image( self, image_path: str | Path ) -> Image.Image:
 		"""Load an image from disk and apply EXIF orientation correction.
 
-		This method validates that an image path was supplied, confirms the file exists, opens
-		the file through PIL, applies EXIF transpose handling, converts non-RGB images to RGB, and
-		returns the loaded image. The file name is stored for downstream reporting.
+		Purpose:
+			This method validates that an image path was supplied, confirms the file exists, opens
+			the file through PIL, applies EXIF transpose handling, converts non-RGB images to RGB, and
+			returns the loaded image. The file name is stored for downstream reporting.
 
 		Args:
 			image_path (str | Path): Path to image file.
@@ -285,9 +283,10 @@ class VisualQualityAnalyzer( ):
 	def to_grayscale_array( self, image: Image.Image ) -> np.ndarray:
 		"""Convert a PIL image into an OpenCV grayscale array.
 
-		This method converts the supplied image to RGB when necessary, converts it to a NumPy
-		array, and then returns a single-channel grayscale OpenCV array. If the input array is
-		already two-dimensional, it is returned directly.
+		Purpose:
+			This method converts the supplied image to RGB when necessary, converts it to a NumPy
+			array, and then returns a single-channel grayscale OpenCV array. If the input array is
+			already two-dimensional, it is returned directly.
 
 		Args:
 			image (Image.Image): PIL image to convert.
@@ -318,8 +317,9 @@ class VisualQualityAnalyzer( ):
 	def calculate_brightness( self, gray: np.ndarray ) -> float:
 		"""Calculate average grayscale brightness.
 
-		This method calculates the arithmetic mean of the grayscale pixel values. Higher values
-		indicate a brighter image, while lower values indicate a darker image.
+		Purpose:
+			This method calculates the arithmetic mean of the grayscale pixel values. Higher values
+			indicate a brighter image, while lower values indicate a darker image.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -344,9 +344,10 @@ class VisualQualityAnalyzer( ):
 	def calculate_contrast( self, gray: np.ndarray ) -> float:
 		"""Calculate grayscale contrast using standard deviation.
 
-		This method uses the standard deviation of grayscale pixel values as a simple contrast
-		score. Higher values indicate more tonal separation, while lower values indicate flatter
-		or lower-contrast imagery that may reduce OCR readability.
+		Purpose:
+			This method uses the standard deviation of grayscale pixel values as a simple contrast
+			score. Higher values indicate more tonal separation, while lower values indicate flatter
+			or lower-contrast imagery that may reduce OCR readability.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -371,9 +372,10 @@ class VisualQualityAnalyzer( ):
 	def calculate_blur_score( self, gray: np.ndarray ) -> float:
 		"""Estimate blur using the variance of the Laplacian.
 
-		This method calculates the variance of the Laplacian of the grayscale image. Lower
-		values generally indicate blurrier images, while higher values suggest sharper edges and
-		better OCR readability.
+		Purpose:
+			This method calculates the variance of the Laplacian of the grayscale image. Lower
+			values generally indicate blurrier images, while higher values suggest sharper edges and
+			better OCR readability.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -398,9 +400,10 @@ class VisualQualityAnalyzer( ):
 	def calculate_glare_ratio( self, gray: np.ndarray ) -> float:
 		"""Estimate glare or overexposure using the ratio of near-white pixels.
 
-		This method counts pixels with grayscale values greater than or equal to 245 and divides
-		that count by total pixel count. A high ratio may indicate glare, overexposure, washed-out
-		areas, or white background dominance that could impair OCR.
+		Purpose:
+			This method counts pixels with grayscale values greater than or equal to 245 and divides
+			that count by total pixel count. A high ratio may indicate glare, overexposure, washed-out
+			areas, or white background dominance that could impair OCR.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -428,9 +431,10 @@ class VisualQualityAnalyzer( ):
 	def calculate_dark_ratio( self, gray: np.ndarray ) -> float:
 		"""Estimate underexposure using the ratio of near-black pixels.
 
-		This method counts pixels with grayscale values less than or equal to 35 and divides that
-		count by total pixel count. A high ratio may indicate underexposure, shadows, black label
-		areas, or insufficient lighting that could reduce OCR reliability.
+		Purpose:
+			This method counts pixels with grayscale values less than or equal to 35 and divides that
+			count by total pixel count. A high ratio may indicate underexposure, shadows, black label
+			areas, or insufficient lighting that could reduce OCR reliability.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -458,10 +462,11 @@ class VisualQualityAnalyzer( ):
 	def estimate_skew_angle( self, gray: np.ndarray ) -> float:
 		"""Estimate document skew angle using detected edge coordinates.
 
-		This method inverts the grayscale image, applies Otsu thresholding, extracts nonzero
-		coordinates from the thresholded result, and uses OpenCV's minimum-area rectangle to
-		estimate the dominant text or object angle. The returned value is intended as an
-		approximate OCR-readability indicator rather than a precise geometric correction.
+		Purpose:
+			This method inverts the grayscale image, applies Otsu thresholding, extracts nonzero
+			coordinates from the thresholded result, and uses OpenCV's minimum-area rectangle to
+			estimate the dominant text or object angle. The returned value is intended as an
+			approximate OCR-readability indicator rather than a precise geometric correction.
 
 		Args:
 			gray (np.ndarray): Grayscale image array.
@@ -505,10 +510,11 @@ class VisualQualityAnalyzer( ):
 			dark_ratio: float, skew_angle: float ) -> float:
 		"""Calculate an approximate readability score from visual measurements.
 
-		This method combines contrast and blur components, then subtracts glare, darkness, and
-		skew penalties. The final score is clamped between ``0.0`` and ``100.0``. The score is a
-		practical OCR-readability heuristic used for reviewer triage, not a calibrated statistical
-		model.
+		Purpose:
+			This method combines contrast and blur components, then subtracts glare, darkness, and
+			skew penalties. The final score is clamped between ``0.0`` and ``100.0``. The score is a
+			practical OCR-readability heuristic used for reviewer triage, not a calibrated statistical
+			model.
 
 		Args:
 			contrast (float): Contrast score.
@@ -545,10 +551,11 @@ class VisualQualityAnalyzer( ):
 			readability_score: float ) -> None:
 		"""Populate image-quality warnings and recommendations.
 
-		This method compares measured image-quality values against the configured thresholds and
-		populates reviewer-facing warnings and recommendations. It flags small images, darkness,
-		overexposure, low contrast, blur, glare, large dark areas, skew, and low overall
-		readability.
+		Purpose:
+			This method compares measured image-quality values against the configured thresholds and
+			populates reviewer-facing warnings and recommendations. It flags small images, darkness,
+			overexposure, low contrast, blur, glare, large dark areas, skew, and low overall
+			readability.
 
 		Args:
 			width (int): Image width.
@@ -607,7 +614,7 @@ class VisualQualityAnalyzer( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'evaluate_warnings( width: int, height: int, brightness: float, contrast: float, blur_score: float, glare_ratio: float, dark_ratio: float, skew_angle: float, readability_score: float ) -> None'
+			error.method = 'evaluate_warnings( self, *args ) -> None'
 			Logger( ).write( error )
 			self._warnings.append( 'Visual quality warnings could not be evaluated.' )
 			self._recommendations.append( 'Review label manually.' )
@@ -615,9 +622,10 @@ class VisualQualityAnalyzer( ):
 	def determine_status( self, readability_score: float ) -> tuple[ str, str ]:
 		"""Determine status and severity from readability score.
 
-		This method maps the approximate readability score into a reviewer-facing status and
-		severity pair. Scores of 75 or greater pass, scores from 55 to below 75 generate warning
-		status, scores from 35 to below 55 require review, and scores below 35 fail.
+		Purpose:
+			This method maps the approximate readability score into a reviewer-facing status and
+			severity pair. Scores of 75 or greater pass, scores from 55 to below 75 generate warning
+			status, scores from 35 to below 55 require review, and scores below 35 fail.
 
 		Args:
 			readability_score (float): Approximate readability score.
@@ -648,11 +656,12 @@ class VisualQualityAnalyzer( ):
 	def analyze_image( self, image: Image.Image, file_name: str = '' ) -> VisualQualityResult:
 		"""Analyze one in-memory label image for OCR readability risks.
 
-		This method performs the full in-memory visual-quality analysis workflow. It validates
-		the image, resets warning state, applies EXIF orientation correction, converts to RGB
-		when necessary, measures dimensions and grayscale metrics, calculates readability score,
-		populates warnings and recommendations, determines status/severity, and returns a
-		structured ``VisualQualityResult``.
+		Purpose:
+			This method performs the full in-memory visual-quality analysis workflow. It validates
+			the image, resets warning state, applies EXIF orientation correction, converts to RGB
+			when necessary, measures dimensions and grayscale metrics, calculates readability score,
+			populates warnings and recommendations, determines status/severity, and returns a
+			structured ``VisualQualityResult``.
 
 		Args:
 			image (Image.Image): PIL image to analyze.

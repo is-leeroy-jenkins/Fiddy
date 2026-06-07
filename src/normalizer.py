@@ -61,16 +61,17 @@ from config import throw_if
 class TextNormalizer( ):
 	"""Provide deterministic normalization helpers for OCR and application values.
 
-	The ``TextNormalizer`` class centralizes text and numeric normalization used by the Fiddy
-	label verification workflow. It provides helpers for Unicode cleanup, whitespace
-	normalization, apostrophe and dash normalization, case normalization, fuzzy-match
-	preparation, strict government-warning comparison, brand and class/type normalization,
-	net-contents normalization, ABV/proof parsing, numeric tolerance checks, OCR artifact
-	removal, full-label normalization, and reviewer-facing context extraction.
+	Purpose:
+		The ``TextNormalizer`` class centralizes text and numeric normalization used by the Fiddy
+		label verification workflow. It provides helpers for Unicode cleanup, whitespace
+		normalization, apostrophe and dash normalization, case normalization, fuzzy-match
+		preparation, strict government-warning comparison, brand and class/type normalization,
+		net-contents normalization, ABV/proof parsing, numeric tolerance checks, OCR artifact
+		removal, full-label normalization, and reviewer-facing context extraction.
 
-	The class intentionally uses deterministic string operations and regular expressions so
-	normalization behavior remains auditable and repeatable. These helpers are used by rule
-	checks, warning validation, field extraction, and report evidence generation.
+		The class intentionally uses deterministic string operations and regular expressions so
+		normalization behavior remains auditable and repeatable. These helpers are used by rule
+		checks, warning validation, field extraction, and report evidence generation.
 
 	Attributes:
 		apostrophe_chars (tuple[str, ...]): Apostrophe-like characters normalized to a plain
@@ -99,9 +100,10 @@ class TextNormalizer( ):
 	def normalize_unicode( self, text: str ) -> str:
 		"""Normalize Unicode text to an ASCII-compatible representation.
 
-		This method applies NFKD Unicode normalization and then encodes the value to ASCII while
-		ignoring characters that cannot be represented. It is useful for reducing typographic,
-		accented, and OCR-introduced Unicode variation before downstream matching logic runs.
+		Purpose:
+			This method applies NFKD Unicode normalization and then encodes the value to ASCII while
+			ignoring characters that cannot be represented. It is useful for reducing typographic,
+			accented, and OCR-introduced Unicode variation before downstream matching logic runs.
 
 		Args:
 			text (str): Text value to normalize.
@@ -126,9 +128,10 @@ class TextNormalizer( ):
 	def normalize_whitespace( self, text: str ) -> str:
 		"""Collapse repeated whitespace and trim leading or trailing whitespace.
 
-		This method replaces one or more whitespace characters with a single space and trims the
-		result. It is used throughout the normalization workflow to stabilize OCR text, reviewer
-		input, field values, and context snippets.
+		Purpose:
+			This method replaces one or more whitespace characters with a single space and trims the
+			result. It is used throughout the normalization workflow to stabilize OCR text, reviewer
+			input, field values, and context snippets.
 
 		Args:
 			text (str): Text value to normalize.
@@ -153,9 +156,10 @@ class TextNormalizer( ):
 	def normalize_apostrophes( self, text: str ) -> str:
 		"""Convert typographic apostrophe variants to a plain apostrophe.
 
-		This method replaces each configured apostrophe-like character with the standard single
-		quote character. It supports brand and producer names where OCR or source text may use
-		curly quotes, accent-like marks, or other apostrophe variants.
+		Purpose:
+			This method replaces each configured apostrophe-like character with the standard single
+			quote character. It supports brand and producer names where OCR or source text may use
+			curly quotes, accent-like marks, or other apostrophe variants.
 
 		Args:
 			text (str): Text value to normalize.
@@ -183,9 +187,10 @@ class TextNormalizer( ):
 	def normalize_dashes( self, text: str ) -> str:
 		"""Convert typographic dash variants to a plain hyphen.
 
-		This method replaces each configured dash-like character with the standard hyphen
-		character. It helps stabilize label text where OCR or source documents may contain en
-		dashes, em dashes, minus signs, or other dash-like glyphs.
+		Purpose:
+			This method replaces each configured dash-like character with the standard hyphen
+			character. It helps stabilize label text where OCR or source documents may contain en
+			dashes, em dashes, minus signs, or other dash-like glyphs.
 
 		Args:
 			text (str): Text value to normalize.
@@ -213,9 +218,10 @@ class TextNormalizer( ):
 	def normalize_case( self, text: str ) -> str:
 		"""Convert text to lowercase using Python casefold behavior.
 
-		This method applies ``casefold`` rather than simple lowercase conversion so matching is
-		more stable across case variations. It is used as part of the general text normalization
-		pipeline before fuzzy matching or strict warning normalization.
+		Purpose:
+			This method applies ``casefold`` rather than simple lowercase conversion so matching is
+			more stable across case variations. It is used as part of the general text normalization
+			pipeline before fuzzy matching or strict warning normalization.
 
 		Args:
 			text (str): Text value to normalize.
@@ -239,10 +245,11 @@ class TextNormalizer( ):
 	def normalize_text( self, text: str ) -> str:
 		"""Normalize general OCR or application text.
 
-		This method applies the standard text-normalization pipeline: Unicode normalization,
-		apostrophe normalization, dash normalization, case normalization, line-control character
-		replacement, and whitespace normalization. The result is suitable for field extraction,
-		display-stable comparison, and downstream specialized normalization.
+		Purpose:
+			This method applies the standard text-normalization pipeline: Unicode normalization,
+			apostrophe normalization, dash normalization, case normalization, line-control character
+			replacement, and whitespace normalization. The result is suitable for field extraction,
+			display-stable comparison, and downstream specialized normalization.
 
 		Args:
 			text (str): Text value to normalize.
@@ -273,10 +280,11 @@ class TextNormalizer( ):
 	def normalize_for_match( self, text: str ) -> str:
 		"""Normalize text for fuzzy or judgment-sensitive matching.
 
-		This method applies the general normalization pipeline and then replaces non-
-		alphanumeric separators with spaces. It intentionally removes punctuation and separator
-		differences that should not normally cause a mismatch, such as apostrophe, dash, slash,
-		or spacing variations.
+		Purpose:
+			This method applies the general normalization pipeline and then replaces non-
+			alphanumeric separators with spaces. It intentionally removes punctuation and separator
+			differences that should not normally cause a mismatch, such as apostrophe, dash, slash,
+			or spacing variations.
 
 		Args:
 			text (str): Text value to normalize for matching.
@@ -304,10 +312,11 @@ class TextNormalizer( ):
 	def normalize_for_strict_warning( self, text: str ) -> str:
 		"""Normalize government-warning text for strict wording comparison.
 
-		This method prepares government-warning text for exact wording checks while ignoring
-		common punctuation and formatting artifacts introduced by OCR. It keeps the comparison
-		strict with respect to word sequence while removing punctuation, slash, parenthesis, and
-		separator differences that are not meaningful to the word-level warning text.
+		Purpose:
+			This method prepares government-warning text for exact wording checks while ignoring
+			common punctuation and formatting artifacts introduced by OCR. It keeps the comparison
+			strict with respect to word sequence while removing punctuation, slash, parenthesis, and
+			separator differences that are not meaningful to the word-level warning text.
 
 		Args:
 			text (str): Government warning or OCR text to normalize.
@@ -342,9 +351,10 @@ class TextNormalizer( ):
 	def normalize_brand_name( self, brand_name: str ) -> str:
 		"""Normalize a brand name for judgment-sensitive matching.
 
-		This method delegates to ``normalize_for_match`` so brand-name comparisons ignore
-		punctuation, case, separator, apostrophe, dash, and spacing differences that should not
-		normally cause a mismatch.
+		Purpose:
+			This method delegates to ``normalize_for_match`` so brand-name comparisons ignore
+			punctuation, case, separator, apostrophe, dash, and spacing differences that should not
+			normally cause a mismatch.
 
 		Args:
 			brand_name (str): Brand name to normalize.
@@ -368,9 +378,10 @@ class TextNormalizer( ):
 	def normalize_class_type( self, class_type: str ) -> str:
 		"""Normalize a class or type designation for matching.
 
-		This method delegates to ``normalize_for_match`` so class/type comparisons can tolerate
-		common OCR and formatting differences while preserving the underlying words used by the
-		rule engine.
+		Purpose:
+			This method delegates to ``normalize_for_match`` so class/type comparisons can tolerate
+			common OCR and formatting differences while preserving the underlying words used by the
+			rule engine.
 
 		Args:
 			class_type (str): Class or type designation to normalize.
@@ -394,10 +405,11 @@ class TextNormalizer( ):
 	def normalize_net_contents( self, net_contents: str ) -> str:
 		"""Normalize net contents into a consistent unit representation.
 
-		This method normalizes general text and then standardizes common unit spellings and
-		abbreviations. For example, milliliter variants become ``ml``, liter variants become
-		``l``, and fluid-ounce variants become ``fl oz``. The result is used by net-contents
-		match rules to reduce formatting differences between application data and OCR text.
+		Purpose:
+			This method normalizes general text and then standardizes common unit spellings and
+			abbreviations. For example, milliliter variants become ``ml``, liter variants become
+			``l``, and fluid-ounce variants become ``fl oz``. The result is used by net-contents
+			match rules to reduce formatting differences between application data and OCR text.
 
 		Args:
 			net_contents (str): Net contents value to normalize.
@@ -434,10 +446,11 @@ class TextNormalizer( ):
 	def normalize_abv_text( self, alcohol_content: str ) -> str:
 		"""Normalize alcohol-content text into a consistent ABV phrase.
 
-		This method normalizes general text and replaces common alcohol-content phrases such as
-		``alc./vol.``, ``alc/vol``, ``alc vol``, ``alcohol by volume``, and
-		``alcohol/volume`` with ``abv``. The result is useful when OCR or application text uses
-		different ABV phrasing for the same concept.
+		Purpose:
+			This method normalizes general text and replaces common alcohol-content phrases such as
+			``alc./vol.``, ``alc/vol``, ``alc vol``, ``alcohol by volume``, and
+			``alcohol/volume`` with ``abv``. The result is useful when OCR or application text uses
+			different ABV phrasing for the same concept.
 
 		Args:
 			alcohol_content (str): Alcohol-content text to normalize.
@@ -469,10 +482,11 @@ class TextNormalizer( ):
 	def normalize_numeric_string( self, value: str ) -> str:
 		"""Normalize numeric text by preserving digits and decimal points.
 
-		This method first applies general text normalization and then removes all characters
-		except digits and decimal points. If the resulting text contains more than one decimal
-		point, the first decimal point is preserved and subsequent decimal fragments are joined
-		to produce a parseable numeric string.
+		Purpose:
+			This method first applies general text normalization and then removes all characters
+			except digits and decimal points. If the resulting text contains more than one decimal
+			point, the first decimal point is preserved and subsequent decimal fragments are joined
+			to produce a parseable numeric string.
 
 		Args:
 			value (str): Numeric string to normalize.
@@ -501,9 +515,10 @@ class TextNormalizer( ):
 	def parse_float( self, value: str ) -> Optional[ float ]:
 		"""Parse a normalized numeric value into a float.
 
-		This method normalizes the input text through ``normalize_numeric_string`` and converts
-		the result to ``float`` when a numeric string remains. Empty or invalid values are treated
-		as unavailable.
+		Purpose:
+			This method normalizes the input text through ``normalize_numeric_string`` and converts
+			the result to ``float`` when a numeric string remains. Empty or invalid values are treated
+			as unavailable.
 
 		Args:
 			value (str): Numeric value to parse.
@@ -528,9 +543,10 @@ class TextNormalizer( ):
 	def normalize_abv_value( self, value: str | float | int | None ) -> Optional[ float ]:
 		"""Normalize an ABV value to a numeric percentage.
 
-		This method accepts string, float, integer, or ``None`` ABV values. Numeric inputs are
-		returned as floats. String inputs are parsed through ``parse_float`` so percent signs,
-		labels, and OCR artifacts can be removed before conversion.
+		Purpose:
+			This method accepts string, float, integer, or ``None`` ABV values. Numeric inputs are
+			returned as floats. String inputs are parsed through ``parse_float`` so percent signs,
+			labels, and OCR artifacts can be removed before conversion.
 
 		Args:
 			value (str | float | int | None): ABV value to normalize.
@@ -557,9 +573,10 @@ class TextNormalizer( ):
 	def normalize_proof_value( self, value: str | float | int | None ) -> Optional[ float ]:
 		"""Normalize a proof value to a numeric value.
 
-		This method accepts string, float, integer, or ``None`` proof values. Numeric inputs are
-		returned as floats. String inputs are parsed through ``parse_float`` so proof labels and
-		OCR artifacts can be removed before conversion.
+		Purpose:
+			This method accepts string, float, integer, or ``None`` proof values. Numeric inputs are
+			returned as floats. String inputs are parsed through ``parse_float`` so proof labels and
+			OCR artifacts can be removed before conversion.
 
 		Args:
 			value (str | float | int | None): Proof value to normalize.
@@ -586,8 +603,9 @@ class TextNormalizer( ):
 	def proof_from_abv( self, abv: float | int | None ) -> Optional[ float ]:
 		"""Calculate expected proof from alcohol by volume.
 
-		For distilled spirits, proof is generally calculated as twice the ABV percentage. This
-		helper performs that calculation when an ABV value is available.
+		Purpose:
+			For distilled spirits, proof is generally calculated as twice the ABV percentage. This
+			helper performs that calculation when an ABV value is available.
 
 		Args:
 			abv (float | int | None): Alcohol by volume percentage.
@@ -612,9 +630,10 @@ class TextNormalizer( ):
 			tolerance: float ) -> bool:
 		"""Determine whether two numeric values are within a tolerance.
 
-		This method converts both values and the tolerance to floats and compares the absolute
-		difference against the allowed tolerance. It is used by ABV and proof comparison rules to
-		avoid false mismatches caused by small decimal differences.
+		Purpose:
+			This method converts both values and the tolerance to floats and compares the absolute
+			difference against the allowed tolerance. It is used by ABV and proof comparison rules to
+			avoid false mismatches caused by small decimal differences.
 
 		Args:
 			left (float | int | None): First numeric value.
@@ -642,9 +661,10 @@ class TextNormalizer( ):
 	def contains_phrase( self, text: str, phrase: str ) -> bool:
 		"""Determine whether normalized text contains a normalized phrase.
 
-		This method normalizes both source text and target phrase for fuzzy-style matching, then
-		performs a simple containment check. It is useful for cases where punctuation, case, or
-		spacing differences should not prevent a phrase from being found.
+		Purpose:
+			This method normalizes both source text and target phrase for fuzzy-style matching, then
+			performs a simple containment check. It is useful for cases where punctuation, case, or
+			spacing differences should not prevent a phrase from being found.
 
 		Args:
 			text (str): Text to search.
@@ -673,10 +693,11 @@ class TextNormalizer( ):
 	def contains_strict_warning_prefix( self, text: str ) -> bool:
 		"""Determine whether raw OCR text contains the all-caps government-warning prefix.
 
-		This method searches the raw OCR text for ``GOVERNMENT WARNING:`` with flexible
-		whitespace before the colon. It intentionally checks raw text rather than fully
-		case-normalized text because capitalization of the warning prefix is part of the
-		requirement being evaluated.
+		Purpose:
+			This method searches the raw OCR text for ``GOVERNMENT WARNING:`` with flexible
+			whitespace before the colon. It intentionally checks raw text rather than fully
+			case-normalized text because capitalization of the warning prefix is part of the
+			requirement being evaluated.
 
 		Args:
 			text (str): Raw OCR text to search.
@@ -700,10 +721,11 @@ class TextNormalizer( ):
 	def clean_ocr_artifacts( self, text: str ) -> str:
 		"""Remove common OCR artifacts while preserving meaningful label content.
 
-		This method removes or replaces selected symbols that commonly appear as OCR artifacts,
-		including pipes, trademark symbols, registered symbols, copyright symbols, and repeated
-		underscore-like marks. It then normalizes whitespace so the cleaned value can be passed to
-		general label-text normalization.
+		Purpose:
+			This method removes or replaces selected symbols that commonly appear as OCR artifacts,
+			including pipes, trademark symbols, registered symbols, copyright symbols, and repeated
+			underscore-like marks. It then normalizes whitespace so the cleaned value can be passed to
+			general label-text normalization.
 
 		Args:
 			text (str): OCR text to clean.
@@ -735,9 +757,10 @@ class TextNormalizer( ):
 	def normalize_label_text( self, text: str ) -> str:
 		"""Normalize full OCR label text for field extraction and rule checks.
 
-		This method first removes common OCR artifacts and then applies the standard text
-		normalization pipeline. It is intended for full-label OCR output where downstream
-		processors need stable text for matching, extraction, and validation.
+		Purpose:
+			This method first removes common OCR artifacts and then applies the standard text
+			normalization pipeline. It is intended for full-label OCR output where downstream
+			processors need stable text for matching, extraction, and validation.
 
 		Args:
 			text (str): Raw OCR label text.
@@ -764,10 +787,11 @@ class TextNormalizer( ):
 	def extract_context( self, text: str, phrase: str, window: int = 80 ) -> str:
 		"""Extract a short context window around a phrase for reviewer-facing evidence.
 
-		This method normalizes the source text and phrase, locates the normalized phrase inside
-		the normalized source text, and returns a bounded context window around the match. The
-		result is intended for evidence fields in rule results so reviewers can see where a
-		matched value appeared in the label text.
+		Purpose:
+			This method normalizes the source text and phrase, locates the normalized phrase inside
+			the normalized source text, and returns a bounded context window around the match. The
+			result is intended for evidence fields in rule results so reviewers can see where a
+			matched value appeared in the label text.
 
 		Args:
 			text (str): Source text from which evidence should be extracted.

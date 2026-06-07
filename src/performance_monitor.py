@@ -659,10 +659,6 @@ class BatchPerformanceSummary( BaseModel ):
 			Logger( ).write( error )
 			return '# Fiddy Performance Summary\n\nPerformance summary could not be rendered.'
 
-# ==========================================================================================
-# Performance Monitor
-# ==========================================================================================
-
 class PerformanceMonitor( ):
 	"""Track per-label processing time and evaluate SLA performance.
 
@@ -684,7 +680,6 @@ class PerformanceMonitor( ):
 			file name.
 		_results (List[LabelPerformanceResult]): Collected per-label performance results.
 	"""
-	
 	_sla_seconds: float
 	_start_times: Dict[ str, float ]
 	_start_datetimes: Dict[ str, datetime ]
@@ -787,7 +782,6 @@ class PerformanceMonitor( ):
 		"""
 		try:
 			throw_if( 'file_name', file_name )
-			
 			completed_on = datetime.now( )
 			started_on = self._start_datetimes.get( file_name, completed_on )
 			started = self._start_times.get( file_name, None )

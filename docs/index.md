@@ -44,7 +44,7 @@ This documentation supports three audiences:
 | [Accessibility](ACCESSIBILITY.md)        | Review accessibility posture, Simple Mode expectations, keyboard guidance, and manual validation checklist.                            |
 | [Azure Deployment](AZURE_DEPLOYMENT.md)  | Build and deploy Fiddy as an Azure-compatible local-OCR container.                                                                     |
 | [Development](DEVELOPMENT.md)            | Follow development workflow, logging rules, validation commands, documentation conventions, and release discipline.                    |
-| [Poppler PATH Setup](PATH-POPPLER.md)    | Add Poppler to the Windows PATH so PDF label artwork can be processed for OCR.                                                         |
+| [PopplerSetup](PATH-POPPLER.md)    | Add Poppler to the Windows PATH so PDF label artwork can be processed for OCR.                                                         |
 
 
 

@@ -81,10 +81,6 @@ from src.constants import (
 from src.models import LabelCheckResult
 from src.normalizer import TextNormalizer
 
-# ==========================================================================================
-# Warning Validation Models
-# ==========================================================================================
-
 class GovernmentWarningVisualEvidence( BaseModel ):
 	"""Represents visual-format evidence for the government warning.
 
@@ -237,10 +233,6 @@ class GovernmentWarningValidation( BaseModel ):
 					'Messages': 'Warning validation record could not be rendered.',
 					'Reviewer Instruction': 'Review the government warning manually.'
 			}
-
-# ==========================================================================================
-# Government Warning Validator
-# ==========================================================================================
 
 class GovernmentWarningValidator( ):
 	"""Validates mandatory government-warning text and related review conditions.
