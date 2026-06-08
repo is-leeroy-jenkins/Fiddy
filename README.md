@@ -180,11 +180,11 @@ boundary.
   <img src="assets/images/fiddy-component-map.png" alt="Fiddy component map" width="100%">
 </p>
 
-## 🧩 Patterns Used
+## 🧩 Patterns 
 
-Fiddy was intentionally designed around simple, durable, and auditable patterns. The goal was 
+Fiddy is designed around simple, durable, and auditable patterns. The goal is 
 to provide a flexible framework of basic components using patterns that can be easily reconfigured 
-into working AI-assisted solution to common problem across multiple domains and usecases while being
+into a working AI-assisted solution to a common problem across multiple domains and usecases while being
 simple for users, maintainable for developers, and defensible in a federal environment.
 
 | Pattern               | Implementation                                                                                                 | Purpose                                                                                                                                                                      |
@@ -201,9 +201,7 @@ simple for users, maintainable for developers, and defensible in a federal envir
 | **Anticorruption**    | Upload validation, ZIP handling, fallback reports, sanitized logging                                           | Protects the reviewer workflow from malformed inputs, OCR failures, unsupported files, and unexpected exceptions.                                                            |
 | **Human-in-the-Loop** | `Needs Review`, visual warning checks, reviewer-action fields                                                  | Preserves human judgment where automation cannot responsibly make a final determination, especially for low-confidence OCR and visual-format requirements.                   |
 
-These patterns support the central engineering posture of Fiddy: **use AI where it helps extract
-evidence, use deterministic rules where explainability matters, and route uncertainty back to the
-reviewer.**
+
 
 
 ## 🧭 Core Workflow
@@ -356,7 +354,7 @@ demonstrations. Generated files should represent fictional alcohol-label scenari
 * Missing net contents.
 * Imported-product cases.
 
-Synthetic data is for demonstration and testing only. It should not be treated as production data,
+Synthetic data is for demonstration and testing. It should not be treated as production data,
 official TTB records, or real COLA application data.
 
 ## 🧪 Demo Assets
