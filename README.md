@@ -61,9 +61,9 @@ Fiddy addresses this problem by creating a reviewer-assist workflow that:
 
 ## 🎦 Features
 
-Fiddy provides a clear and practical approach to automating
-alcohol‑label review while emphasizing explainability, security, and alignment with  analyst
-workflows. The application is intentionally transparent. If OCR is weak, if an image is difficult 
+Fiddy provides a clear and practical approach to improving the 
+alcohol‑label review process while emphasizing explainability, security, and alignment with analyst
+workflows. The prototype is intentionally transparent. If OCR is weak, if an image is difficult 
 to read, or if a visual condition requires judgment, Fiddy marks the item for review and explains why.
 
 - **Automated Evidence Extraction** — Local OCR and image diagnostics pull structured text and
