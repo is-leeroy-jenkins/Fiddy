@@ -430,48 +430,21 @@ ENABLE_EXTRACTED_DATA_EXPORT=false
 ENABLE_REDACTED_EVIDENCE_EXPORT=true
 ```
 
-## ☁️ Azure Readiness
+## ☁️ Azure Deployment
 
-Fiddy is designed to run as a standalone Streamlit workload in an Azure-compatible container.
+Fiddy is deployed as an Azure-hosted container application.
 
-The containerized runtime should include:
-
-* Python.
-* Streamlit.
-* Tesseract OCR.
-* Poppler.
-* Fiddy source code.
-* Local runtime configuration.
-
-Suitable prototype deployment targets include:
-
-* Azure Container Apps.
-* Azure App Service for Containers.
-* Azure VM-hosted Streamlit.
-* Internal Azure-hosted application service.
-
-Fiddy does not require an external OCR endpoint or external ML endpoint for prototype operation.
-
-
-## 📦 Local Release
-
-A packaged local release is provided through the GitHub Releases section for reviewers who prefer to
-download a runnable copy instead of cloning the repository.
-
-The source repository remains the authoritative project record. The release package is intended as a
-convenience artifact for local evaluation and demonstration.
-
-Suggested release name:
-
-```text
-Fiddy v2
-```
-
-Suggested release artifact:
-
-```text
-Fiddy-v2-local.zip
-```
+- **Azure Service:** Azure Container Apps
+- **Resource Group:** Fiddy
+- **Container Registry:** 2fiddy.azurecr.io
+- **Image:** fiddy:latest
+- **Runtime:** Streamlit container
+- **OCR:** Local Tesseract OCR inside the container
+- **PDF Support:** Poppler inside the container
+- **External ML Endpoints:** Disabled
+- **COLA Integration:** Disabled
+- **Upload Persistence:** Disabled
+- **Deployed URL:** https://<your-azure-container-app-url>
 
 
 ## 📁 Repository Structure

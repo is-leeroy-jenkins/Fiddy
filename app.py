@@ -1101,13 +1101,16 @@ def configure_page( ) -> None:
 # ==========================================================================================
 
 def display_synthetic_generator_expander( ) -> None:
-	"""Display sidebar controls for the local synthetic demonstration data generator.
+	"""Display sidebar controls for the synthetic demonstration data generator.
 
 	Purpose:
-		Render a Streamlit sidebar expander named ``Synthetic Generator``. The controls create or
-		clear the standard fictional Fiddy demonstration pack under ``samples/manifests`` and
-		``samples/labels``. The generated files are not automatically loaded into Streamlit upload
-		widgets; reviewers use the normal manifest and artwork upload controls after generation.
+		Render a Streamlit sidebar expander named ``Synthetic Data Generator``. The controls create
+		or clear the standard fictional Fiddy demonstration pack under ``samples/manifests`` and
+		``samples/labels``. When running in Azure or any other remote container, generated files are
+		created on the server filesystem rather than the reviewer's local computer. For that reason,
+		this function exposes the generated manifest CSV and label ZIP archive as Streamlit download
+		buttons so reviewers can download the generated files and then upload them through the normal
+		application upload controls.
 
 	Returns:
 		None.
@@ -1121,7 +1124,7 @@ def display_synthetic_generator_expander( ) -> None:
 		
 		with st.sidebar.expander( 'Synthetic Data Generator', expanded=False ):
 			st.caption( 'Generate or clear fictional local demo files under samples/manifests and '
-				'samples/labels.' )
+			            'samples/labels.' )
 			
 			overwrite_demo_pack = st.checkbox( 'Overwrite existing demo pack', value=False,
 				key='synthetic_generator_overwrite_checkbox',
@@ -1143,7 +1146,9 @@ def display_synthetic_generator_expander( ) -> None:
 				st.session_state[ 'synthetic_generator_last_action' ] = 'generated'
 				st.session_state[ 'synthetic_generator_manifest_path' ] = result.manifest_path
 				st.session_state[ 'synthetic_generator_label_directory' ] = result.label_directory
-				st.session_state[ 'synthetic_generator_generated_count' ] = len( result.generated_files )
+				st.session_state[ 'synthetic_generator_zip_path' ] = result.zip_path
+				st.session_state[ 'synthetic_generator_generated_count' ] = len(
+					result.generated_files )
 				st.session_state[ 'synthetic_generator_deleted_count' ] = 0
 				st.session_state[ 'synthetic_generator_record_count' ] = result.record_count
 				st.session_state[ 'synthetic_generator_last_message' ] = result.message
@@ -1161,8 +1166,10 @@ def display_synthetic_generator_expander( ) -> None:
 				st.session_state[ 'synthetic_generator_last_action' ] = 'cleared'
 				st.session_state[ 'synthetic_generator_manifest_path' ] = ''
 				st.session_state[ 'synthetic_generator_label_directory' ] = ''
+				st.session_state[ 'synthetic_generator_zip_path' ] = ''
 				st.session_state[ 'synthetic_generator_generated_count' ] = 0
-				st.session_state[ 'synthetic_generator_deleted_count' ] = len( result.deleted_files )
+				st.session_state[ 'synthetic_generator_deleted_count' ] = len(
+					result.deleted_files )
 				st.session_state[ 'synthetic_generator_record_count' ] = 0
 				st.session_state[ 'synthetic_generator_last_message' ] = result.message
 				st.session_state[ 'synthetic_generator_last_success' ] = result.success
@@ -1188,6 +1195,10 @@ def display_synthetic_generator_expander( ) -> None:
 				'synthetic_generator_label_directory',
 				''
 			)
+			zip_path = st.session_state.get(
+				'synthetic_generator_zip_path',
+				''
+			)
 			generated_count = int(
 				st.session_state.get( 'synthetic_generator_generated_count', 0 )
 			)
@@ -1208,13 +1219,43 @@ def display_synthetic_generator_expander( ) -> None:
 				if label_directory:
 					st.caption( f'Labels: {label_directory}' )
 				
+				if zip_path:
+					st.caption( f'Label ZIP: {zip_path}' )
+				
 				st.caption(
 					f'Generated files: {generated_count} | Manifest records: {record_count}'
 				)
 				
+				manifest_file_path = Path( manifest_path ) if manifest_path else None
+				zip_file_path = Path( zip_path ) if zip_path else None
+				
+				if manifest_file_path and manifest_file_path.exists( ):
+					st.download_button(
+						label='Download Synthetic Manifest CSV',
+						data=manifest_file_path.read_bytes( ),
+						file_name=manifest_file_path.name,
+						mime='text/csv',
+						key='synthetic_generator_download_manifest_csv',
+						use_container_width=True
+					)
+				elif manifest_path:
+					st.warning( 'Synthetic manifest file is not available for download.' )
+				
+				if zip_file_path and zip_file_path.exists( ):
+					st.download_button(
+						label='Download Synthetic Label ZIP',
+						data=zip_file_path.read_bytes( ),
+						file_name=zip_file_path.name,
+						mime='application/zip',
+						key='synthetic_generator_download_label_zip',
+						use_container_width=True
+					)
+				elif zip_path:
+					st.warning( 'Synthetic label ZIP is not available for download.' )
+				
 				st.caption(
-					'Upload the generated manifest and labels using the normal application '
-					'upload controls.'
+					'Download the generated manifest and label ZIP, then upload those files using '
+					'the normal application upload controls.'
 				)
 			
 			if last_action == 'cleared':
