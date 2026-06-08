@@ -46,7 +46,7 @@ from __future__ import annotations
 # ==========================================================================================
 
 APP_NAME: str = 'Fiddy'
-APP_DISPLAY_NAME: str = 'Fiddy'
+APP_DISPLAY_NAME: str = 'Label Verification'
 APP_SUBTITLE: str = 'AI-assisted Alcohol Label Compliance Tool.'
 
 # ==========================================================================================

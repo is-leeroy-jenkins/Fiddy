@@ -475,16 +475,17 @@ class OcrEngine( ):
 			Logger( ).write( error )
 			self._notes.append( 'Visual quality analysis failed for image.' )
 			return VisualQualityResult( file_name=file_name )
-	
+		
 	def image_to_text( self, image: Image.Image, file_name: str = '',
 			progress_callback: Optional[ Callable[ [ str ], None ] ] = None ) -> str:
 		"""Extract text from one in-memory image using local OCR.
 
 		Purpose:
-			Analyze image quality, downscale oversized images, preprocess the image through
-			``ImageProcessor.process_pil_image``, carry processor notes into the OCR note
-			collection, and invoke ``pytesseract.image_to_string`` using configured OCR language,
-			timeout, and Tesseract config.
+			Analyze image quality, prepare OCR-safe image variants, and run local Tesseract OCR
+			against the processed image first. If the processed image produces no readable text,
+			the method retries with the original RGB image and then with an upscaled RGB image.
+			This preserves the existing preprocessing behavior while avoiding false no-text
+			results when clean synthetic or high-contrast labels are degraded by thresholding.
 
 		Args:
 			image (Image.Image): PIL image to process with OCR.
@@ -492,36 +493,66 @@ class OcrEngine( ):
 			progress_callback (Optional[Callable[[str], None]]): Optional progress callback.
 
 		Returns:
-			str: OCR-extracted text with leading and trailing whitespace removed. If OCR times out
-			or fails, the exception is logged, a reviewer-facing note is appended, and an empty
-			string is returned.
+			str: OCR-extracted text with leading and trailing whitespace removed. If all OCR
+			attempts time out or fail, an empty string is returned and reviewer-facing notes are
+			recorded.
 		"""
+	
 		try:
 			throw_if( 'image', image )
 			
 			self.report_progress( progress_callback, f'Analyzing image quality: {file_name}' )
-			image = self.downscale_image_for_ocr( image, file_name )
-			self.analyze_image_quality_pil( image, file_name )
+			self._image = self.downscale_image_for_ocr( image, file_name )
+			self.analyze_image_quality_pil( self._image, file_name )
 			
 			self.report_progress( progress_callback, f'Preprocessing image for OCR: {file_name}' )
-			processed = self._processor.process_pil_image( image )
+			processed = self._processor.process_pil_image( self._image )
 			self._notes.extend( self._processor.notes )
 			
-			self.report_progress( progress_callback, f'Running OCR: {file_name}' )
-			text = pytesseract.image_to_string(
-				processed,
-				lang=str( getattr( cfg, 'OCR_LANGUAGE', 'eng' ) ),
-				timeout=self._timeout_seconds,
-				config=self._ocr_config
-			)
+			ocr_attempts = [
+					('processed image', processed),
+					('original RGB image', self._image.convert( 'RGB' ))
+			]
 			
-			self.report_progress( progress_callback, f'OCR complete: {file_name}' )
-			return text.strip( )
+			width, height = self._image.size
+			upscale_factor = 2
+			
+			if width < 1800 or height < 1200:
+				upscaled = self._image.convert( 'RGB' ).resize(
+					(width * upscale_factor, height * upscale_factor),
+					Image.Resampling.LANCZOS
+				)
+				ocr_attempts.append( ('upscaled RGB image', upscaled) )
+			
+			for attempt_name, attempt_image in ocr_attempts:
+				self.report_progress(
+					progress_callback,
+					f'Running OCR on {attempt_name}: {file_name}'
+				)
+				
+				text = pytesseract.image_to_string(
+					attempt_image,
+					lang=str( getattr( cfg, 'OCR_LANGUAGE', 'eng' ) ),
+					timeout=self._timeout_seconds,
+					config=self._ocr_config
+				).strip( )
+				
+				if text:
+					self._notes.append( f'OCR text extracted from {attempt_name}.' )
+					self.report_progress(
+						progress_callback,
+						f'OCR complete from {attempt_name}: {file_name}'
+					)
+					return text
+			
+			self._notes.append( 'Tesseract returned no readable text from all OCR attempts.' )
+			self.report_progress( progress_callback, f'OCR returned no text: {file_name}' )
+			return ''
 		except RuntimeError as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'image_to_text( self, *args ) -> str'
+			error.method = 'image_to_text( self, image: Image.Image, file_name: str, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image extraction.' )
 			self.report_progress( progress_callback, f'OCR timeout: {file_name}' )
@@ -530,20 +561,22 @@ class OcrEngine( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'image_to_text( self, *args ) -> str'
+			error.method = 'image_to_text( self, image: Image.Image, file_name: str, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
 			Logger( ).write( error )
-			self._notes.append( 'OCR extraction failed for one image.' )
+			self._notes.append( f'OCR extraction failed for one image: {type( e ).__name__}.' )
 			self.report_progress( progress_callback, f'OCR failed: {file_name}' )
 			return ''
-	
+		
 	def extract_image_file_text( self, file_path: str | Path,
 			progress_callback: Optional[ Callable[ [ str ], None ] ] = None ) -> str:
 		"""Extract OCR text from a supported image file.
 
 		Purpose:
 			Perform file-based visual-quality analysis, load the image through ``ImageProcessor``,
-			downscale oversized images, preprocess the image, extend OCR notes with processor notes,
-			and invoke Tesseract OCR with configured language, timeout, and OCR config.
+			and delegate OCR execution to ``image_to_text`` so image files use the same multi-pass
+			OCR behavior as in-memory PDF page images. This prevents duplicated OCR logic and
+			allows clean synthetic labels, preprocessed labels, original labels, and upscaled
+			labels to be attempted before reporting no readable OCR text.
 
 		Args:
 			file_path (str | Path): Path to the uploaded image file.
@@ -551,54 +584,50 @@ class OcrEngine( ):
 
 		Returns:
 			str: OCR-extracted text with leading and trailing whitespace removed. If OCR times out
-			or fails, the exception is logged, a reviewer-facing note is appended, and an empty
+			or fails, the exception is logged, reviewer-facing notes are appended, and an empty
 			string is returned.
 		"""
 		try:
 			throw_if( 'file_path', file_path )
 			
 			self._file_path = Path( file_path )
-			self.report_progress( progress_callback,
-				f'Analyzing file quality: {self._file_path.name}' )
+			self.report_progress(
+				progress_callback,
+				f'Analyzing file quality: {self._file_path.name}'
+			)
 			self.analyze_image_quality_file( self._file_path )
 			
 			self.report_progress( progress_callback, f'Loading image: {self._file_path.name}' )
 			image = self._processor.load_image( self._file_path )
-			image = self.downscale_image_for_ocr( image, self._file_path.name )
 			
-			self.report_progress( progress_callback,
-				f'Preprocessing image: {self._file_path.name}' )
-			processed = self._processor.process_pil_image( image )
-			self._notes.extend( self._processor.notes )
-			
-			self.report_progress( progress_callback, f'Running OCR: {self._file_path.name}' )
-			text = pytesseract.image_to_string(
-				processed,
-				lang=str( getattr( cfg, 'OCR_LANGUAGE', 'eng' ) ),
-				timeout=self._timeout_seconds,
-				config=self._ocr_config
+			return self.image_to_text(
+				image=image,
+				file_name=self._file_path.name,
+				progress_callback=progress_callback
 			)
-			
-			self.report_progress( progress_callback, f'OCR complete: {self._file_path.name}' )
-			return text.strip( )
 		except RuntimeError as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_image_file_text( self, *args ) -> str'
+			error.method = 'extract_image_file_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
 			Logger( ).write( error )
 			self._notes.append( 'OCR timed out before completing image file extraction.' )
-			self.report_progress( progress_callback, f'OCR timeout: {Path( file_path ).name}' )
+			self.report_progress(
+				progress_callback,
+				f'OCR timeout: {Path( file_path ).name if file_path else ""}'
+			)
 			return ''
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'extract_image_file_text( self, *args) -> str'
+			error.method = 'extract_image_file_text( self, file_path: str | Path, progress_callback: Optional[Callable[[str], None]] = None ) -> str'
 			Logger( ).write( error )
-			self._notes.append( 'OCR extraction failed for image file.' )
-			self.report_progress( progress_callback,
-				f'OCR failed: {Path( file_path ).name if file_path else ""}' )
+			self._notes.append( f'OCR extraction failed for image file: {type( e ).__name__}.' )
+			self.report_progress(
+				progress_callback,
+				f'OCR failed: {Path( file_path ).name if file_path else ""}'
+			)
 			return ''
 	
 	def convert_pdf_to_pages( self, file_path: str | Path ) -> List[ Image.Image ]:

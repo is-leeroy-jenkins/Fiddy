@@ -203,6 +203,10 @@ SYNTHETIC_DEMO_LABEL_HEIGHT: int = get_int( 'SYNTHETIC_DEMO_LABEL_HEIGHT', 800 )
 SYNTHETIC_DEMO_PREFIX: str = get_text( 'SYNTHETIC_DEMO_PREFIX', 'fiddy_v2' )
 SYNTHETIC_DEMO_MANIFEST_NAME: str = get_text( 'SYNTHETIC_DEMO_MANIFEST_NAME',
 	'fiddy_v2_demo_manifest.csv' )
+SYNTHETIC_DEMO_ZIP_NAME: str = get_text(
+	'SYNTHETIC_DEMO_ZIP_NAME',
+	'fiddy_v2_demo_labels.zip'
+)
 
 # ==========================================================================================
 # Application Settings

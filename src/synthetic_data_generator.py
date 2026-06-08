@@ -6,7 +6,7 @@
       Created:                 06-07-2026
 
       Last Modified By:        Terry D. Eppler
-      Last Modified On:        06-07-2026
+      Last Modified On:        06-08-2026
     ******************************************************************************************
     <copyright file="synthetic_data_generator.py" company="Terry D. Eppler">
 
@@ -38,11 +38,12 @@
     <summary>
         Provides deterministic synthetic demonstration data generation for the Fiddy prototype.
 
-        This module creates a fixed local demonstration pack containing fictional manifest data
-        and simple OCR-readable label artwork. Generated files are written only under the
-        project samples directory using the configured Fiddy demo prefix. The generator supports
-        creating the standard demonstration pack, preventing accidental overwrite, and clearing
-        only generated files that match the Fiddy demo prefix.
+        This module creates a fixed local demonstration pack containing fictional manifest data,
+        OCR-friendly label artwork, and a ZIP archive containing the generated label images.
+        Generated files are written only under the project samples directory using the configured
+        Fiddy demo prefix. The generator supports creating the standard demonstration pack,
+        preventing accidental overwrite, and clearing only generated files that match the Fiddy
+        demo prefix or the configured demo ZIP name.
 
         The module does not use real COLA data, does not call external services, does not use
         external image generation, does not modify uploaded runtime files, and does not write
@@ -52,6 +53,7 @@
 '''
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -67,10 +69,15 @@ from src.constants import (
 	GOVERNMENT_WARNING_TEXT
 )
 
+# ==========================================================================================
+# Synthetic Data Constants
+# ==========================================================================================
+
 DEFAULT_SYNTHETIC_PREFIX: str = 'fiddy_v2'
 DEFAULT_SYNTHETIC_MANIFEST_NAME: str = 'fiddy_v2_demo_manifest.csv'
-DEFAULT_SYNTHETIC_LABEL_WIDTH: int = 1200
-DEFAULT_SYNTHETIC_LABEL_HEIGHT: int = 800
+DEFAULT_SYNTHETIC_ZIP_NAME: str = 'fiddy_v2_demo_labels.zip'
+DEFAULT_SYNTHETIC_LABEL_WIDTH: int = 1600
+DEFAULT_SYNTHETIC_LABEL_HEIGHT: int = 1100
 DEFAULT_SYNTHETIC_LABEL_EXTENSION: str = '.png'
 
 SCENARIO_CLEAN_PASS: str = 'clean_pass'
@@ -98,6 +105,10 @@ MANIFEST_COLUMNS: List[ str ] = [
 		'notes',
 		'government_warning'
 ]
+
+# ==========================================================================================
+# Synthetic Data Models
+# ==========================================================================================
 
 class SyntheticLabelRecord( BaseModel ):
 	"""Represent one deterministic synthetic demonstration label.
@@ -165,8 +176,6 @@ class SyntheticLabelRecord( BaseModel ):
 
 		Purpose:
 			Return the expected application-side values using the standard Fiddy manifest schema.
-			The label-side values are not written to the manifest because they are rendered into
-			the generated artwork and then recovered through the normal OCR workflow.
 
 		Returns:
 			Dict[str, object]: Manifest row keyed by standard manifest column names.
@@ -203,9 +212,8 @@ class SyntheticLabelRecord( BaseModel ):
 		"""Create label-rendering text lines for the synthetic artwork.
 
 		Purpose:
-			Build the visible label text from label-side values. The method intentionally omits
-			values for scenarios where the label artwork should be missing the government warning
-			or net contents.
+			Build visible label text from label-side values. Missing warning and missing net
+			contents scenarios intentionally omit those lines from the generated artwork.
 
 		Returns:
 			List[str]: Ordered label text lines for image rendering.
@@ -224,7 +232,7 @@ class SyntheticLabelRecord( BaseModel ):
 				
 				lines.append( abv_text )
 			
-			if self.label_net_contents:
+			if self.label_net_contents.strip( ):
 				lines.append( f'NET CONTENTS: {self.label_net_contents}' )
 			
 			if self.label_producer_bottler:
@@ -236,7 +244,7 @@ class SyntheticLabelRecord( BaseModel ):
 			if self.imported and self.country_of_origin:
 				lines.append( f'COUNTRY OF ORIGIN: {self.country_of_origin}' )
 			
-			if self.label_government_warning:
+			if self.label_government_warning.strip( ):
 				lines.append( self.label_government_warning )
 			
 			return lines
@@ -254,11 +262,13 @@ class SyntheticGenerationResult( BaseModel ):
 	Purpose:
 		Return structured status information from generator operations so Streamlit, tests,
 		documentation examples, or command-line use can display the manifest path, label folder,
-		generated files, deleted files, record count, success flag, and user-facing message.
+		label ZIP path, generated files, deleted files, record count, success flag, and
+		user-facing message.
 
 	Attributes:
 		manifest_path (str): Path to the generated manifest file.
 		label_directory (str): Path to the generated label image directory.
+		zip_path (str): Path to the generated label ZIP archive.
 		generated_files (List[str]): Generated file paths.
 		deleted_files (List[str]): Deleted generated file paths.
 		record_count (int): Number of generated manifest records.
@@ -268,6 +278,7 @@ class SyntheticGenerationResult( BaseModel ):
 	
 	manifest_path: str = Field( default='' )
 	label_directory: str = Field( default='' )
+	zip_path: str = Field( default='' )
 	generated_files: List[ str ] = Field( default_factory=list )
 	deleted_files: List[ str ] = Field( default_factory=list )
 	record_count: int = Field( default=0 )
@@ -290,6 +301,7 @@ class SyntheticGenerationResult( BaseModel ):
 					'Message': self.message,
 					'Manifest Path': self.manifest_path,
 					'Label Directory': self.label_directory,
+					'Label Zip Path': self.zip_path,
 					'Generated Files': len( self.generated_files ),
 					'Deleted Files': len( self.deleted_files ),
 					'Record Count': self.record_count
@@ -305,19 +317,23 @@ class SyntheticGenerationResult( BaseModel ):
 					'Message': 'Synthetic generation result could not be rendered.',
 					'Manifest Path': '',
 					'Label Directory': '',
+					'Label Zip Path': '',
 					'Generated Files': 0,
 					'Deleted Files': 0,
 					'Record Count': 0
 			}
+
+# ==========================================================================================
+# Synthetic Data Generator
+# ==========================================================================================
 
 class SyntheticDataGenerator( ):
 	"""Generate deterministic fictional Fiddy demonstration assets.
 
 	Purpose:
 		Create and clear the standard synthetic demonstration pack used for local evaluation of
-		the Fiddy workflow. The generator writes a fixed manifest and eight fictional label
-		artwork files under the project samples directory. It writes only files with the
-		configured demo prefix and deletes only files with that same prefix.
+		the Fiddy workflow. The generator writes a fixed manifest, eight OCR-friendly label images,
+		and one ZIP archive containing those label images under the project samples directory.
 
 	Attributes:
 		project_root (Path): Root folder for the Fiddy project.
@@ -325,7 +341,8 @@ class SyntheticDataGenerator( ):
 		manifest_directory (Path): Directory where generated manifest files are written.
 		label_directory (Path): Directory where generated label files are written.
 		manifest_path (Path): Full path to the generated manifest CSV.
-		prefix (str): Prefix used for all generated files.
+		zip_path (Path): Full path to the generated label ZIP archive.
+		prefix (str): Prefix used for all generated label image files.
 		label_width (int): Width of generated label images.
 		label_height (int): Height of generated label images.
 		label_extension (str): Generated label image extension.
@@ -336,6 +353,7 @@ class SyntheticDataGenerator( ):
 	manifest_directory: Path
 	label_directory: Path
 	manifest_path: Path
+	zip_path: Path
 	prefix: str
 	label_width: int
 	label_height: int
@@ -363,13 +381,19 @@ class SyntheticDataGenerator( ):
 			self.prefix = str(
 				getattr( cfg, 'SYNTHETIC_DEMO_PREFIX', DEFAULT_SYNTHETIC_PREFIX )
 			).strip( ) or DEFAULT_SYNTHETIC_PREFIX
-			self.label_width = int(
-				getattr( cfg, 'SYNTHETIC_DEMO_LABEL_WIDTH',
-					DEFAULT_SYNTHETIC_LABEL_WIDTH )
+			self.label_width = max(
+				int(
+					getattr( cfg, 'SYNTHETIC_DEMO_LABEL_WIDTH',
+						DEFAULT_SYNTHETIC_LABEL_WIDTH )
+				),
+				DEFAULT_SYNTHETIC_LABEL_WIDTH
 			)
-			self.label_height = int(
-				getattr( cfg, 'SYNTHETIC_DEMO_LABEL_HEIGHT',
-					DEFAULT_SYNTHETIC_LABEL_HEIGHT )
+			self.label_height = max(
+				int(
+					getattr( cfg, 'SYNTHETIC_DEMO_LABEL_HEIGHT',
+						DEFAULT_SYNTHETIC_LABEL_HEIGHT )
+				),
+				DEFAULT_SYNTHETIC_LABEL_HEIGHT
 			)
 			self.label_extension = DEFAULT_SYNTHETIC_LABEL_EXTENSION
 			self.samples_directory = self.project_root / 'samples'
@@ -378,6 +402,9 @@ class SyntheticDataGenerator( ):
 			self.manifest_path = self.manifest_directory / str(
 				getattr( cfg, 'SYNTHETIC_DEMO_MANIFEST_NAME',
 					DEFAULT_SYNTHETIC_MANIFEST_NAME )
+			)
+			self.zip_path = self.label_directory / str(
+				getattr( cfg, 'SYNTHETIC_DEMO_ZIP_NAME', DEFAULT_SYNTHETIC_ZIP_NAME )
 			)
 		except Exception as e:
 			error = Error( e )
@@ -394,6 +421,7 @@ class SyntheticDataGenerator( ):
 			self.manifest_directory = self.samples_directory / 'manifests'
 			self.label_directory = self.samples_directory / 'labels'
 			self.manifest_path = self.manifest_directory / DEFAULT_SYNTHETIC_MANIFEST_NAME
+			self.zip_path = self.label_directory / DEFAULT_SYNTHETIC_ZIP_NAME
 	
 	def ensure_demo_directories( self ) -> None:
 		"""Create the synthetic demo samples directories when they are missing.
@@ -429,10 +457,6 @@ class SyntheticDataGenerator( ):
 
 		Returns:
 			Path: Safe resolved label path.
-
-		Raises:
-			ValueError: Raised when the file name is missing, does not use the configured prefix,
-				or resolves outside the label directory.
 		"""
 		try:
 			throw_if( 'file_name', file_name )
@@ -458,12 +482,11 @@ class SyntheticDataGenerator( ):
 			raise
 	
 	def get_generated_file_paths( self ) -> List[ Path ]:
-		"""Return existing generated demo files that match the configured prefix.
+		"""Return existing generated demo files that match the configured demo pack.
 
 		Purpose:
-			Collect the generated manifest and generated label images that are safe for overwrite
-			or cleanup operations. Only the configured manifest path and label files beginning with
-			the configured prefix are returned.
+			Collect the generated manifest, generated ZIP archive, and generated label images that
+			are safe for overwrite or cleanup operations.
 
 		Returns:
 			List[Path]: Existing generated demo file paths.
@@ -473,6 +496,9 @@ class SyntheticDataGenerator( ):
 			
 			if self.manifest_path.exists( ):
 				files.append( self.manifest_path )
+			
+			if self.zip_path.exists( ):
+				files.append( self.zip_path )
 			
 			if self.label_directory.exists( ):
 				files.extend(
@@ -519,7 +545,7 @@ class SyntheticDataGenerator( ):
 			class_type: str, alcohol_content: float, net_contents: str,
 			producer_bottler: str, notes: str, label_brand_name: str = '',
 			label_class_type: str = '', label_alcohol_content: Optional[ float ] = None,
-			label_net_contents: str = '', label_producer_bottler: str = '',
+			label_net_contents: Optional[ str ] = None, label_producer_bottler: str = '',
 			label_government_warning: str = GOVERNMENT_WARNING_TEXT,
 			imported: bool = False, importer: str = '',
 			country_of_origin: str = '' ) -> SyntheticLabelRecord:
@@ -543,7 +569,8 @@ class SyntheticDataGenerator( ):
 			label_class_type (str): Class/type rendered on label. Defaults to manifest value.
 			label_alcohol_content (Optional[float]): ABV rendered on label. Defaults to manifest
 				value.
-			label_net_contents (str): Net contents rendered on label. Defaults to manifest value.
+			label_net_contents (Optional[str]): Net contents rendered on label. ``None`` defaults
+				to the manifest value; an empty string intentionally omits net contents.
 			label_producer_bottler (str): Producer/bottler rendered on label. Defaults to
 				manifest value.
 			label_government_warning (str): Warning rendered on label.
@@ -567,6 +594,9 @@ class SyntheticDataGenerator( ):
 			proof = float( alcohol_content ) * 2.0
 			rendered_abv = alcohol_content if label_alcohol_content is None else label_alcohol_content
 			rendered_proof = rendered_abv * 2.0 if rendered_abv is not None else None
+			rendered_net_contents = (
+					net_contents if label_net_contents is None else label_net_contents
+			)
 			
 			return SyntheticLabelRecord(
 				index=index,
@@ -582,7 +612,7 @@ class SyntheticDataGenerator( ):
 				proof=proof,
 				label_proof=rendered_proof,
 				net_contents=net_contents,
-				label_net_contents=label_net_contents if label_net_contents != '' else net_contents,
+				label_net_contents=rendered_net_contents,
 				producer_bottler=producer_bottler,
 				label_producer_bottler=label_producer_bottler or producer_bottler,
 				imported=imported,
@@ -597,111 +627,169 @@ class SyntheticDataGenerator( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'create_record( self, *args ) -> SyntheticLabelRecord'
+			error.method = 'create_record( self, index: int, scenario: str, brand_name: str, class_type: str, alcohol_content: float, net_contents: str, producer_bottler: str, notes: str, label_brand_name: str, label_class_type: str, label_alcohol_content: Optional[float], label_net_contents: Optional[str], label_producer_bottler: str, label_government_warning: str, imported: bool, importer: str, country_of_origin: str ) -> SyntheticLabelRecord'
 			Logger( ).write( error )
 			return SyntheticLabelRecord( )
-	
+		
 	def get_standard_records( self ) -> List[ SyntheticLabelRecord ]:
 		"""Return the fixed standard demonstration records.
 
 		Purpose:
-			Create the eight deterministic scenarios used for the standard Fiddy demo pack. Each
-			record uses fictional data and a stable file name so the generated manifest and labels
-			can be used repeatedly in demonstrations and release validation.
+			Create fifty deterministic synthetic scenarios used for the standard Fiddy demo pack.
+			The records are fictional, stable across runs, and intentionally distributed across
+			clean-pass, fuzzy-brand, ABV-mismatch, missing-warning, low-contrast, skewed-label,
+			imported-product, and missing-net-contents scenarios. The fifty-record pack supports
+			prototype batch validation within the stakeholder target of small-to-medium uploads.
 
 		Returns:
 			List[SyntheticLabelRecord]: Standard synthetic demo records.
 		"""
 		try:
-			return [
-					self.create_record(
-						index=1,
-						scenario=SCENARIO_CLEAN_PASS,
-						brand_name='OLD TOM DISTILLERY',
-						class_type='Kentucky Straight Bourbon Whiskey',
-						alcohol_content=45.0,
-						net_contents='750 mL',
-						producer_bottler='Old Tom Distillery LLC, Frankfort, KY',
-						notes='Clean passing baseline demonstration label.'
-					),
-					self.create_record(
-						index=2,
-						scenario=SCENARIO_FUZZY_BRAND,
-						brand_name="STONE'S THROW DISTILLING",
-						label_brand_name='STONES THROW DISTILLING',
-						class_type='Straight Rye Whiskey',
-						alcohol_content=47.0,
-						net_contents='750 mL',
-						producer_bottler="Stone's Throw Distilling LLC, Denver, CO",
-						notes='Brand punctuation variation for fuzzy matching demonstration.'
-					),
-					self.create_record(
-						index=3,
-						scenario=SCENARIO_ABV_MISMATCH,
-						brand_name='CROSSWIND SPIRITS',
-						class_type='Vodka',
-						alcohol_content=45.0,
-						label_alcohol_content=40.0,
-						net_contents='750 mL',
-						producer_bottler='Crosswind Spirits LLC, Austin, TX',
-						notes='Manifest ABV differs from label ABV.'
-					),
-					self.create_record(
-						index=4,
-						scenario=SCENARIO_MISSING_WARNING,
-						brand_name='RIVERSTONE RESERVE',
-						class_type='Blended Whiskey',
-						alcohol_content=43.0,
-						net_contents='750 mL',
-						producer_bottler='Riverstone Reserve LLC, Louisville, KY',
-						label_government_warning='',
-						notes='Label omits the government warning text.'
-					),
-					self.create_record(
-						index=5,
-						scenario=SCENARIO_LOW_CONTRAST,
-						brand_name='PALE HARBOR GIN',
-						class_type='Distilled Gin',
-						alcohol_content=42.0,
-						net_contents='750 mL',
-						producer_bottler='Pale Harbor Gin Works LLC, Portland, ME',
-						notes='Low-contrast artwork for image-quality diagnostics.'
-					),
-					self.create_record(
-						index=6,
-						scenario=SCENARIO_SKEWED_LABEL,
-						brand_name='IRON HILL BOURBON',
-						class_type='Bourbon Whiskey',
-						alcohol_content=46.0,
-						net_contents='750 mL',
-						producer_bottler='Iron Hill Bourbon Company LLC, Bardstown, KY',
-						notes='Slightly rotated artwork for skew diagnostics.'
-					),
-					self.create_record(
-						index=7,
-						scenario=SCENARIO_IMPORTED_PRODUCT,
-						brand_name='NORTH COAST MALT',
-						class_type='Single Malt Irish Whiskey',
-						alcohol_content=40.0,
-						net_contents='700 mL',
-						producer_bottler='North Coast Malt Company, County Cork',
-						imported=True,
-						importer='Fiddy Imports LLC, Washington, DC',
-						country_of_origin='Ireland',
-						notes='Imported product with importer and country-of-origin fields.'
-					),
-					self.create_record(
-						index=8,
-						scenario=SCENARIO_MISSING_NET_CONTENTS,
-						brand_name='CANYON CREEK TEQUILA',
-						class_type='Tequila Blanco',
-						alcohol_content=40.0,
-						net_contents='750 mL',
-						label_net_contents=' ',
-						producer_bottler='Canyon Creek Tequila LLC, San Antonio, TX',
-						notes='Label omits net contents while manifest includes expected value.'
-					)
+			scenario_cycle = [
+					SCENARIO_CLEAN_PASS,
+					SCENARIO_FUZZY_BRAND,
+					SCENARIO_ABV_MISMATCH,
+					SCENARIO_MISSING_WARNING,
+					SCENARIO_LOW_CONTRAST,
+					SCENARIO_SKEWED_LABEL,
+					SCENARIO_IMPORTED_PRODUCT,
+					SCENARIO_MISSING_NET_CONTENTS
 			]
+			
+			brand_roots = [
+					'OLD TOM',
+					'STONE THROW',
+					'CROSSWIND',
+					'RIVERSTONE',
+					'PALE HARBOR',
+					'IRON HILL',
+					'NORTH COAST',
+					'CANYON CREEK',
+					'SILVER RIDGE',
+					'COPPER FIELD',
+					'BLUE OAK',
+					'RED BARN',
+					'WHITE PINE',
+					'BLACK RIVER',
+					'GOLDEN MILE',
+					'CEDAR LANE',
+					'BRIGHT FORK',
+					'HOLLOW POINT',
+					'MAPLE HOUSE',
+					'SUMMIT ROAD',
+					'LAKE COUNTY',
+					'PRAIRIE STAR',
+					'VALLEY STILL',
+					'FOUR CORNERS',
+					'BAY FRONT',
+					'GRANITE PASS',
+					'COLD SPRING',
+					'HIGH PLAINS',
+					'IRON GATE',
+					'STONE BRIDGE',
+					'CROWN POINT',
+					'PINE BARREL',
+					'OAK MEADOW',
+					'COPPER RIDGE',
+					'RIVER BEND',
+					'FALLS ROAD',
+					'BROWN CREEK',
+					'LIBERTY STILL',
+					'ORCHARD HILL',
+					'BLUEGRASS',
+					'CAPITOL RESERVE',
+					'HARBOR LIGHT',
+					'AMERICAN OAK',
+					'FOUNDERS FIELD',
+					'POTOMAC HOUSE',
+					'RAIL YARD',
+					'LONG TRAIL',
+					'BEACON HILL',
+					'FRONTIER LINE',
+					'MARKET STREET'
+			]
+			
+			class_types = [
+					'Kentucky Straight Bourbon Whiskey',
+					'Straight Rye Whiskey',
+					'Vodka',
+					'Blended Whiskey',
+					'Distilled Gin',
+					'Bourbon Whiskey',
+					'Single Malt Irish Whiskey',
+					'Tequila Blanco'
+			]
+			
+			records = [ ]
+			
+			for index in range( 1, 51 ):
+				scenario = scenario_cycle[ (index - 1) % len( scenario_cycle ) ]
+				brand_root = brand_roots[ index - 1 ]
+				class_type = class_types[ (index - 1) % len( class_types ) ]
+				alcohol_content = 40.0 + float( (index % 8) )
+				net_contents = '700 mL' if scenario == SCENARIO_IMPORTED_PRODUCT else '750 mL'
+				producer_bottler = f'{brand_root} Beverage Company LLC, Washington, DC'
+				brand_name = f'{brand_root} DISTILLING'
+				label_brand_name = brand_name
+				label_alcohol_content = None
+				label_net_contents = None
+				label_government_warning = GOVERNMENT_WARNING_TEXT
+				imported = False
+				importer = ''
+				country_of_origin = ''
+				notes = f'Deterministic synthetic scenario: {scenario}.'
+				
+				if scenario == SCENARIO_FUZZY_BRAND:
+					brand_name = f"{brand_root}'S DISTILLING"
+					label_brand_name = f'{brand_root}S DISTILLING'
+					notes = 'Brand punctuation variation for fuzzy matching demonstration.'
+				
+				if scenario == SCENARIO_ABV_MISMATCH:
+					label_alcohol_content = max( 35.0, alcohol_content - 5.0 )
+					notes = 'Manifest ABV differs from label ABV.'
+				
+				if scenario == SCENARIO_MISSING_WARNING:
+					label_government_warning = ''
+					notes = 'Label omits the government warning text.'
+				
+				if scenario == SCENARIO_LOW_CONTRAST:
+					notes = 'Lower-contrast artwork for image-quality diagnostics.'
+				
+				if scenario == SCENARIO_SKEWED_LABEL:
+					notes = 'Slightly rotated artwork for skew diagnostics.'
+				
+				if scenario == SCENARIO_IMPORTED_PRODUCT:
+					imported = True
+					importer = 'Fiddy Imports LLC, Washington, DC'
+					country_of_origin = 'Ireland'
+					producer_bottler = f'{brand_root} Beverage Company, County Cork'
+					notes = 'Imported product with importer and country-of-origin fields.'
+				
+				if scenario == SCENARIO_MISSING_NET_CONTENTS:
+					label_net_contents = ''
+					notes = 'Label omits net contents while manifest includes expected value.'
+				
+				records.append(
+					self.create_record(
+						index=index,
+						scenario=scenario,
+						brand_name=brand_name,
+						label_brand_name=label_brand_name,
+						class_type=class_type,
+						alcohol_content=alcohol_content,
+						label_alcohol_content=label_alcohol_content,
+						net_contents=net_contents,
+						label_net_contents=label_net_contents,
+						producer_bottler=producer_bottler,
+						label_government_warning=label_government_warning,
+						imported=imported,
+						importer=importer,
+						country_of_origin=country_of_origin,
+						notes=notes
+					)
+				)
+			
+			return records
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
@@ -778,7 +866,7 @@ class SyntheticDataGenerator( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'get_text_width( self, *args ) -> int'
+			error.method = 'get_text_width( self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont ) -> int'
 			Logger( ).write( error )
 			return len( text ) * 10
 	
@@ -787,9 +875,7 @@ class SyntheticDataGenerator( ):
 		"""Wrap text into lines that fit the available label width.
 
 		Purpose:
-			Split long label text into readable lines using word boundaries. This is primarily used
-			for the government warning text so OCR receives multiple legible lines rather than one
-			long clipped line.
+			Split long label text into readable lines using word boundaries.
 
 		Args:
 			draw (ImageDraw.ImageDraw): Active image drawing object.
@@ -830,7 +916,7 @@ class SyntheticDataGenerator( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'wrap_text( self, *args ) -> List[str]'
+			error.method = 'wrap_text( self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int ) -> List[str]'
 			Logger( ).write( error )
 			return [ str( text ) ]
 	
@@ -840,8 +926,7 @@ class SyntheticDataGenerator( ):
 		"""Draw wrapped text and return the next vertical position.
 
 		Purpose:
-			Draw one logical label line, wrapping it as needed to the available label width. The
-			returned y-position is used by the caller to place subsequent text.
+			Draw one logical label line, wrapping it as needed to the available label width.
 
 		Args:
 			draw (ImageDraw.ImageDraw): Active image drawing object.
@@ -875,16 +960,18 @@ class SyntheticDataGenerator( ):
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'draw_wrapped_line( self, *args ) -> int'
+			error.method = 'draw_wrapped_line( self, draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, x: int, y: int, max_width: int, fill: tuple[int, int, int], line_spacing: int ) -> int'
 			Logger( ).write( error )
 			return y + line_spacing
 	
 	def create_label_image( self, record: SyntheticLabelRecord ) -> Image.Image:
-		"""Create one synthetic OCR-readable label image.
+		"""Create one OCR-friendly synthetic label image.
 
 		Purpose:
-			Render a simple fictional alcohol label from a synthetic label record. Scenario-specific
-			image treatments are applied for low-contrast and skewed-label cases.
+			Render a simple fictional alcohol label optimized for Tesseract readability. The
+			default design intentionally uses black text, a white background, large fonts, and
+			simple line structure. Scenario-specific treatments are limited so the demonstration
+			pack exercises Fiddy without making every synthetic image unreadable.
 
 		Args:
 			record (SyntheticLabelRecord): Synthetic label record to render.
@@ -895,24 +982,24 @@ class SyntheticDataGenerator( ):
 		try:
 			throw_if( 'record', record )
 			
+			background = (255, 255, 255)
+			text_color = (0, 0, 0)
+			border_color = (0, 0, 0)
+			
 			if record.scenario == SCENARIO_LOW_CONTRAST:
-				background = (248, 248, 244)
-				text_color = (185, 185, 180)
-				border_color = (210, 210, 205)
-			else:
-				background = (252, 250, 242)
-				text_color = (30, 30, 30)
-				border_color = (70, 70, 70)
+				background = (245, 245, 245)
+				text_color = (95, 95, 95)
+				border_color = (130, 130, 130)
 			
 			image = Image.new( 'RGB', (self.label_width, self.label_height), background )
 			draw = ImageDraw.Draw( image )
-			title_font = self.get_font( 58, bold=True )
-			subtitle_font = self.get_font( 36, bold=True )
-			body_font = self.get_font( 30 )
-			warning_font = self.get_font( 24, bold=True )
-			margin = 70
+			title_font = self.get_font( 72, bold=True )
+			subtitle_font = self.get_font( 46, bold=True )
+			body_font = self.get_font( 40, bold=False )
+			warning_font = self.get_font( 30, bold=True )
+			margin = 80
 			max_width = self.label_width - (margin * 2)
-			y = 60
+			y = 70
 			
 			draw.rectangle(
 				[
@@ -920,7 +1007,7 @@ class SyntheticDataGenerator( ):
 						(self.label_width - margin // 2, self.label_height - margin // 2)
 				],
 				outline=border_color,
-				width=4
+				width=5
 			)
 			
 			lines = record.to_label_lines( )
@@ -934,7 +1021,7 @@ class SyntheticDataGenerator( ):
 					y=y,
 					max_width=max_width,
 					fill=text_color,
-					line_spacing=66
+					line_spacing=82
 				)
 			
 			if len( lines ) > 1:
@@ -947,14 +1034,19 @@ class SyntheticDataGenerator( ):
 					y=y,
 					max_width=max_width,
 					fill=text_color,
-					line_spacing=46
+					line_spacing=58
 				)
 			
-			y += 22
+			y += 25
 			
 			for line in lines[ 2: ]:
-				font = warning_font if line.startswith( 'GOVERNMENT WARNING' ) else body_font
-				line_spacing = 33 if line.startswith( 'GOVERNMENT WARNING' ) else 40
+				if line.startswith( 'GOVERNMENT WARNING' ):
+					font = warning_font
+					line_spacing = 38
+				else:
+					font = body_font
+					line_spacing = 52
+				
 				y = self.draw_wrapped_line(
 					draw=draw,
 					text=line,
@@ -969,10 +1061,10 @@ class SyntheticDataGenerator( ):
 			
 			if record.scenario == SCENARIO_SKEWED_LABEL:
 				image = image.rotate(
-					angle=4.0,
+					angle=3.0,
 					resample=Image.Resampling.BICUBIC,
 					expand=True,
-					fillcolor=(252, 250, 242)
+					fillcolor=(255, 255, 255)
 				)
 			
 			return image
@@ -1052,13 +1144,58 @@ class SyntheticDataGenerator( ):
 			Logger( ).write( error )
 			raise
 	
+	def write_label_zip( self, label_paths: List[ Path ] ) -> Path:
+		"""Write a ZIP archive containing the generated synthetic label images.
+
+		Purpose:
+			Create one upload-friendly ZIP file containing all generated PNG labels. The ZIP
+			archive simplifies demonstration because the reviewer can upload one manifest CSV and
+			one label ZIP instead of selecting eight individual label files.
+
+		Args:
+			label_paths (List[Path]): Generated label image paths to include in the ZIP archive.
+
+		Returns:
+			Path: Generated ZIP archive path.
+		"""
+		try:
+			throw_if( 'label_paths', label_paths )
+			
+			self.ensure_demo_directories( )
+			
+			if self.zip_path.exists( ):
+				self.zip_path.unlink( )
+			
+			with zipfile.ZipFile( self.zip_path, mode='w',
+					compression=zipfile.ZIP_DEFLATED ) as archive:
+				for label_path in label_paths:
+					resolved_path = Path( label_path ).resolve( )
+					label_root = self.label_directory.resolve( )
+					
+					if label_root not in resolved_path.parents and resolved_path != label_root:
+						continue
+					
+					if not resolved_path.name.startswith( f'{self.prefix}_' ):
+						continue
+					
+					archive.write( resolved_path, arcname=resolved_path.name )
+			
+			return self.zip_path
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'write_label_zip( self, label_paths: List[Path] ) -> Path'
+			Logger( ).write( error )
+			raise
+	
 	def generate_standard_demo_pack( self, overwrite: bool = False ) -> SyntheticGenerationResult:
 		"""Generate the standard deterministic Fiddy demo pack.
 
 		Purpose:
-			Create the standard fictional manifest and eight OCR-readable label images. Existing
-			generated files are preserved unless ``overwrite`` is ``True``. The operation writes
-			only under ``samples/manifests`` and ``samples/labels``.
+			Create the standard fictional manifest, eight OCR-friendly label images, and one ZIP
+			archive containing the generated label images. Existing generated files are preserved
+			unless ``overwrite`` is ``True``.
 
 		Args:
 			overwrite (bool): Indicates whether existing generated demo files may be replaced.
@@ -1074,6 +1211,7 @@ class SyntheticDataGenerator( ):
 				return SyntheticGenerationResult(
 					manifest_path=str( self.manifest_path ),
 					label_directory=str( self.label_directory ),
+					zip_path=str( self.zip_path ),
 					generated_files=[
 							str( path )
 							for path in existing_files
@@ -1093,8 +1231,10 @@ class SyntheticDataGenerator( ):
 			records = self.get_standard_records( )
 			manifest_path = self.write_manifest( records )
 			label_paths = self.write_label_images( records )
+			zip_path = self.write_label_zip( label_paths )
 			generated_files = [
-					                  str( manifest_path )
+					                  str( manifest_path ),
+					                  str( zip_path )
 			                  ] + [
 					                  str( path )
 					                  for path in label_paths
@@ -1103,6 +1243,7 @@ class SyntheticDataGenerator( ):
 			return SyntheticGenerationResult(
 				manifest_path=str( manifest_path ),
 				label_directory=str( self.label_directory ),
+				zip_path=str( zip_path ),
 				generated_files=generated_files,
 				deleted_files=[ ],
 				record_count=len( records ),
@@ -1118,6 +1259,7 @@ class SyntheticDataGenerator( ):
 			return SyntheticGenerationResult(
 				manifest_path=str( self.manifest_path ),
 				label_directory=str( self.label_directory ),
+				zip_path=str( self.zip_path ),
 				generated_files=[ ],
 				deleted_files=[ ],
 				record_count=0,
@@ -1129,9 +1271,9 @@ class SyntheticDataGenerator( ):
 		"""Delete generated Fiddy demo pack files.
 
 		Purpose:
-			Delete only the configured synthetic manifest file and label files under
-			``samples/labels`` that begin with the configured demo prefix. No other files are
-			deleted.
+			Delete only the configured synthetic manifest file, generated ZIP archive, and label
+			files under ``samples/labels`` that begin with the configured demo prefix. No other
+			files are deleted.
 
 		Returns:
 			SyntheticGenerationResult: Cleanup outcome with deleted file paths and status message.
@@ -1143,6 +1285,10 @@ class SyntheticDataGenerator( ):
 			if self.manifest_path.exists( ):
 				self.manifest_path.unlink( )
 				deleted_files.append( str( self.manifest_path ) )
+			
+			if self.zip_path.exists( ):
+				self.zip_path.unlink( )
+				deleted_files.append( str( self.zip_path ) )
 			
 			if self.label_directory.exists( ):
 				for label_path in sorted(
@@ -1162,6 +1308,7 @@ class SyntheticDataGenerator( ):
 			return SyntheticGenerationResult(
 				manifest_path=str( self.manifest_path ),
 				label_directory=str( self.label_directory ),
+				zip_path=str( self.zip_path ),
 				generated_files=[ ],
 				deleted_files=deleted_files,
 				record_count=0,
@@ -1177,12 +1324,17 @@ class SyntheticDataGenerator( ):
 			return SyntheticGenerationResult(
 				manifest_path=str( self.manifest_path ),
 				label_directory=str( self.label_directory ),
+				zip_path=str( self.zip_path ),
 				generated_files=[ ],
 				deleted_files=[ ],
 				record_count=0,
 				success=False,
 				message=f'Synthetic demo pack cleanup failed: {e}'
 			)
+
+# ==========================================================================================
+# Command-Line Entrypoint
+# ==========================================================================================
 
 def main( ) -> None:
 	"""Generate the standard Fiddy synthetic demo pack from the command line.
@@ -1200,6 +1352,7 @@ def main( ) -> None:
 		print( result.message )
 		print( f'Manifest: {result.manifest_path}' )
 		print( f'Labels: {result.label_directory}' )
+		print( f'Label ZIP: {result.zip_path}' )
 		print( f'Records: {result.record_count}' )
 	except Exception as e:
 		error = Error( e )

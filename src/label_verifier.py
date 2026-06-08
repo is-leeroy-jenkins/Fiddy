@@ -345,28 +345,29 @@ class AlcoholLabelVerifier( ):
 			]
 			report.determine_overall_status( )
 			return report
-	
+		
 	def verify_file( self, application: LabelApplication,
 			file_path: str | Path ) -> LabelVerificationReport:
 		"""Extract OCR text from one label file and verify the extracted label.
-	
+
 		Purpose:
 			Validate the supplied expected application model and uploaded file path, run local OCR
-			through the configured OCR engine, enrich extracted label fields, and delegate final rule
-			execution to ``verify_extracted_label``. The method preserves reviewer-facing file names
-			without exposing temporary local paths. If an unexpected exception occurs, the fallback
-			report uses only the basename and includes a reviewer-safe diagnostic result.
-	
+			through the configured OCR engine, normalize the extracted label file name to the
+			uploaded basename, enrich extracted label fields, and delegate final rule execution to
+			``verify_extracted_label``. Unexpected failures return reviewer-safe reports without
+			exposing temporary local paths.
+
 		Args:
 			application (LabelApplication): Expected application values entered by the reviewer or
 				loaded from a manifest row.
 			file_path (str | Path): Path to the uploaded label image or PDF file.
-	
+
 		Returns:
 			LabelVerificationReport: Complete verification report for the uploaded label. If OCR or
-				verification fails unexpectedly, a reviewer-safe report is returned using only the
-				uploaded file name.
+			verification fails unexpectedly, a reviewer-safe report is returned using only the
+			uploaded file name.
 		"""
+	
 		try:
 			throw_if( 'application', application )
 			throw_if( 'file_path', file_path )
@@ -388,17 +389,18 @@ class AlcoholLabelVerifier( ):
 					]
 				)
 			
-			if not self._extracted_label.file_name:
-				self._extracted_label.file_name = self._file_path.name
-			
+			self._extracted_label.file_name = self._file_path.name
 			self._extracted_label = self.enrich_extracted_label( self._extracted_label )
 			
-			return self.verify_extracted_label( self._application, self._extracted_label )
+			return self.verify_extracted_label(
+				self._application,
+				self._extracted_label
+			)
 		except Exception as e:
 			error = Error( e )
 			error.cause = self.__class__.__name__
 			error.module = __name__
-			error.method = 'verify_file( application: LabelApplication, file_path: str | Path ) -> LabelVerificationReport'
+			error.method = 'verify_file( self, application: LabelApplication, file_path: str | Path ) -> LabelVerificationReport'
 			Logger( ).write( error )
 			
 			safe_file_name = Path( file_path ).name if file_path else ''
