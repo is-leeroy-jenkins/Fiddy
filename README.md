@@ -2,9 +2,6 @@
 
 <img src="assets/images/fiddy_fade_loop_gentle.gif" width="1200" height="300">
 
-[![Azure](https://img.shields.io/badge/Azure-Live%20Prototype-0078D4?logo=microsoftazure&logoColor=white)](
-https://fiddy.lemondune-a14fc806.eastus.azurecontainerapps.io) • [![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit&logoColor=white)](https://2-fiddy.streamlit.app/)
-
 [Overview](#-overview) •
 [Installation](#-installation) •
 [Capabilities](#-capabilities) •
