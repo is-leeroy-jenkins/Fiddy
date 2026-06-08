@@ -201,7 +201,58 @@ class AlcoholLabelVerifier( ):
 				message='OCR extraction failed and requires human review.',
 				requires_human_review=True
 			)
-	
+		
+	def enrich_extracted_label( self, extracted_label: ExtractedLabel ) -> ExtractedLabel:
+		"""Enrich one OCR extraction result with deterministic structured fields.
+
+		Purpose:
+			Normalize the extracted label file name to the uploaded basename, ensure normalized
+			text is populated when OCR produced raw text, and delegate structured field extraction
+			to ``LabelFieldExtractor.enrich``. This method is the verifier-level compatibility
+			bridge used by ``verify_file``, ``verify_text``, and ``verify_extracted_label``.
+
+		Args:
+			extracted_label (ExtractedLabel): OCR extraction result to enrich.
+
+		Returns:
+			ExtractedLabel: Enriched extraction result. If enrichment fails, the original
+			extraction result is returned with a reviewer-safe file name when possible.
+		"""
+		try:
+			throw_if( 'extracted_label', extracted_label )
+			self._extracted_label = extracted_label
+			
+			if self._extracted_label.file_name:
+				self._extracted_label.file_name = Path(
+					self._extracted_label.file_name
+				).name
+			
+			if self._extracted_label.raw_text and not self._extracted_label.normalized_text:
+				self._extracted_label.normalized_text = self._extracted_label.raw_text.casefold( )
+			
+			self._extracted_label = self._field_extractor.enrich( self._extracted_label )
+			
+			if self._extracted_label.file_name:
+				self._extracted_label.file_name = Path(
+					self._extracted_label.file_name
+				).name
+			
+			return self._extracted_label
+		except Exception as e:
+			error = Error( e )
+			error.cause = self.__class__.__name__
+			error.module = __name__
+			error.method = 'enrich_extracted_label( self, extracted_label: ExtractedLabel ) -> ExtractedLabel'
+			Logger( ).write( error )
+			
+			try:
+				if extracted_label and extracted_label.file_name:
+					extracted_label.file_name = Path( extracted_label.file_name ).name
+			except Exception:
+				pass
+			
+			return extracted_label
+		
 	def verify_extracted_label( self, application: LabelApplication,
 			extracted_label: ExtractedLabel ) -> LabelVerificationReport:
 		"""Verify an already extracted label against expected application values.
