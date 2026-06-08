@@ -34,8 +34,20 @@ accessibility, performance, and reviewer trust matter as much as model capabilit
 
 ![](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy-main-demo.gif)
 
+## ☁️ Live Prototype
 
+Fiddy is deployed as an Azure-hosted Streamlit container application for browser-based evaluation.
 
+[![Azure](https://img.shields.io/badge/Azure-Live%20Prototype-0078D4?logo=microsoftazure&logoColor=white)](https://fiddy.lemondune-a14fc806.eastus.azurecontainerapps.io)
+
+Fiddy is also available on Streamlit Cloud 
+
+[![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit&logoColor=white)](https://2-fiddy.streamlit.app/)
+
+> **Azure demo note:** If you generate synthetic data in the Azure-hosted app, download the
+generated manifest CSV and label ZIP first, then upload those downloaded files through the normal
+upload controls. Azure-generated files are created inside the remote container, not on your local
+computer.
 ## 🎯 Issue
 
 Alcohol label review involves a large amount of field-by-field comparison:
