@@ -273,26 +273,23 @@ class AlcoholLabelVerifier( ):
 	def verify_file( self, application: LabelApplication,
 			file_path: str | Path ) -> LabelVerificationReport:
 		"""Extract OCR text from one label file and verify the extracted label.
-
-		Purpose:
-			This method is the primary single-file workflow used by the application. It validates
-			the expected application model and uploaded file path, normalizes the file path to a
-			``Path`` object, invokes the local OCR engine, enriches the extracted label fields, and
-			delegates final rule execution and report construction to ``verify_extracted_label``.
 	
-			The method accepts image and document paths supported by the OCR engine. It does not
-			perform user-interface operations, does not persist uploaded artwork, and does not modify
-			the application model supplied by the caller.
-
+		Purpose:
+			Validate the supplied expected application model and uploaded file path, run local OCR
+			through the configured OCR engine, enrich extracted label fields, and delegate final rule
+			execution to ``verify_extracted_label``. The method preserves reviewer-facing file names
+			without exposing temporary local paths. If an unexpected exception occurs, the fallback
+			report uses only the basename and includes a reviewer-safe diagnostic result.
+	
 		Args:
-			application (LabelApplication): Expected application values entered by the reviewer
-				or loaded from a manifest row.
+			application (LabelApplication): Expected application values entered by the reviewer or
+				loaded from a manifest row.
 			file_path (str | Path): Path to the uploaded label image or PDF file.
-
+	
 		Returns:
-			LabelVerificationReport: Complete verification report for the uploaded label. If OCR
-			or verification fails unexpectedly, the method logs the exception and returns the
-			existing empty-report fallback containing the supplied file path string.
+			LabelVerificationReport: Complete verification report for the uploaded label. If OCR or
+				verification fails unexpectedly, a reviewer-safe report is returned using only the
+				uploaded file name.
 		"""
 		try:
 			throw_if( 'application', application )
@@ -301,6 +298,23 @@ class AlcoholLabelVerifier( ):
 			self._application = application
 			self._file_path = Path( file_path )
 			self._extracted_label = self._ocr_engine.extract_text( self._file_path )
+			
+			if not self._extracted_label:
+				self._extracted_label = ExtractedLabel(
+					file_name=self._file_path.name,
+					file_type=self._file_path.suffix.lower( ).replace( '.', '' ),
+					raw_text='',
+					normalized_text='',
+					ocr_engine='tesseract',
+					ocr_seconds=0.0,
+					image_quality_notes=[
+							'OCR did not return a structured extraction result.'
+					]
+				)
+			
+			if not self._extracted_label.file_name:
+				self._extracted_label.file_name = self._file_path.name
+			
 			self._extracted_label = self.enrich_extracted_label( self._extracted_label )
 			
 			return self.verify_extracted_label( self._application, self._extracted_label )
@@ -310,7 +324,27 @@ class AlcoholLabelVerifier( ):
 			error.module = __name__
 			error.method = 'verify_file( application: LabelApplication, file_path: str | Path ) -> LabelVerificationReport'
 			Logger( ).write( error )
-			return LabelVerificationReport.empty( file_name=str( file_path ) )
+			
+			safe_file_name = Path( file_path ).name if file_path else ''
+			report = LabelVerificationReport.empty( file_name=safe_file_name )
+			
+			report.results = [
+					LabelCheckResult(
+						rule_id='verification_exception',
+						field_name='Verification',
+						status=STATUS_REVIEW,
+						severity=SEVERITY_HIGH,
+						expected='Readable label and application data',
+						observed='Verification could not be completed',
+						confidence=0.0,
+						evidence=f'{type( e ).__name__}: {str( e )}',
+						message='The label could not be verified and requires human review.',
+						requires_human_review=True
+					)
+			]
+			
+			report.determine_overall_status( )
+			return report
 	
 	def verify_files( self, application: LabelApplication,
 			file_paths: Iterable[ str | Path ] ) -> BatchVerificationReport:
