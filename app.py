@@ -2334,11 +2334,10 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 	"""Run manifest-driven batch verification for uploaded label artwork.
 
 	Purpose:
-		Save the manifest and artwork files to a temporary directory, run the cached batch
-		processor, build summary, detail, comparison, performance, JSON, and Markdown outputs,
-		store those outputs in session state, and update Streamlit progress indicators. The
-		function also verifies that saved artwork filenames match the manifest before invoking the
-		batch processor so the UI can distinguish upload/save problems from OCR/rule problems.
+		Save the manifest and artwork files to a temporary directory, run the batch processor,
+		build display/export outputs, and store the resulting batch report, summary DataFrame,
+		detail DataFrame, comparison DataFrame, performance DataFrame, JSON report, and Markdown
+		report in the Streamlit session-state keys consumed by the dashboard and results viewer.
 
 	Args:
 		uploaded_manifest (object): Uploaded application manifest CSV.
@@ -2361,51 +2360,13 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 			manifest_path = save_manifest_file( uploaded_manifest, temp_dir )
 			file_paths = save_uploaded_files( uploaded_files, temp_dir )
 			
-			expected_names = get_manifest_expected_file_names( )
-			saved_names = [
-					path.name
-					for path in file_paths
-			]
-			expected_lookup = {
-					name.strip( ).lower( )
-					for name in expected_names
-					if name
-			}
-			saved_lookup = {
-					name.strip( ).lower( )
-					for name in saved_names
-					if name
-			}
-			missing_after_save = sorted(
-				[
-						name
-						for name in expected_names
-						if name.strip( ).lower( ) not in saved_lookup
-				]
-			)
-			
-			if expected_lookup and not saved_lookup:
+			if not file_paths:
 				st.error(
 					'No uploaded label artwork files were saved for verification. Re-upload the '
 					'manifest and label files, then run verification again.'
 				)
 				st.session_state[ 'verification_complete' ] = False
 				return None
-			
-			if missing_after_save:
-				st.warning(
-					f'{len( missing_after_save )} manifest file(s) did not match saved artwork '
-					'files after upload processing.'
-				)
-				
-				if not st.session_state.get( 'simple_mode', True ):
-					st.write(
-						{
-								'Expected Manifest Files': expected_names,
-								'Saved Artwork Files': saved_names,
-								'Missing After Save': missing_after_save
-						}
-					)
 			
 			processor = load_batch_processor( max_workers, sla_seconds )
 			
@@ -2430,20 +2391,66 @@ def run_manifest_batch_verification( uploaded_manifest: object, uploaded_files: 
 				progress_callback=update_progress
 			)
 		
-		df_summary = writer.batch_to_summary_dataframe( result.batch_report )
-		df_details = writer.batch_to_detail_dataframe( result.batch_report )
-		df_comparison = writer.batch_to_comparison_dataframe( result.batch_report )
-		df_performance = writer.performance_to_dataframe( result.performance_results )
-		json_report = writer.batch_to_json( result.batch_report )
-		markdown_report = writer.batch_to_markdown( result.batch_report )
+		batch_report = result.batch_report
+		
+		df_summary = writer.batch_to_summary_dataframe( batch_report )
+		
+		if df_summary.empty and batch_report.reports:
+			df_summary = pd.DataFrame(
+				[
+						report.to_summary_record( )
+						for report in batch_report.reports
+				]
+			)
+		
+		df_details = writer.batch_to_detail_dataframe( batch_report )
+		
+		if df_details.empty and batch_report.reports:
+			detail_records = [ ]
+			
+			for report in batch_report.reports:
+				detail_records.extend( report.to_records( ) )
+			
+			df_details = pd.DataFrame( detail_records )
+		
+		df_comparison = create_batch_comparison_dataframe( batch_report )
+		
+		if df_comparison.empty and batch_report.reports:
+			comparison_records = [ ]
+			
+			for report in batch_report.reports:
+				for result_item in report.results:
+					comparison_records.append(
+						{
+								'File Name': report.file_name,
+								'Field': getattr( result_item, 'field_name', '' ),
+								'Application': getattr( result_item, 'expected', '' ),
+								'Extracted': getattr( result_item, 'observed', '' ),
+								'Status': getattr( result_item, 'status', '' ),
+								'Severity': getattr( result_item, 'severity', '' ),
+								'Confidence': getattr( result_item, 'confidence', 0.0 ),
+								'Explanation': getattr( result_item, 'message', '' ),
+								'Reviewer Action': getattr( result_item, 'reviewer_action', '' )
+						}
+					)
+			
+			df_comparison = pd.DataFrame( comparison_records )
+		
+		df_performance = pd.DataFrame(
+			[
+					item.to_record( )
+					for item in result.performance_results
+			]
+		)
 		
 		st.session_state[ 'batch_result' ] = result
-		st.session_state[ 'df_summary' ] = df_summary
-		st.session_state[ 'df_details' ] = df_details
-		st.session_state[ 'df_comparison' ] = df_comparison
-		st.session_state[ 'df_performance' ] = df_performance
-		st.session_state[ 'json_report' ] = json_report
-		st.session_state[ 'markdown_report' ] = markdown_report
+		st.session_state[ 'batch_report' ] = batch_report
+		st.session_state[ 'summary_dataframe' ] = df_summary
+		st.session_state[ 'detail_dataframe' ] = df_details
+		st.session_state[ 'comparison_dataframe' ] = df_comparison
+		st.session_state[ 'performance_dataframe' ] = df_performance
+		st.session_state[ 'json_report' ] = writer.batch_to_json( batch_report )
+		st.session_state[ 'markdown_report' ] = writer.batch_to_markdown( batch_report )
 		st.session_state[ 'verification_complete' ] = True
 		st.session_state[ 'selected_report_index' ] = 0
 		
