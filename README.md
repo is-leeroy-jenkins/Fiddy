@@ -15,6 +15,10 @@
 [Configuration](#%EF%B8%8F-configuration) •
 [Run](#%EF%B8%8F-run-the-app)
 
+## 🎥 Demo
+
+![](https://github.com/is-leeroy-jenkins/Fiddy/blob/main/assets/images/fiddy-main-demo.gif)
+
 ## 📌 Overview
 
 **Fiddy** is a local-first, AI-assisted prototype that helps alcohol-label reviewers compare
@@ -23,16 +27,9 @@ deterministic validation rules, fuzzy matching, image-quality diagnostics, batch
 performance monitoring, accessibility controls, and reviewer-facing exports to reduce repetitive
 manual comparison work while preserving human judgment.
 
-The prototype was designed as a practical response to a government label-review scenario where
-reviewers must inspect high volumes of submitted label artwork and verify that required fields match
-the application record. The central design decision is deliberate: **Fiddy assists review; it does
-not automate final compliance decisions.**
-
 Fiddy demonstrates how an AI-focused technical solution can be constrained, explainable, auditable,
 and deployable in a federal environment where data handling, local execution, firewall restrictions,
 accessibility, performance, and reviewer trust matter as much as model capability.
-
-
 
 ## 🎯 Issue
 
