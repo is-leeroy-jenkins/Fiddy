@@ -541,17 +541,77 @@ Full documentation is available in the `docs/` directory and can be built with M
 | [Development](docs/DEVELOPMENT.md)           | Development workflow, validation, logging, and contribution discipline.                            |
 | [Poppler Setup](docs/PATH-POPPLER.md)        | Windows Poppler PATH configuration for PDF support.                                                |
 
-Build documentation:
+## 📚 Build the Documentation
+
+Fiddy uses **MkDocs** with the **Material for MkDocs** theme to build the project documentation from
+the Markdown files in the `docs/` directory.
+
+The documentation build supports the project’s reviewer-facing and developer-facing guides,
+including installation, user workflow, architecture, API reference, acceptance evidence,
+accessibility, Azure deployment, and development notes.
+
+### 📦 Install Documentation Dependencies
+
+Create and activate a virtual environment if one is not already active:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Install the documentation dependencies:
+
+```powershell
+python -m pip install --upgrade pip
+pip install -r requirements-docs.txt
+```
+
+### 🏗️ Build the Static Site
+
+Run the MkDocs build command from the repository root:
 
 ```powershell
 mkdocs build
 ```
 
-Preview documentation locally:
+A successful build creates the static documentation site under:
+
+```text
+site/
+```
+
+### 🔍 Preview the Documentation Locally
+
+To preview the documentation in a browser:
 
 ```powershell
 mkdocs serve
 ```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+MkDocs will reload the local preview when documentation files are updated.
+
+### ✅ Recommended Documentation Validation
+
+Before committing documentation changes, run:
+
+```powershell
+mkdocs build
+```
+
+If code or docstring changes were made, also run:
+
+```powershell
+python -m compileall app.py config.py booger.py src
+```
+
+This confirms that the documentation builds cleanly and that the Python source files compile before
+the repository is pushed or packaged.
 
 
 ## 📥 Installation
