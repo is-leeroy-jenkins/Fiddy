@@ -762,31 +762,7 @@ http://localhost:8501
 
 
 
-## 🧾 Demonstration Checklist
 
-Before presenting Fiddy:
-
-* The app starts locally.
-* MkDocs builds successfully.
-* Manifest upload works.
-* Label image upload works.
-* ZIP upload works.
-* PDF processing works when Poppler is installed.
-* Verification completes.
-* Batch dashboard renders.
-* Side-by-side comparison renders.
-* Confidence scores appear.
-* Reviewer actions appear.
-* Downloads are available.
-* Simple Mode works.
-* Advanced Mode works.
-* High Contrast works.
-* Large Text works.
-* Keyboard navigation is manually checked.
-* No raw OCR text or manifest rows are written to logs.
-* Container build completes.
-* Container run opens the app.
-* Representative batch timing evidence is generated.
 
 
 
@@ -813,7 +789,7 @@ Known trade-offs and limitations include:
 * Large-scale production processing would require queueing, monitoring, authentication,
   authorization, audit logging, and records-retention controls.
 
-These trade-offs are deliberate. They keep the prototype focused on the core review problem:
+These trade-offs are deliberate and keep the prototype focused on the core review problem:
 extracting label evidence, comparing it to application data, flagging exceptions, and helping
 reviewers decide what needs attention.
 
@@ -834,7 +810,6 @@ A production version of Fiddy could extend the prototype through:
 * Specialized OCR tuning for alcohol labels.
 * Model and rule performance monitoring.
 * Continuous accessibility testing.
-* FedRAMP-aligned deployment controls.
 
 ## 👶 Dependencies
 
