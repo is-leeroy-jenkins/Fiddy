@@ -70,7 +70,7 @@ generated manifest CSV and label ZIP first, then upload those downloaded files t
 upload controls. Azure-generated files are created inside the remote container, not on your local
 computer.
 
-Fiddy is also available on Streamlit Cloud
+- Fiddy is also available on Streamlit Cloud
 
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit&logoColor=white)](https://2-fiddy.streamlit.app/)
 
