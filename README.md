@@ -356,6 +356,52 @@ demonstrations. Generated files should represent fictional alcohol-label scenari
 
 Synthetic data is for demonstration and testing. It should not be treated as production data,
 official TTB records, or real COLA application data.
+Copy everything between the lines below.
+
+
+## 🧪 Synthetic Data in Azure
+
+When Fiddy runs locally, the Synthetic Data Generator writes fictional demonstration files under the
+local project folders:
+
+```text
+samples/manifests/
+samples/labels/
+```
+
+When Fiddy runs in Azure Container Apps, those same files are generated inside the remote container
+filesystem:
+
+```text
+/app/samples/manifests/
+/app/samples/labels/
+```
+
+Because browser upload controls can only browse files on the reviewer’s local computer,
+Azure-generated synthetic files will not appear in the local file picker automatically.
+
+For Azure-hosted demonstrations, use this workflow:
+
+```text
+Create Synthetic Data
+        ↓
+Download Synthetic Manifest CSV
+        ↓
+Download Synthetic Label ZIP
+        ↓
+Upload the downloaded CSV and ZIP through the normal upload controls
+        ↓
+Run verification
+```
+
+This behavior is expected. The synthetic generator creates fictional demonstration assets only; it
+does not bypass upload validation, does not automatically inject files into the review pipeline, and
+does not write files to the reviewer’s local computer.
+
+In Azure, first download the generated manifest CSV and label ZIP, then upload those downloaded
+files using the normal application upload controls.
+
+
 
 ## 🧪 Demo Assets
 
@@ -824,23 +870,384 @@ These trade-offs are deliberate and keep the prototype focused on the core revie
 extracting label evidence, comparing it to application data, flagging exceptions, and helping
 reviewers decide what needs attention.
 
+## 🛣️ Roadmap
 
-## 🛣️ Future Path
+Fiddy is a working prototype focused on local OCR, deterministic comparison, reviewer guidance,
+batch processing, and Azure-hosted deployment. Future work should preserve the same principles used
+in the current implementation: local-first execution where practical, explainable validation, human
+accountability, conservative data handling, and clear separation between automated evidence and
+final compliance judgment.
 
-A production version of Fiddy could extend the prototype through:
+Future iterations should improve reliability, deployment simplicity, PDF extraction, local release
+packaging, accessibility validation, performance evidence, and production-readiness.
 
-* Approved identity and access management.
-* Formal audit logging.
-* Secure upload scanning.
-* Records-retention integration.
+### ✅ Current Prototype Baseline
+
+The current version demonstrates the core review workflow:
+
+```text
+Upload application data
+        ↓
+Upload label artwork
+        ↓
+Run local OCR
+        ↓
+Extract label evidence
+        ↓
+Compare application values to label evidence
+        ↓
+Flag mismatches, warnings, and review items
+        ↓
+Export reviewer-facing results
+```
+
+The prototype currently supports:
+
+* Local Tesseract OCR.
+* Image and PDF label intake.
+* ZIP-based batch artwork upload.
+* Manifest CSV application-data intake.
+* Manual CAV-style data entry.
+* Field extraction for common alcohol-label elements.
+* Fuzzy matching for ordinary field variation.
+* Strict government-warning text validation.
+* Human-review routing for uncertain or visual-format-dependent checks.
+* Image-quality diagnostics for blur, glare, contrast, darkness, skew, and readability.
+* Batch-level results.
+* Per-label timing and service-level evidence.
+* Redacted CSV, JSON, and Markdown outputs.
+* Azure Container Apps deployment.
+* No external machine-learning endpoint dependency.
+* No direct COLA integration.
+* No intentional long-term storage of uploaded label artwork or extracted OCR data.
+
+### 🔜 Near-Term Enhancements
+
+The next phase should improve demonstration reliability, reviewer usability, and acceptance evidence
+without changing the basic architecture.
+
+| Area                   | Planned Enhancement                                                                                     | Purpose                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Azure demonstration    | Improve Azure-hosted synthetic-data workflow with download/upload guidance and clearer UI messaging.    | Prevent confusion between local files and files generated inside the Azure container.       |
+| Runtime evidence       | Add a visible Azure smoke-test panel or acceptance summary in the UI.                                   | Make deployment, OCR, no-external-ML, no-COLA, and no-persistence posture easier to verify. |
+| Performance validation | Add a repeatable 20–50 label benchmark run using the synthetic demo pack.                               | Produce stronger evidence for the five-second-per-label performance target.                 |
+| Error visibility       | Improve reviewer-safe messages when OCR, upload validation, ZIP extraction, or report generation fails. | Make failures actionable without exposing sensitive file paths or raw OCR content.          |
+| Documentation          | Expand Azure deployment, synthetic-data, acceptance, and troubleshooting sections.                      | Help users reproduce the deployment and test workflow.                                      |
+| Accessibility          | Complete browser-level keyboard testing and document results.                                           | Move accessibility from source-supported to manually verified.                              |
+
+### 🔁 Ongoing Improvement Needs
+
+Fiddy should be treated as a working prototype that will require continuous refinement as more
+realistic labels, reviewer feedback, deployment constraints, and performance evidence become
+available. The current implementation demonstrates the core workflow, but production readiness would
+require repeated evaluation, tuning, and hardening.
+
+Ongoing improvement areas include:
+
+* OCR accuracy testing against more realistic label artwork.
+* Field-extraction tuning for varied label layouts and typography.
+* Better handling of distorted, skewed, low-contrast, blurry, or glare-affected images.
+* Reviewer feedback loops for false positives, false negatives, and unclear explanations.
+* Performance tuning for larger batches and Azure-hosted execution.
+* Accessibility validation across browsers, screen sizes, and keyboard-only workflows.
+* Security hardening for authentication, authorization, logging, upload handling, and data
+  retention.
+* Documentation updates as deployment, limitations, and acceptance evidence mature.
+* Regression testing for rule changes, OCR changes, and report-format changes.
+* Continued separation between automated evidence and final human compliance judgment.
+
+The project should preserve the current design discipline: automation should assist reviewers, not
+obscure uncertainty or replace required judgment.
+
+### 🔄 PDF Extraction and Poppler Replacement
+
+The current prototype uses Poppler through `pdf2image` to convert PDF label artwork into image pages
+before OCR. This approach works in some local and containerized scenarios, but recent deployment and
+setup work exposed practical friction around PDF extraction, dependency installation, PATH
+configuration, runtime portability, and container behavior.
+
+Those difficulties make PDF processing an important roadmap item. A future version of Fiddy should
+explore replacing Poppler, or at least providing a reliable fallback, so PDF extraction is less
+fragile across Windows, local development, Docker, and Azure-hosted environments.
+
+Potential replacement or fallback options include:
+
+| Option                           | Purpose                                                                          | Consideration                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| PyMuPDF / `fitz`                 | Render PDF pages directly from Python.                                           | May reduce reliance on Poppler command-line tools and simplify deployment.       |
+| `pypdfium2`                      | Render PDF pages through PDFium bindings.                                        | May provide a more portable rendering path than Poppler in some environments.    |
+| Image-only upload requirement    | Require reviewers or submitters to upload PNG/JPG label artwork instead of PDFs. | Simplifies runtime dependencies but reduces upload flexibility.                  |
+| Pre-converted PDF workflow       | Convert PDFs to images before upload.                                            | Keeps Fiddy simpler but shifts conversion responsibility outside the app.        |
+| Dual-path PDF handling           | Use Poppler when available and fallback to PyMuPDF or PDFium when Poppler fails. | Improves resilience but requires additional testing and clear error handling.    |
+| Azure-approved document handling | Evaluate Azure-native document processing only if policy permits.                | Must not violate the no-external-ML-endpoint posture required for the prototype. |
+
+Recommended future direction:
+
+```text
+Short term:
+Keep Poppler in the Docker container because it currently supports the deployed prototype and preserves PDF intake.
+
+Medium term:
+Prototype PyMuPDF or pypdfium2 as a Poppler replacement or fallback, using the same label PDFs that recently caused setup and extraction friction.
+
+Long term:
+Select the PDF rendering approach that best balances OCR accuracy, security, maintainability, deployment simplicity, Windows compatibility, Azure compatibility, and federal environment constraints.
+```
+
+A replacement should not weaken the core design constraint: PDF label artwork must be converted into
+OCR-ready images without relying on blocked external machine-learning endpoints, unauthorized
+services, or fragile manual setup steps.
+
+### 📦 Locally Downloadable Releases
+
+Future iterations of Fiddy should include locally downloadable release packages in addition to the
+Azure-hosted prototype. The Azure deployment is valuable for demonstrating cloud readiness, but
+recent testing showed that cloud-hosted execution introduces practical nuances that can confuse
+reviewers during demonstration.
+
+Examples include:
+
+* Synthetic files generated inside the Azure container are written to `/app/samples/...`, not to the
+  reviewer’s local machine.
+* Browser upload controls cannot browse files from the remote container filesystem.
+* Generated demo files must be downloaded from the Azure app before they can be uploaded through the
+  normal review workflow.
+* Container filesystem behavior differs from local project-folder behavior.
+* Azure runtime configuration, ingress settings, registry setup, and revision behavior add
+  deployment-specific complexity.
+* Troubleshooting Azure-hosted behavior often requires portal logs, container logs, or deployment
+  settings rather than local file inspection.
+
+To reduce those frictions, future releases should provide a downloadable local package that can be
+run directly by evaluators, reviewers, or technical staff.
+
+Recommended local release options include:
+
+| Release Type                    | Purpose                                                              | Consideration                                                                               |
+| ------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Source ZIP                      | Provides the full repository as a versioned release artifact.        | Simple and transparent, but still requires Python, Tesseract, and Poppler or a replacement. |
+| Preconfigured local package     | Includes source code, setup scripts, sample data, and documentation. | Easier for reviewers, but requires platform-specific packaging.                             |
+| Docker image release            | Allows users with Docker to run the app consistently.                | Avoids Python setup, but still depends on local Docker availability.                        |
+| Windows-oriented release bundle | Supports the most likely reviewer workstation environment.           | Should minimize PATH setup, OCR dependency friction, and PDF-rendering issues.              |
+| Image-only demo package         | Includes pre-generated PNG/JPG labels and manifest CSV.              | Avoids PDF extraction and synthetic-generation location confusion during demos.             |
+
+Recommended future direction:
+
+```text
+Short term:
+Publish a tagged GitHub release containing the source ZIP, synthetic manifest CSV, synthetic label ZIP, and clear local run instructions.
+
+Medium term:
+Create a local evaluator package with pre-generated demo files so reviewers do not need to run the synthetic generator before testing.
+
+Long term:
+Provide a more polished local release that minimizes dependency setup, reduces reliance on fragile PATH configuration, and includes a Poppler replacement or fallback if adopted.
+```
+
+The goal is not to replace Azure deployment. The goal is to provide both paths:
+
+```text
+Azure-hosted prototype
+        +
+Locally downloadable evaluation release
+```
+
+This gives users a working Azure URL while also offering a simpler local demonstration path that
+avoids cloud-container filesystem nuances, Azure portal configuration issues, and remote runtime
+troubleshooting.
+
+### 🧪 Acceptance and Evaluation Improvements
+
+Future versions should make acceptance evidence easier to generate, review, and archive.
+
+Planned improvements include:
+
+* One-click acceptance evidence generation from the UI.
+* Downloadable acceptance package with redacted evidence only.
+* Batch performance report showing average, median, p95, breach count, and breach rate.
+* Deployment evidence showing Azure runtime, local OCR configuration, and disabled external ML
+  endpoints.
+* Accessibility checklist export.
+* Synthetic-data test run summary.
+* Clear pass, warning, fail, and needs-review counts for stakeholder review.
+
+### 🖼️ OCR and Image Handling Improvements
+
+The prototype already handles basic image diagnostics and preprocessing. A production-grade version
+could improve OCR reliability through stronger image-processing controls.
+
+Future OCR and image improvements may include:
+
+* Automatic deskewing before OCR.
+* Better PDF page handling and page selection.
+* Optional image crop suggestions.
+* Improved glare detection.
+* Improved low-contrast enhancement.
+* Layout-aware text grouping.
+* Better extraction of producer, bottler, importer, and address blocks.
+* Confidence scoring tied more directly to OCR quality and field-specific extraction quality.
+* OCR regression tests using controlled synthetic and real-world-style labels.
+
+### ⚖️ Compliance Rule Enhancements
+
+The current prototype uses deterministic rules and reviewer-facing explanations. Future versions
+could broaden the compliance rule set while preserving explainability.
+
+Potential rule enhancements include:
+
+* Beverage-type-specific label rules for distilled spirits, wine, malt beverages, and beer.
+* Required-field rule sets by product category.
+* More precise alcohol-content formatting checks.
+* Net-contents unit normalization and tolerance handling.
+* Producer, bottler, importer, and responsible-party address validation.
+* Country-of-origin checks for imported products.
+* Expanded government-warning formatting checklist.
+* Rule versioning for auditability.
+* Configurable thresholds for fuzzy matching and confidence routing.
+* Reviewer override notes and disposition categories.
+
+### 👤 Human-in-the-Loop Workflow
+
+Fiddy should remain reviewer-assistive rather than reviewer-replacing. Future workflow improvements
+should make human judgment easier to capture and explain.
+
+Planned human-review enhancements include:
+
+* Reviewer override controls.
+* Reviewer notes at the field and label level.
+* Review disposition categories such as approved, rejected, needs resubmission, and manual review
+  required.
+* Exportable reviewer decision summaries.
+* Clear separation between automated evidence and reviewer determination.
+* Optional second-review workflow for high-severity findings.
+
+### 📦 Batch Processing Enhancements
+
+The prototype supports small-to-medium batch review. Larger or production-style batch operations
+should be handled through more durable patterns.
+
+Potential batch improvements include:
+
 * Queue-based batch processing.
-* Human-review assignment workflow.
-* COLA read integration.
-* COLA writeback only after authorization and governance approval.
-* Improved layout detection.
-* Specialized OCR tuning for alcohol labels.
-* Model and rule performance monitoring.
-* Continuous accessibility testing.
+* Background job status tracking.
+* Retry handling for failed labels.
+* Batch pause/resume.
+* Large-batch chunking.
+* Parallel processing controls by runtime size.
+* Batch-level exception summaries.
+* Reviewer assignment by batch or importer.
+* Exportable batch audit packages.
+
+### 🔐 Security and Data Governance Enhancements
+
+The prototype uses conservative local-first and no-persistence defaults. A production deployment
+would require formal security and governance controls.
+
+Future security work may include:
+
+* Microsoft Entra ID authentication.
+* Role-based access control.
+* Private Azure networking.
+* Managed identity for Azure resource access.
+* Secure secret management through Azure Key Vault.
+* Malware scanning for uploaded files.
+* Formal records-retention policy integration.
+* Configurable data-retention periods.
+* Structured audit logging.
+* Security review and authorization package support.
+* Separation between prototype logs and compliance records.
+
+### ☁️ Azure Production Hardening
+
+The current Azure deployment is suitable for prototype demonstration. A production deployment would
+require additional Azure architecture decisions.
+
+Potential Azure hardening includes:
+
+* Private Azure Container Apps environment.
+* Azure Container Registry private networking.
+* Managed identity instead of registry username/password.
+* Azure Key Vault integration.
+* Log Analytics dashboards.
+* Application Insights telemetry.
+* Health probes and alerting.
+* Autoscaling rules based on HTTP traffic or queue depth.
+* Deployment slots or revision-based release workflow.
+* Infrastructure-as-code deployment through Bicep, Terraform, or Azure Developer CLI.
+* GitHub Actions deployment with environment approvals.
+* Container image vulnerability scanning.
+
+### 🔗 COLA and Enterprise Integration
+
+The current prototype intentionally does not integrate directly with COLA. Any future COLA
+integration should be handled as a separate governed effort.
+
+Potential long-term integration options include:
+
+* Read-only COLA application-data import.
+* Authorized API integration if available.
+* Controlled writeback only after formal approval.
+* Reviewer decision synchronization.
+* Case-management integration.
+* Records-management integration.
+* Audit trail integration.
+* Procurement-ready architecture documentation.
+
+### 🤖 Machine Learning Enhancements
+
+Fiddy does not require external machine-learning endpoints for the prototype. Future
+machine-learning work should be carefully bounded, tested, and explainable.
+
+Possible future enhancements include:
+
+* Fine-tuned OCR models for stylized label fonts.
+* Layout detection for complex labels.
+* Field-level extraction models.
+* Confidence calibration.
+* Human-feedback loops for extraction improvement.
+* Model performance monitoring.
+* Bias and error analysis across label styles.
+* Offline or Azure-approved model hosting only.
+* Clear fallback to deterministic rules and human review.
+
+### 📚 Documentation Roadmap
+
+Documentation should continue to support both reviewers and technical evaluators.
+
+Planned documentation improvements include:
+
+* Expanded Azure deployment guide.
+* Azure troubleshooting guide.
+* Synthetic-data workflow guide.
+* Acceptance evidence guide.
+* Accessibility validation guide.
+* Reviewer quick-start guide.
+* Developer setup guide.
+* API reference generated from docstrings.
+* Architecture decision records.
+* Known limitations and trade-offs.
+* Release notes for each tagged version.
+
+### 🧭 Long-Term Vision
+
+The long-term vision for Fiddy is a secure, explainable, reviewer-centered compliance-assistance
+platform that reduces repetitive manual comparison work while preserving human accountability.
+
+A mature version would support:
+
+* Reliable application-to-label comparison.
+* Scalable batch processing.
+* Strong evidence trails.
+* Accessibility-compliant reviewer workflows.
+* Approved Azure-hosted infrastructure.
+* Formal data governance.
+* Controlled enterprise integration.
+* Continuous performance and quality monitoring.
+* Clear distinction between automated evidence and official compliance decisions.
+
+Fiddy should remain focused on helping reviewers move faster, identify exceptions earlier, and
+document findings more consistently without obscuring the judgment required in alcohol-label
+compliance review.
 
 ## 👶 Dependencies
 
