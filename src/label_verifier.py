@@ -258,16 +258,10 @@ class AlcoholLabelVerifier( ):
 		"""Verify an already extracted label against expected application values.
 
 		Purpose:
-			This method is the central report-construction path for the verifier. It accepts a
-			``LabelApplication`` containing expected values and an ``ExtractedLabel`` containing OCR
-			output. The extracted label is passed through the existing enrichment path, wrapped in a
-			``LabelVerificationReport``, evaluated by the deterministic rules engine, and finalized
-			with processing time and overall status.
-	
-			When the extracted label does not contain usable text, the method does not attempt
-			field-level compliance checks. Instead, it adds the standard OCR human-review result,
-			sets the processing duration, determines the report-level status, and returns the report
-			for reviewer handling.
+			Create a verification report from expected application data and OCR extraction output.
+			The method enriches the extracted label, normalizes reviewer-facing file names, handles
+			unreadable OCR through an explicit OCR review result, executes deterministic label
+			rules when text exists, records processing time, and determines the overall status.
 
 		Args:
 			application (LabelApplication): Expected application data entered or loaded for the
@@ -277,9 +271,10 @@ class AlcoholLabelVerifier( ):
 
 		Returns:
 			LabelVerificationReport: Complete verification report for the extracted label. If
-			verification fails unexpectedly, the method logs the exception and returns the
-			existing empty-report fallback using the extracted label file name when available.
+			verification fails unexpectedly, a conservative reviewer-safe report is returned using
+			only the uploaded file basename.
 		"""
+	
 		try:
 			throw_if( 'application', application )
 			throw_if( 'extracted_label', extracted_label )
@@ -287,6 +282,11 @@ class AlcoholLabelVerifier( ):
 			self._application = application
 			self._extracted_label = self.enrich_extracted_label( extracted_label )
 			self._started = time.perf_counter( )
+			
+			if self._extracted_label.file_name:
+				self._extracted_label.file_name = Path(
+					self._extracted_label.file_name
+				).name
 			
 			self._report = LabelVerificationReport(
 				file_name=self._extracted_label.file_name,
@@ -300,7 +300,10 @@ class AlcoholLabelVerifier( ):
 				self._report.determine_overall_status( )
 				return self._report
 			
-			results = self._rules.verify( self._application, self._extracted_label.raw_text )
+			results = self._rules.verify(
+				self._application,
+				self._extracted_label.raw_text
+			)
 			
 			for result in results:
 				self._report.add_result( result )
@@ -317,9 +320,31 @@ class AlcoholLabelVerifier( ):
 			error.module = __name__
 			error.method = 'verify_extracted_label( self, *args ) -> LabelVerificationReport'
 			Logger( ).write( error )
-			return LabelVerificationReport.empty(
-				file_name=extracted_label.file_name if extracted_label else ''
-			)
+			
+			safe_file_name = ''
+			
+			try:
+				safe_file_name = Path( extracted_label.file_name ).name if extracted_label else ''
+			except Exception:
+				safe_file_name = ''
+			
+			report = LabelVerificationReport.empty( file_name=safe_file_name )
+			report.results = [
+					LabelCheckResult(
+						rule_id='verification_exception',
+						field_name='Verification',
+						status=STATUS_REVIEW,
+						severity=SEVERITY_HIGH,
+						expected='Readable label and application data',
+						observed='Verification could not be completed',
+						confidence=0.0,
+						evidence=f'{type( e ).__name__}: {str( e )}',
+						message='The label could not be verified and requires human review.',
+						requires_human_review=True
+					)
+			]
+			report.determine_overall_status( )
+			return report
 	
 	def verify_file( self, application: LabelApplication,
 			file_path: str | Path ) -> LabelVerificationReport:
