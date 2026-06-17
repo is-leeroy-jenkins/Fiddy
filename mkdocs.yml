@@ -4,6 +4,10 @@ site_author: Terry D. Eppler
 
 theme:
   name: material
+  palette:
+    - scheme: slate
+      primary: blue
+      accent: blue
   features:
     - navigation.sections
     - navigation.expand
@@ -49,3 +53,9 @@ markdown_extensions:
   - codehilite
   - toc:
       permalink: true
+
+extra_css:
+  - assets/css/fiddy.css
+
+extra_javascript:
+  - assets/js/fiddy.js
