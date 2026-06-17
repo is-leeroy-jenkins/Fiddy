@@ -5,7 +5,6 @@
 [Overview](#-overview) •
 [Installation](#-installation) •
 [Capabilities](#-capabilities) •
-[Documentation](#documentation) •
 [Workflow](#-workflow) •
 [Architecture](#%EF%B8%8F-architecture) •
 [Components](#%EF%B8%8F-component-uml) •
@@ -18,7 +17,7 @@ ___
 
 
 
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-0078FC?style=for-the-badge&logo=github)](https://is-leeroy-jenkins.github.io/fiddy/)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-0078FC?style=for-the-badge&logo=github)](https://is-leeroy-jenkins.github.io/Fiddy/)
 
 ## 📌 Overview
 
