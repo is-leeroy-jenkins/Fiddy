@@ -14,6 +14,12 @@
 [Configuration](#%EF%B8%8F-configuration) •
 [Run](#%EF%B8%8F-run-the-app)
 
+___
+
+
+
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-0078FC?style=for-the-badge&logo=github)](https://is-leeroy-jenkins.github.io/fiddy/)
+
 ## 📌 Overview
 
 
